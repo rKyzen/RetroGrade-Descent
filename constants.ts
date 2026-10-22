@@ -122,21 +122,21 @@ export const CONFIG = {
     group: 'Physics',
   },
 
-  // Rules & Safe Landing Tolerances
+  // Rules & Safe Landing Tolerances (Forgiving & Responsive)
   maxSafeLandingVy: {
-    value: 45,
+    value: 75,
     type: 'number',
     label: 'Max Safe Vertical Speed (px/s)',
     group: 'Rules',
   },
   maxSafeLandingVx: {
-    value: 25,
+    value: 45,
     type: 'number',
     label: 'Max Safe Horizontal Speed (px/s)',
     group: 'Rules',
   },
   maxSafeAngleDeg: {
-    value: 8,
+    value: 18,
     type: 'number',
     label: 'Max Safe Tilt (deg)',
     group: 'Rules',

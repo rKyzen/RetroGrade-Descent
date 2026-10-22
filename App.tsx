@@ -268,6 +268,9 @@ export default function App() {
   const [p1Theme, setP1Theme] = useState<ShipTheme>(SHIP_THEMES[0]);
   const [p2Theme, setP2Theme] = useState<ShipTheme>(SHIP_THEMES[2]);
 
+  // Selected Starting Epoch for Retrogression Exploration
+  const [selectedStartingEpoch, setSelectedStartingEpoch] = useState<number>(1);
+
   const initGameRef = useRef<() => void>();
 
   // Reactive Game State for UI
@@ -840,12 +843,13 @@ export default function App() {
     landerP2Ref.current.score = 0;
     landerP2Ref.current.roundsWon = 0;
 
-    resetLander(1);
+    const startLevel = selectedStartingEpoch || 1;
+    resetLander(startLevel);
 
     setGameState({
       status: 'PLAYING',
       score: 0,
-      level: 1,
+      level: startLevel,
       lives: getConfig('startingLives') as number,
     });
 
@@ -1221,12 +1225,11 @@ export default function App() {
       const currentPadX = lander.x + dx - pad.w / 2;
 
       const isOverPad =
-        leftFootX >= currentPadX - 6 &&
-        leftFootX <= currentPadX + pad.w + 6 &&
-        rightFootX >= currentPadX - 6 &&
-        rightFootX <= currentPadX + pad.w + 6;
+        (leftFootX >= currentPadX - 14 && leftFootX <= currentPadX + pad.w + 14) ||
+        (rightFootX >= currentPadX - 14 && rightFootX <= currentPadX + pad.w + 14) ||
+        (lander.x >= currentPadX - 8 && lander.x <= currentPadX + pad.w + 8);
 
-      if (isOverPad && lowestFootY >= pad.y - 4 && lowestFootY <= pad.y + pad.h + 8) {
+      if (isOverPad && lowestFootY >= pad.y - 6 && lowestFootY <= pad.y + pad.h + 12) {
         touchedPlatform = pad;
         break;
       }
@@ -1244,7 +1247,8 @@ export default function App() {
       const maxAngleDeg = getConfig('maxSafeAngleDeg') as number;
       const maxAngleRad = (maxAngleDeg * Math.PI) / 180;
 
-      const safeVy = lander.vy <= maxVy && lander.vy >= -10;
+      // Generous, forgiving landing conditions:
+      const safeVy = lander.vy <= maxVy;
       const safeVx = Math.abs(lander.vx) <= maxVx;
       const safeAngle = Math.abs(lander.angle) <= maxAngleRad;
 
@@ -1262,15 +1266,32 @@ export default function App() {
           handleSuccessfulLanding(lander, touchedPlatform, currentEpoch);
         }
       } else {
-        lander.crashed = true;
-        spawnCrashExplosion(lander.x, lowestFootY);
-        let failureReason = 'STRUCTURAL IMPACT OVERLOAD';
-        if (!safeVy) failureReason = `EXCESS DESCENT SPEED (${Math.round(lander.vy)} > ${maxVy} px/s)`;
-        else if (!safeVx) failureReason = `EXCESS LATERAL DRIFT (${Math.round(Math.abs(lander.vx))} > ${maxVx} px/s)`;
-        else if (!safeAngle) failureReason = `EXCESS TILT ANGLE (${Math.abs(Math.round((lander.angle * 180) / Math.PI))}° > ${maxAngleDeg}°)`;
+        // Hydraulic Suspension Cushion:
+        // If landing parameters are slightly above threshold (within 35% margin),
+        // the landing gear compresses and bounces up safely instead of destroying the vessel!
+        const canAbsorbBounce =
+          lander.vy <= maxVy * 1.35 &&
+          Math.abs(lander.vx) <= maxVx * 1.35 &&
+          Math.abs(lander.angle) <= maxAngleRad * 1.4;
 
-        if (!isDemo) {
-          handleCrash(lander, failureReason);
+        if (canAbsorbBounce) {
+          lander.vy = -Math.abs(lander.vy) * 0.28;
+          lander.vx *= 0.45;
+          lander.angle *= 0.35;
+          lander.y = touchedPlatform.y - 20;
+          spawnGroundDust(lander.x, touchedPlatform.y);
+          gameAudio.playCrispClick();
+        } else {
+          lander.crashed = true;
+          spawnCrashExplosion(lander.x, lowestFootY);
+          let failureReason = 'STRUCTURAL IMPACT OVERLOAD';
+          if (!safeVy) failureReason = `EXCESS DESCENT SPEED (${Math.round(lander.vy)} > ${maxVy} px/s)`;
+          else if (!safeVx) failureReason = `EXCESS LATERAL DRIFT (${Math.round(Math.abs(lander.vx))} > ${maxVx} px/s)`;
+          else if (!safeAngle) failureReason = `EXCESS TILT ANGLE (${Math.abs(Math.round((lander.angle * 180) / Math.PI))}° > ${maxAngleDeg}°)`;
+
+          if (!isDemo) {
+            handleCrash(lander, failureReason);
+          }
         }
       }
     } else if (hitTerrain) {
@@ -2882,7 +2903,7 @@ export default function App() {
             </div>
 
             {/* Level 1 Extra Fuel Feature Banner */}
-            <div className="w-full bg-emerald-950/30 border-2 border-emerald-600/80 px-3 py-1.5 mb-4 text-[8px] flex items-center justify-between font-mono">
+            <div className="w-full bg-emerald-950/30 border-2 border-emerald-600/80 px-3 py-1.5 mb-3 text-[8px] flex items-center justify-between font-mono">
               <span className="text-emerald-300 font-bold flex items-center gap-1.5">
                 <Zap size={12} className="text-emerald-400 animate-pulse" />
                 <span>LEVEL 1 REFUEL: 180L HIGH-CAPACITY TANKS EQUIPPED (+80% FUEL MARGIN)</span>
@@ -2892,6 +2913,67 @@ export default function App() {
               </span>
             </div>
 
+            {/* Technological Retrogression Timeline & Starting Era Selector */}
+            <div className="w-full bg-black/90 border-2 border-emerald-700/80 p-3 mb-4 rounded-none">
+              <div className="flex items-center justify-between mb-2 pb-1.5 border-b border-zinc-800">
+                <span className="text-[7.5px] md:text-[8px] text-emerald-400 uppercase font-mono font-bold flex items-center gap-1.5">
+                  <Activity size={12} className="text-emerald-400 animate-pulse" />
+                  <span>TECHNOLOGY RETROGRESSION TIMELINE (AVIONICS AGE BACKWARD):</span>
+                </span>
+                <span className="text-[7px] text-zinc-400 font-mono">
+                  [SELECT STARTING ERA]
+                </span>
+              </div>
+              <div className="grid grid-cols-2 sm:grid-cols-5 gap-1.5">
+                {EPOCHS.map((epoch) => {
+                  const isSelected = selectedStartingEpoch === epoch.id;
+                  return (
+                    <button
+                      key={epoch.id}
+                      type="button"
+                      onClick={() => {
+                        setSelectedStartingEpoch(epoch.id);
+                        gameAudio.playCrispClick();
+                      }}
+                      className={`p-1.5 text-left border-2 transition relative flex flex-col justify-between rounded-none ${
+                        isSelected
+                          ? 'bg-zinc-900 shadow-[2px_2px_0px_0px_#fff]'
+                          : 'bg-zinc-950/80 border-zinc-800 hover:border-zinc-600'
+                      }`}
+                      style={{
+                        borderColor: isSelected ? epoch.themeColor : undefined,
+                        boxShadow: isSelected ? `2px 2px 0px 0px ${epoch.themeColor}` : undefined,
+                      }}>
+                      <div>
+                        <div className="flex items-center justify-between mb-0.5">
+                          <span
+                            className="text-[7.5px] font-bold uppercase truncate"
+                            style={{ color: epoch.themeColor }}>
+                            {epoch.id}. {epoch.name}
+                          </span>
+                          {isSelected && <Check size={9} style={{ color: epoch.themeColor }} />}
+                        </div>
+                        <span className="text-[6.5px] text-zinc-400 block font-mono">
+                          {epoch.era}
+                        </span>
+                      </div>
+                      <span className="text-[6px] text-zinc-500 mt-1 block truncate">
+                        {epoch.hudStyle === 'modern'
+                          ? 'Glass Cockpit'
+                          : epoch.hudStyle === 'y2k'
+                          ? 'SCADA No-Pip'
+                          : epoch.hudStyle === 'eighties'
+                          ? 'Amber CRT'
+                          : epoch.hudStyle === 'apollo'
+                          ? 'Analog Gauge'
+                          : '95% Blackout'}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
             {/* Main Action Launch Button */}
             <button
               ref={startBtnRef}
@@ -2899,7 +2981,13 @@ export default function App() {
               autoFocus
               className="w-full bg-emerald-400 hover:bg-emerald-300 text-black border-4 border-emerald-200 font-black text-sm md:text-base py-3.5 px-6 shadow-[0_0_20px_rgba(16,185,129,0.5)] active:translate-x-0.5 active:translate-y-0.5 transition flex items-center justify-center gap-2 uppercase rounded-none cursor-pointer group">
               <Play size={18} fill="currentColor" className="group-hover:scale-110 transition-transform" />
-              <span>{gameMode === 'DUEL' ? 'COMMENCE SPLIT SCREEN DUEL' : 'ENGAGE DESCENT'}</span>
+              <span>
+                {gameMode === 'DUEL'
+                  ? 'COMMENCE SPLIT SCREEN DUEL'
+                  : selectedStartingEpoch > 1
+                  ? `ENGAGE DESCENT (EPOCH ${selectedStartingEpoch}: ${EPOCHS[selectedStartingEpoch - 1]?.name})`
+                  : 'ENGAGE DESCENT'}
+              </span>
               <span className="text-[8px] bg-black/20 px-2 py-0.5 text-black font-mono ml-2 border border-black/30 hidden sm:inline">
                 [ ENTER ]
               </span>
@@ -3009,6 +3097,29 @@ export default function App() {
                 <span>VIEW SCOREBOARD</span>
               </button>
             </div>
+
+            {/* Technological Retrogression Protocol Warning for Next Epoch */}
+            {gameMode === 'SOLO' && gameState.level <= 5 && (
+              <div className="w-full bg-red-950/40 border-2 border-red-500/80 p-2.5 mb-3 text-left font-mono rounded-none">
+                <div className="flex items-center gap-1.5 text-red-400 font-bold uppercase text-[8px] mb-1">
+                  <AlertTriangle size={13} className="animate-pulse text-red-400 shrink-0" />
+                  <span>
+                    RETROGRESSION PROTOCOL: REVERSING TIME TO EPOCH {gameState.level} ({EPOCHS[gameState.level - 1]?.era})
+                  </span>
+                </div>
+                <p className="text-[7.5px] text-zinc-300 mb-1.5 leading-relaxed">
+                  Guidance avionics are degrading backward into the past. Decommissioned instruments:
+                </p>
+                <div className="space-y-0.5 text-[7px]">
+                  {EPOCHS[gameState.level - 1]?.degradedAvionics.map((degraded, i) => (
+                    <div key={i} className="flex items-center gap-1.5 text-yellow-300">
+                      <span className="text-red-400 font-bold">►</span>
+                      <span>{degraded}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
 
             <button
               autoFocus
@@ -3326,6 +3437,39 @@ export default function App() {
                 <span>VIEW LEADERBOARD & FLIGHT LOG</span>
               </button>
 
+              {/* Quick Jump Era Selector (Retrogression Lab) */}
+              <div className="w-full bg-zinc-950 border-2 border-zinc-800 p-2.5 rounded-none font-mono">
+                <span className="text-[7.5px] text-zinc-400 uppercase font-bold block mb-1.5 flex items-center gap-1.5">
+                  <Activity size={11} className="text-yellow-400" />
+                  <span>JUMP TO ERA (TECHNOLOGY RETROGRESSION LAB):</span>
+                </span>
+                <div className="grid grid-cols-5 gap-1">
+                  {EPOCHS.map((epoch) => (
+                    <button
+                      key={epoch.id}
+                      type="button"
+                      onClick={() => {
+                        resetLander(epoch.id);
+                        setGameState((prev) => ({...prev, level: epoch.id, status: 'PLAYING'}));
+                        setIsMenuOpen(false);
+                        gameAudio.playConfirmSelect();
+                      }}
+                      className={`p-1 text-center border transition ${
+                        gameState.level === epoch.id
+                          ? 'bg-zinc-800 border-white text-white font-bold'
+                          : 'bg-black border-zinc-700 text-zinc-400 hover:text-white'
+                      }`}
+                      style={{
+                        borderColor: gameState.level === epoch.id ? epoch.themeColor : undefined,
+                        color: gameState.level === epoch.id ? epoch.themeColor : undefined,
+                      }}>
+                      <span className="text-[7px] block font-bold">EPOCH {epoch.id}</span>
+                      <span className="text-[5.5px] block truncate">{epoch.name}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
               <button
                 type="button"
                 onClick={() => {
@@ -3436,18 +3580,51 @@ export default function App() {
               <div className="bg-black p-3 border-2 border-cyan-900 rounded-none md:col-span-2">
                 <h3 className="font-bold text-cyan-400 mb-1.5 uppercase flex items-center gap-1">
                   <Radio size={12} />
-                  <span>Safe Landing Envelope</span>
+                  <span>Safe Landing Envelope (Generous Tolerances)</span>
                 </h3>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                   <p>
-                    1. <strong>Vertical Velocity:</strong> Below {getConfig('maxSafeLandingVy')} px/s.
+                    1. <strong>Vertical Velocity:</strong> Below {getConfig('maxSafeLandingVy')} px/s (Forgiving descent).
                   </p>
                   <p>
-                    2. <strong>Lateral Velocity:</strong> Below {getConfig('maxSafeLandingVx')} px/s.
+                    2. <strong>Lateral Velocity:</strong> Below {getConfig('maxSafeLandingVx')} px/s (Drift tolerance).
                   </p>
                   <p>
                     3. <strong>Attitude Tilt:</strong> Within ±{getConfig('maxSafeAngleDeg')}° of true vertical.
                   </p>
+                </div>
+              </div>
+
+              {/* Technology Retrogression Explanation Card */}
+              <div className="bg-black p-3 border-2 border-purple-900 rounded-none md:col-span-2">
+                <h3 className="font-bold text-purple-400 mb-1.5 uppercase flex items-center gap-1">
+                  <Activity size={12} />
+                  <span>Technology Retrogression: Why Avionics Age Backward</span>
+                </h3>
+                <p className="mb-2 text-zinc-300">
+                  Every time you touch down safely and advance, the ship’s guidance computers regress backward in time, decommissioning modern flight assists:
+                </p>
+                <div className="grid grid-cols-1 sm:grid-cols-5 gap-1.5 font-mono text-[7.5px]">
+                  <div className="p-1.5 bg-zinc-950 border border-emerald-500/70">
+                    <span className="font-bold text-emerald-400 block">EPOCH 1: 2026</span>
+                    <span className="text-zinc-400 block text-[6.5px]">Glass Cockpit, Trajectory Pip, Radar Map, +80% Fuel</span>
+                  </div>
+                  <div className="p-1.5 bg-zinc-950 border border-green-500/70">
+                    <span className="font-bold text-green-400 block">EPOCH 2: 2000</span>
+                    <span className="text-zinc-400 block text-[6.5px]">Y2K SCADA. Trajectory vector pip DECOMMISSIONED</span>
+                  </div>
+                  <div className="p-1.5 bg-zinc-950 border border-amber-500/70">
+                    <span className="font-bold text-amber-400 block">EPOCH 3: 1984</span>
+                    <span className="text-zinc-400 block text-[6.5px]">Amber CRT. Altimeter dead, proximity strobe only, wind</span>
+                  </div>
+                  <div className="p-1.5 bg-zinc-950 border border-slate-400/70">
+                    <span className="font-bold text-slate-300 block">EPOCH 4: 1969</span>
+                    <span className="text-zinc-400 block text-[6.5px]">Apollo Console. Digital speed dead, laggy analog needle</span>
+                  </div>
+                  <div className="p-1.5 bg-zinc-950 border border-red-500/70">
+                    <span className="font-bold text-red-400 block">EPOCH 5: BLACKOUT</span>
+                    <span className="text-zinc-400 block text-[6.5px]">Total optical blackout. Fly purely by acoustic sonar audio pings!</span>
+                  </div>
                 </div>
               </div>
             </div>

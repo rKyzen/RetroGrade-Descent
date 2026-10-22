@@ -86,12 +86,13 @@
 * **Pillar 3: Sensory Synesthesia**: Forcing players to transition their reliance from digital visual dials to auditory sonar feedback in total optical blackout.
 * **Pillar 4: Risk vs. Reward Navigation**: Distant landing platforms demand fuel conservation and risk-taking across rugged basalt obstacles in exchange for exponential score multipliers (up to 5x).
 
-### 2. Physics & Safe Touchdown Envelope
-To execute a successful touchdown without structural collapse, all four parameters must be satisfied:
-1. **Vertical Speed ($V_y$)**: Below $45\text{ px/s}$ (gentle cushioned contact).
-2. **Horizontal Drift ($V_x$)**: Below $25\text{ px/s}$ (minimal lateral skid).
-3. **Attitude Tilt Angle**: Within $\pm 8^\circ$ of true vertical ($0^\circ$).
-4. **Platform Alignment**: Both articulated landing footpads must be resting squarely on a designated level pad.
+### 2. Physics & Safe Touchdown Envelope (Forgiving & Accessible)
+To execute a successful touchdown without structural collapse, the vessel's telemetry must satisfy:
+1. **Vertical Speed ($V_y$)**: Below $75\text{ px/s}$ (increased from $45\text{ px/s}$ for smooth, accessible touchdowns).
+2. **Horizontal Drift ($V_x$)**: Below $45\text{ px/s}$ (increased from $25\text{ px/s}$ for generous lateral drift tolerance).
+3. **Attitude Tilt Angle**: Within $\pm 18^\circ$ of true vertical ($0^\circ$, increased from $8^\circ$ for relaxed rotational control).
+4. **Platform Alignment**: Landing footpads or fuselage aligned over the designated platform.
+5. **Hydraulic Suspension Cushion**: Touchdowns with slight overspeed or angle (within a $35\%$ margin) are absorbed by the landing gear's hydraulic springs with a soft bounce and regolith dust puffs, rather than catastrophic failure!
 
 ### 3. Scoring Architecture
 $$\text{Touchdown Score} = \Big(\text{Epoch Bonus} + \text{Fuel Conserved Bonus} + \text{Precision Landing Bonus}\Big) \times \text{Pad Multiplier}$$
