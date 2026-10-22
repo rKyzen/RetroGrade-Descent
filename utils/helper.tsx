@@ -121,10 +121,10 @@ export function MenuOverlay({
 }: MenuOverlayProps) {
   return (
     <div
-      className={`absolute inset-0 ${TONE_CLASS[tone]} overflow-y-auto touch-auto`}
+      className={`absolute inset-0 ${TONE_CLASS[tone]} overflow-y-auto touch-auto backdrop-blur-sm`}
       style={{zIndex}}>
-      <div className={`min-h-full flex flex-col items-center ${fullScreen ? 'p-2 md:p-6 w-full justify-center' : 'p-4'}`}>
-        <div className={`m-auto w-full flex flex-col items-center ${fullScreen ? (maxWidthClass !== 'max-w-md' ? maxWidthClass : 'max-w-5xl') : maxWidthClass}`}>
+      <div className={`min-h-full flex flex-col items-center ${fullScreen ? 'p-2 md:p-5 w-full justify-center' : 'p-4'}`}>
+        <div className={`m-auto w-full flex flex-col items-center ${fullScreen ? (maxWidthClass !== 'max-w-md' ? maxWidthClass : 'max-w-7xl') : maxWidthClass}`}>
           {children}
         </div>
       </div>

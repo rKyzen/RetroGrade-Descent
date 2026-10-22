@@ -178,6 +178,17 @@ interface CragObstacle {
   h: number;
 }
 
+export interface OrbitalHazard {
+  id: number;
+  x: number;
+  y: number;
+  vx: number;
+  vy: number;
+  radius: number;
+  rotation: number;
+  rotSpeed: number;
+}
+
 interface SonarWave {
   x: number;
   y: number;
@@ -489,6 +500,7 @@ export default function App() {
   const platformsRef = useRef<LandingPad[]>([]);
   const terrainRef = useRef<TerrainPoint[]>([]);
   const cragsRef = useRef<CragObstacle[]>([]);
+  const hazardsRef = useRef<OrbitalHazard[]>([]);
   const particlesRef = useRef<Particle[]>([]);
   const sonarWavesRef = useRef<SonarWave[]>([]);
   const lastSonarTimeRef = useRef(0);
@@ -654,9 +666,12 @@ export default function App() {
     const cragW = getConfig('assetLunarCragWidth') as number;
     const cragH = getConfig('assetLunarCragHeight') as number;
     const cragPositions = [
-      Math.round(wWidth * 0.35),
+      Math.round(wWidth * 0.34),
+      Math.round(wWidth * 0.40),
       Math.round(wWidth * 0.58),
+      Math.round(wWidth * 0.64),
       Math.round(wWidth * 0.81),
+      Math.round(wWidth * 0.86),
     ];
 
     for (let i = 0; i < cragPositions.length; i++) {
@@ -671,6 +686,25 @@ export default function App() {
     }
 
     cragsRef.current = crags;
+
+    // Drifting Orbital Micrometeorites / Debris Hazards (Scaled by Level)
+    const hazards: OrbitalHazard[] = [];
+    const hazardCount = 4 + epoch * 2;
+    for (let i = 0; i < hazardCount; i++) {
+      const hx = Math.round(wWidth * 0.26 + (i * (wWidth * 0.68)) / hazardCount + (Math.sin(i * 3.7 + epoch) * 90));
+      const hy = Math.round(180 + ((i * 137) % (padY - 260)));
+      hazards.push({
+        id: i,
+        x: ((hx % wWidth) + wWidth) % wWidth,
+        y: hy,
+        vx: (i % 2 === 0 ? 1 : -1) * (14 + (i * 3.5) % 18 + epoch * 3),
+        vy: Math.sin(i * 2.1) * (6 + epoch * 2),
+        radius: 11 + (i % 4) * 3,
+        rotation: i * 0.8,
+        rotSpeed: (i % 2 === 0 ? 1 : -1) * (0.8 + (i % 3) * 0.4),
+      });
+    }
+    hazardsRef.current = hazards;
   }, []);
 
   // Exact terrain surface height interpolation
@@ -1130,16 +1164,64 @@ export default function App() {
     let ax = 0;
     let ay = gravity;
 
-    if (currentEpoch >= 3) {
-      const gust = Math.sin(Date.now() * 0.0015 + lander.y * 0.01) * (currentEpoch * 4.5);
-      ax += gust;
+    // Dynamic Crosswinds & Airspace Turbulence (Level difficulty scaling)
+    const windScale = 6 + currentEpoch * 7;
+    const gust = Math.sin(Date.now() * 0.002 + lander.y * 0.012) * windScale;
+    ax += gust;
+
+    // Drifting orbital micrometeorites update (Once per tick via P1)
+    if (lander.id === 'p1') {
+      const padY = Math.round(worldH * 0.76);
+      for (const h of hazardsRef.current) {
+        h.x = ((h.x + h.vx * dt) % worldW + worldW) % worldW;
+        h.y += h.vy * dt;
+        h.rotation += h.rotSpeed * dt;
+        if (h.y < 120) {
+          h.y = 120;
+          h.vy = Math.abs(h.vy);
+        } else if (h.y > padY - 70) {
+          h.y = padY - 70;
+          h.vy = -Math.abs(h.vy);
+        }
+      }
+    }
+
+    // Hazard Collision Check
+    for (const h of hazardsRef.current) {
+      let hdx = (h.x - lander.x) % worldW;
+      if (hdx > worldW / 2) hdx -= worldW;
+      if (hdx < -worldW / 2) hdx += worldW;
+      const hdy = h.y - lander.y;
+      const dist = Math.hypot(hdx, hdy);
+
+      if (dist < h.radius + 15) {
+        const relSpeed = Math.hypot(lander.vx - h.vx, lander.vy - h.vy);
+        if (relSpeed > 60) {
+          lander.crashed = true;
+          spawnCrashExplosion(lander.x, lander.y);
+          if (!isDemo) {
+            handleCrash(lander, 'HULL IMPACT WITH ORBITAL MICROMETEORITE');
+          }
+          return;
+        } else {
+          // Kinetic deflection impulse
+          const normX = hdx / (dist || 1);
+          const normY = hdy / (dist || 1);
+          lander.vx = -normX * 36;
+          lander.vy = -normY * 26;
+          lander.angularVelocity += (Math.random() - 0.5) * 3;
+          spawnTouchdownSparkles(lander.x, lander.y, '#f59e0b');
+          gameAudio.playCrispClick();
+        }
+      }
     }
 
     const groundY = getTerrainSurfaceY(lander.x);
     const altAboveGround = groundY - lander.y;
 
     if (thrusting && lander.fuel > 0) {
-      lander.fuel = Math.max(0, lander.fuel - fuelRate * dt);
+      const epochFuelRate = fuelRate * (1 + (currentEpoch - 1) * 0.08);
+      lander.fuel = Math.max(0, lander.fuel - epochFuelRate * dt);
 
       const thrustX = Math.sin(lander.angle) * mainThrust;
       const thrustY = -Math.cos(lander.angle) * mainThrust;
@@ -1806,6 +1888,56 @@ export default function App() {
       }
     }
 
+    // 5.5 Draw Drifting Orbital Micrometeorites / Debris Hazards
+    for (let k = startChunk; k <= endChunk; k++) {
+      const chunkOffset = k * worldW;
+      for (const h of hazardsRef.current) {
+        const renderX = h.x + chunkOffset;
+        if (
+          renderX + h.radius * 2 < camX - 50 ||
+          renderX - h.radius * 2 > camX + viewportW + 50 ||
+          h.y + h.radius * 2 < camY - 50 ||
+          h.y - h.radius * 2 > camY + viewportH + 50
+        ) {
+          continue;
+        }
+
+        ctx.save();
+        ctx.translate(renderX, h.y);
+        ctx.rotate(h.rotation);
+
+        // Glowing plasma corona
+        const corona = ctx.createRadialGradient(0, 0, h.radius * 0.3, 0, 0, h.radius * 1.8);
+        corona.addColorStop(0, 'rgba(245, 158, 11, 0.4)');
+        corona.addColorStop(0.6, 'rgba(239, 68, 68, 0.18)');
+        corona.addColorStop(1, 'rgba(0, 0, 0, 0)');
+        ctx.fillStyle = corona;
+        ctx.beginPath();
+        ctx.arc(0, 0, h.radius * 1.8, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Asteroid rocky silhouette
+        ctx.fillStyle = '#475569';
+        ctx.strokeStyle = '#f59e0b';
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        const sides = 6;
+        for (let s = 0; s < sides; s++) {
+          const angle = (s / sides) * Math.PI * 2;
+          const r = h.radius * (0.8 + 0.35 * Math.sin(s * 2.3 + h.id));
+          const px = Math.cos(angle) * r;
+          const py = Math.sin(angle) * r;
+          if (s === 0) ctx.moveTo(px, py);
+          else ctx.lineTo(px, py);
+        }
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+
+        ctx.restore();
+      }
+    }
+
     // 6. Draw Clean Foreground Lunar Terrain Polygon
     const terrain = terrainRef.current;
     if (terrain.length > 1) {
@@ -2118,6 +2250,14 @@ export default function App() {
         ctx.fillRect(rPadX, rPadY - 1, rPadW, 3);
       }
 
+      // Draw drifting hazards on radar in amber
+      for (const h of hazardsRef.current) {
+        const rHazX = radarX + h.x * scaleX;
+        const rHazY = radarY + h.y * scaleY;
+        ctx.fillStyle = '#f59e0b';
+        ctx.fillRect(rHazX - 1, rHazY - 1, 2, 2);
+      }
+
       // Draw active lander pip
       const wrappedLanderX = ((activeLander.x % worldW) + worldW) % worldW;
       const rLanderX = radarX + wrappedLanderX * scaleX;
@@ -2303,122 +2443,109 @@ export default function App() {
         </div>
       )}
 
-      {/* TOP HUD BAR */}
-      <header className="w-full bg-[#08080c] border-b-4 border-emerald-500 px-3 py-2 z-20 shrink-0 flex flex-wrap items-center justify-between gap-2 shadow-[0_4px_0_0_#064e3b] rounded-none">
-        <div className="flex items-center gap-2">
-          <div className="flex flex-col gap-0.5">
-            <div className="flex items-center gap-2">
-              <span className="text-[8px] uppercase tracking-wider text-emerald-600 font-bold">
-                {getConfig('title') as string}
-              </span>
-              <span className={`text-[7px] font-bold px-1.5 py-0.2 border uppercase ${
-                gameMode === 'DUEL'
-                  ? 'border-yellow-500 text-yellow-400 bg-yellow-950/40'
-                  : 'border-emerald-600 text-emerald-400 bg-emerald-950/40'
-              }`}>
-                {gameMode === 'DUEL' ? '2P SPLIT SCREEN DUEL' : 'SOLO EXPEDITION'}
-              </span>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <span
-                className="text-[9px] md:text-[10px] font-bold px-2 py-0.5 border-2 shadow-[2px_2px_0px_0px_#000] uppercase rounded-none"
-                style={{
-                  color: activeEpoch.themeColor,
-                  borderColor: activeEpoch.themeColor,
-                  backgroundColor: `${activeEpoch.themeColor}15`,
-                }}>
-                EPOCH {gameState.level}: {activeEpoch.name}
-              </span>
-              <span className="text-[8px] text-zinc-500 hidden sm:inline uppercase">
-                [{activeEpoch.era}]
-              </span>
-            </div>
-          </div>
+      {/* DECLUTTERED SLEEK IN-FLIGHT COCKPIT HUD */}
+      <header className="w-full bg-[#08080c]/85 backdrop-blur-md border-b-2 border-emerald-500/40 px-3 py-1.5 z-20 shrink-0 flex items-center justify-between gap-2.5 shadow-md rounded-none">
+        {/* Left: Mission & Epoch Pill */}
+        <div className="flex items-center gap-2 shrink-0">
+          <span className="text-[10px] md:text-xs font-black text-emerald-400 tracking-wider">
+            RETROGRADE
+          </span>
+          <span
+            className="text-[7.5px] font-bold px-1.5 py-0.5 border uppercase"
+            style={{
+              color: activeEpoch.themeColor,
+              borderColor: `${activeEpoch.themeColor}80`,
+              backgroundColor: `${activeEpoch.themeColor}15`,
+            }}>
+            EPOCH {gameState.level}: {activeEpoch.name}
+          </span>
+          <span className="text-[6.5px] text-zinc-500 font-mono hidden md:inline uppercase">
+            [{activeEpoch.era}]
+          </span>
         </div>
 
-        {/* Telemetry Readouts (Player 1 & Player 2) */}
-        <div className="flex items-center gap-1.5 md:gap-2 text-[9px] flex-wrap">
-          {/* P1 Telemetry */}
-          <div className={`flex items-center gap-1.5 bg-black px-2 py-1 border-2 shadow-[2px_2px_0px_0px_#000] rounded-none ${
-            isLowFuelP1 ? 'border-red-500 animate-pulse' : 'border-emerald-600'
-          }`}>
-            <Zap
-              size={12}
-              className={isLowFuelP1 ? 'text-red-500 animate-bounce' : 'text-emerald-400'}
-            />
+        {/* Center: Integrated Telemetry Cluster */}
+        <div className="flex items-center gap-3 md:gap-5 text-[8.5px] font-mono">
+          {/* Fuel Bar & Quantity */}
+          <div className="flex items-center gap-1.5">
+            <Zap size={12} className={isLowFuelP1 ? 'text-red-500 animate-bounce' : 'text-emerald-400'} />
             <div className="flex flex-col">
-              <span className="text-zinc-500 text-[7px] leading-none">
-                {gameMode === 'DUEL' ? 'P1 FUEL' : 'FUEL'}
-                {gameState.level === 1 && ' (180L BONUS)'}
-              </span>
-              <span className={`font-bold ${isLowFuelP1 ? 'text-red-400' : 'text-emerald-400'}`}>
-                {currentFuelP1} / {telemetry.maxFuel}L
-              </span>
+              <div className="flex items-center gap-1 leading-none mb-0.5">
+                <span className="text-zinc-500 text-[6.5px]">{gameMode === 'DUEL' ? 'P1 FUEL:' : 'FUEL:'}</span>
+                <span className={`font-bold ${isLowFuelP1 ? 'text-red-400' : 'text-emerald-400'}`}>
+                  {currentFuelP1}L
+                </span>
+              </div>
+              <div className="w-14 md:w-20 h-1.5 bg-zinc-900 border border-zinc-700 overflow-hidden">
+                <div
+                  className={`h-full transition-all duration-100 ${
+                    isLowFuelP1 ? 'bg-red-500' : 'bg-emerald-400'
+                  }`}
+                  style={{ width: `${Math.max(0, Math.min(100, (currentFuelP1 / telemetry.maxFuel) * 100))}%` }}
+                />
+              </div>
             </div>
           </div>
 
           {/* In Duel Mode, display P2 Fuel */}
           {gameMode === 'DUEL' && (
-            <div className={`flex items-center gap-1.5 bg-black px-2 py-1 border-2 shadow-[2px_2px_0px_0px_#000] rounded-none ${
-              isLowFuelP2 ? 'border-red-500 animate-pulse' : 'border-amber-500'
-            }`}>
-              <Zap
-                size={12}
-                className={isLowFuelP2 ? 'text-red-500 animate-bounce' : 'text-amber-400'}
-              />
+            <div className="flex items-center gap-1.5">
+              <Zap size={12} className={isLowFuelP2 ? 'text-red-500 animate-bounce' : 'text-amber-400'} />
               <div className="flex flex-col">
-                <span className="text-zinc-500 text-[7px] leading-none">P2 FUEL</span>
-                <span className={`font-bold ${isLowFuelP2 ? 'text-red-400' : 'text-amber-400'}`}>
-                  {currentFuelP2} / {telemetryP2.maxFuel}L
-                </span>
+                <div className="flex items-center gap-1 leading-none mb-0.5">
+                  <span className="text-zinc-500 text-[6.5px]">P2 FUEL:</span>
+                  <span className={`font-bold ${isLowFuelP2 ? 'text-red-400' : 'text-amber-400'}`}>
+                    {currentFuelP2}L
+                  </span>
+                </div>
+                <div className="w-14 md:w-20 h-1.5 bg-zinc-900 border border-zinc-700 overflow-hidden">
+                  <div
+                    className={`h-full transition-all duration-100 ${
+                      isLowFuelP2 ? 'bg-red-500' : 'bg-amber-400'
+                    }`}
+                    style={{ width: `${Math.max(0, Math.min(100, (currentFuelP2 / telemetryP2.maxFuel) * 100))}%` }}
+                  />
+                </div>
               </div>
             </div>
           )}
 
-          {/* Navigation Beacon: Multiplier & Nearest Pad */}
-          <div className="flex items-center gap-1.5 bg-black px-2 py-1 border-2 border-emerald-700 shadow-[2px_2px_0px_0px_#000] rounded-none">
-            <Compass size={11} className="text-emerald-400 animate-spin" />
-            <div className="flex flex-col">
-              <span className="text-zinc-500 text-[7px] leading-none">TARGET PAD</span>
-              <span className="font-bold text-emerald-300 text-[8px]">
-                {telemetry.nearestPadName} [{telemetry.nearestPadMult}x] {telemetry.nearestPadDir === 'aligned' ? '▼ ALIGNED' : telemetry.nearestPadDir === 'left' ? `◄ ${telemetry.nearestPadDist}M` : `${telemetry.nearestPadDist}M ►`}
-              </span>
-            </div>
+          {/* Vertical Speed Readout */}
+          <div className="flex items-center gap-1">
+            <span className="text-zinc-500 text-[6.5px]">V-SPD:</span>
+            <span
+              className={`font-bold ${
+                Math.abs(telemetry.vy) > (getConfig('maxSafeLandingVy') as number)
+                  ? 'text-red-400 animate-pulse'
+                  : 'text-cyan-300'
+              }`}>
+              {telemetry.vy} <span className="text-[6px] text-zinc-500">PX/S</span>
+            </span>
           </div>
 
-          <div className="flex items-center gap-1.5 bg-black px-2 py-1 border-2 border-zinc-700 shadow-[2px_2px_0px_0px_#000] rounded-none">
-            <Activity size={12} className="text-cyan-400" />
-            <div className="flex flex-col">
-              <span className="text-zinc-500 text-[7px] leading-none">V-SPD</span>
-              <span
-                className={`font-bold ${
-                  Math.abs(telemetry.vy) > (getConfig('maxSafeLandingVy') as number)
-                    ? 'text-red-400 animate-pulse'
-                    : 'text-cyan-300'
-                }`}>
-                {telemetry.vy} PX/S
-              </span>
-            </div>
-          </div>
-
-          {gameMode === 'SOLO' && (
-            <div className="flex items-center gap-1 bg-black px-2 py-1 border-2 border-zinc-700 shadow-[2px_2px_0px_0px_#000] rounded-none">
-              <span className="text-[7px] text-zinc-500">RESERVES:</span>
-              <span className="text-[9px] font-bold text-yellow-400">
-                {gameState.lives ?? 3}
-              </span>
-            </div>
-          )}
-
-          <div className="flex items-center gap-1 bg-black px-2 py-1 border-2 border-zinc-700 shadow-[2px_2px_0px_0px_#000] rounded-none">
-            <span className="text-[7px] text-zinc-500">SCORE:</span>
-            <span className="text-[9px] font-bold text-emerald-400">
-              {gameState.score}
+          {/* Target Navigation Beacon */}
+          <div className="hidden sm:flex items-center gap-1 text-emerald-300">
+            <Compass size={11} className="text-emerald-400 shrink-0" />
+            <span className="font-bold truncate max-w-[150px]">
+              {telemetry.nearestPadName} [{telemetry.nearestPadMult}x] {telemetry.nearestPadDir === 'aligned' ? '▼ ALIGNED' : telemetry.nearestPadDir === 'left' ? `◄ ${telemetry.nearestPadDist}m` : `${telemetry.nearestPadDist}m ►`}
             </span>
           </div>
         </div>
 
-        <div className="flex items-center gap-1.5">
+        {/* Right: Score, Reserves & Actions */}
+        <div className="flex items-center gap-1.5 md:gap-2 shrink-0">
+          {gameMode === 'SOLO' && (
+            <div className="hidden md:flex items-center gap-1 text-[8px] font-mono text-zinc-400">
+              <span className="text-zinc-500 text-[6.5px]">LIVES:</span>
+              <span className="font-bold text-yellow-400">{gameState.lives}</span>
+            </div>
+          )}
+
+          <div className="flex items-center gap-1 text-[8.5px] font-mono">
+            <span className="text-zinc-500 text-[6.5px] hidden sm:inline">SCORE:</span>
+            <span className="font-bold text-emerald-400">{gameState.score}</span>
+          </div>
+
           <button
             onClick={() => {
               exitAttractMode();
@@ -2426,9 +2553,8 @@ export default function App() {
               gameAudio.playCrispClick();
             }}
             title={isFullscreen ? "Exit Fullscreen" : "Enter Fullscreen"}
-            className="bg-black hover:bg-emerald-400 hover:text-black text-emerald-400 border-2 border-emerald-500 px-2 py-1 shadow-[2px_2px_0px_0px_#064e3b] active:translate-x-0.5 active:translate-y-0.5 transition text-[9px] font-bold min-w-[40px] min-h-[40px] flex items-center justify-center uppercase rounded-none">
-            {isFullscreen ? <Minimize2 size={14} className="mr-1" /> : <Maximize2 size={14} className="mr-1" />}
-            <span className="hidden md:inline">{isFullscreen ? 'EXIT FS' : 'FULLSCREEN'}</span>
+            className="p-1 hover:bg-emerald-400 hover:text-black text-emerald-400 border border-emerald-500/60 transition text-[8px] flex items-center justify-center">
+            {isFullscreen ? <Minimize2 size={13} /> : <Maximize2 size={13} />}
           </button>
 
           <button
@@ -2437,10 +2563,9 @@ export default function App() {
               setIsLeaderboardOpen(true);
               gameAudio.playCrispClick();
             }}
-            title="View Scoreboard"
-            className="bg-black hover:bg-yellow-400 hover:text-black text-yellow-400 border-2 border-yellow-500 px-2 py-1 shadow-[2px_2px_0px_0px_#78350f] active:translate-x-0.5 active:translate-y-0.5 transition text-[9px] font-bold min-w-[40px] min-h-[40px] flex items-center justify-center uppercase rounded-none">
-            <Trophy size={14} className="mr-1" />
-            <span className="hidden md:inline">ROSTER</span>
+            title="Scoreboard"
+            className="p-1 hover:bg-yellow-400 hover:text-black text-yellow-400 border border-yellow-500/60 transition text-[8px] flex items-center justify-center">
+            <Trophy size={13} />
           </button>
 
           <button
@@ -2450,9 +2575,9 @@ export default function App() {
               gameAudio.playCrispClick();
             }}
             aria-label="Toggle Game Menu"
-            className="bg-black hover:bg-emerald-400 hover:text-black text-emerald-400 border-2 border-emerald-500 px-2 py-1 shadow-[2px_2px_0px_0px_#064e3b] active:translate-x-0.5 active:translate-y-0.5 transition text-[9px] font-bold min-w-[40px] min-h-[40px] flex items-center justify-center uppercase rounded-none">
-            <Menu size={14} className="mr-1" />
-            <span>MENU</span>
+            className="px-2 py-1 bg-emerald-500/10 hover:bg-emerald-400 hover:text-black text-emerald-400 border border-emerald-500/60 transition text-[8px] font-bold flex items-center gap-1">
+            <Menu size={12} />
+            <span className="hidden sm:inline">MENU</span>
           </button>
         </div>
       </header>
@@ -2590,237 +2715,194 @@ export default function App() {
         </footer>
       )}
 
-      {/* START SCREEN: Session Name Input, Mode Selector, Mission Briefing */}
+      {/* START SCREEN: FULL-SCREEN UNCLUTTERED COMMAND BRIDGE */}
       {gameState.status === 'START' && !isAttractMode && (
-        <MenuOverlay tone="neutral" zIndex={40} fullScreen>
-          <div className="w-full max-w-4xl lg:max-w-5xl bg-[#08080c]/95 backdrop-blur-md border-4 border-emerald-500 p-4 md:p-6 shadow-[10px_10px_0px_0px_#064e3b] flex flex-col items-center text-emerald-400 rounded-none relative">
+        <MenuOverlay tone="neutral" zIndex={40} fullScreen maxWidthClass="w-full max-w-7xl">
+          <div className="w-full bg-[#08080c]/95 backdrop-blur-md border-4 border-emerald-500 p-4 md:p-6 shadow-[12px_12px_0px_0px_#064e3b] flex flex-col text-emerald-400 rounded-none relative">
             
-            {/* Top All-Time High Score Ticker Banner & Fullscreen Toggle */}
-            <div className="w-full flex items-center gap-2 mb-3">
-              {leaderboardList && leaderboardList.length > 0 && (
+            {/* Header: Title, All-Time Record Pill & Fullscreen Toggle */}
+            <div className="flex flex-col sm:flex-row items-center justify-between pb-3 mb-4 border-b-2 border-emerald-800/80 gap-3">
+              <div className="flex items-center gap-2.5">
+                <Radio size={16} className="text-emerald-400 animate-pulse" />
+                <div>
+                  <h1 className="text-xl md:text-2xl font-black tracking-wider text-emerald-400 drop-shadow-[0_0_10px_rgba(16,185,129,0.5)]">
+                    RETROGRADE DESCENT
+                  </h1>
+                  <span className="text-[7.5px] text-zinc-400 font-mono uppercase tracking-widest block">
+                    APOLLO GUIDANCE OS // LUNAR INSERTION TERMINAL
+                  </span>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2">
+                {leaderboardList && leaderboardList.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsLeaderboardOpen(true);
+                      gameAudio.playCrispClick();
+                    }}
+                    className="bg-yellow-950/40 hover:bg-yellow-900/60 border border-yellow-500/70 px-2.5 py-1 text-[8px] flex items-center gap-2 text-yellow-300 font-mono transition">
+                    <Trophy size={12} className="text-yellow-400" />
+                    <span>RECORD: <strong>{leaderboardList[0].pilotName}</strong> ({leaderboardList[0].score.toLocaleString()} PTS)</span>
+                  </button>
+                )}
                 <button
                   type="button"
                   onClick={() => {
-                    setIsLeaderboardOpen(true);
+                    toggleFullscreen();
                     gameAudio.playCrispClick();
                   }}
-                  className="flex-1 bg-yellow-950/40 hover:bg-yellow-900/60 border-2 border-yellow-500/70 px-3 py-1.5 text-[8px] md:text-[9px] flex items-center justify-between text-yellow-300 font-mono tracking-wider transition group shadow-[2px_2px_0px_0px_#78350f]">
-                  <span className="flex items-center gap-2 font-bold truncate">
-                    <Trophy size={14} className="text-yellow-400 animate-bounce shrink-0" />
-                    <span className="truncate">ALL-TIME RECORD: <strong className="text-yellow-200">{leaderboardList[0].pilotName}</strong> — {leaderboardList[0].score.toLocaleString()} PTS</span>
-                  </span>
-                  <span className="text-[7px] text-yellow-400 uppercase flex items-center gap-1 group-hover:text-yellow-200 font-bold shrink-0">
-                    <span>[{leaderboardList[0].padName}]</span>
-                    <ChevronRight size={12} />
-                  </span>
+                  className="bg-black hover:bg-emerald-400 hover:text-black border border-emerald-500 px-2.5 py-1 text-[8px] flex items-center gap-1.5 font-mono font-bold transition">
+                  {isFullscreen ? <Minimize2 size={12} /> : <Maximize2 size={12} />}
+                  <span>{isFullscreen ? 'EXIT FS' : 'FULLSCREEN'}</span>
                 </button>
-              )}
-              <button
-                type="button"
-                onClick={() => {
-                  toggleFullscreen();
-                  gameAudio.playCrispClick();
-                }}
-                title={isFullscreen ? "Exit Fullscreen" : "Enter Fullscreen"}
-                className="bg-black hover:bg-emerald-400 hover:text-black border-2 border-emerald-500 px-3 py-1.5 text-[8px] md:text-[9px] flex items-center gap-1.5 text-emerald-400 font-mono font-bold tracking-wider transition shadow-[2px_2px_0px_0px_#064e3b] shrink-0">
-                {isFullscreen ? <Minimize2 size={13} /> : <Maximize2 size={13} />}
-                <span className="hidden sm:inline">{isFullscreen ? 'EXIT FS' : 'FULLSCREEN'}</span>
-              </button>
-            </div>
-
-            {/* Glowing Retro Terminal Header */}
-            <div className="flex flex-col items-center text-center my-1 mb-4 w-full">
-              <div className="flex items-center gap-2 text-emerald-400 font-bold text-[8px] md:text-[9px] uppercase tracking-widest border-b-2 border-emerald-800/80 pb-1 mb-1.5 justify-center w-full">
-                <Radio size={13} className="animate-pulse text-emerald-400" />
-                <span>APOLLO GUIDANCE OS // LUNAR INSERTION TERMINAL</span>
               </div>
-              <h1 className="text-2xl md:text-4xl font-black tracking-wider text-emerald-400 drop-shadow-[0_0_12px_rgba(16,185,129,0.5)] flex items-center gap-2">
-                <span>RETROGRADE DESCENT</span>
-              </h1>
-              <p className="text-[8px] md:text-[9px] text-zinc-400 mt-1 uppercase tracking-wide">
-                AVIONICS REGRESSION SIMULATION • MULTI-PLATFORM EXPEDITION
-              </p>
             </div>
 
-            {/* Rich Interactive Game Mode Selection Cards */}
-            <div className="w-full grid grid-cols-1 sm:grid-cols-2 gap-2.5 mb-4">
-              {/* Solo Expedition Card */}
-              <button
-                type="button"
-                onClick={() => {
-                  setGameMode('SOLO');
-                  gameAudio.playCrispClick();
-                }}
-                className={`p-3 border-2 text-left flex flex-col justify-between transition relative rounded-none ${
-                  gameMode === 'SOLO'
-                    ? 'bg-emerald-950/50 border-emerald-400 shadow-[4px_4px_0_0_#064e3b]'
-                    : 'bg-black/80 border-zinc-800 hover:border-emerald-600/70 text-zinc-400'
-                }`}>
-                {gameMode === 'SOLO' && (
-                  <span className="absolute top-2 right-2 flex items-center gap-1 text-[7px] bg-emerald-500 text-black px-1.5 py-0.5 font-bold uppercase">
-                    <Check size={10} /> ACTIVE
-                  </span>
-                )}
+            {/* Main Body: 2 Spacious Columns */}
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 mb-4">
+              
+              {/* LEFT COLUMN (5 Cols): PILOT & HANGAR DISPATCH */}
+              <div className="lg:col-span-5 space-y-3 flex flex-col justify-between">
+                {/* Mode Selector Tabs */}
                 <div>
-                  <div className="flex items-center gap-1.5 mb-1">
-                    <Rocket size={15} className={gameMode === 'SOLO' ? 'text-emerald-400' : 'text-zinc-500'} />
-                    <span className={`text-[10px] font-bold uppercase ${gameMode === 'SOLO' ? 'text-emerald-300' : 'text-zinc-300'}`}>
-                      SOLO EXPEDITION
-                    </span>
-                  </div>
-                  <span className="text-[7px] text-emerald-500/90 font-mono uppercase block mb-1.5">
-                    [ 5 HISTORICAL DEGRADATION ERAS ]
+                  <span className="text-[7.5px] text-zinc-400 font-mono uppercase tracking-wider block mb-1">
+                    MISSION PROFILE:
                   </span>
-                  <p className="text-[8px] text-zinc-400 leading-relaxed">
-                    Pilot across endless terrain. Instruments regress from Glass Cockpit down to pure Acoustic Sonar in Epoch 5.
-                  </p>
-                </div>
-                <div className="mt-2.5 pt-2 border-t border-zinc-800 flex items-center justify-between text-[7px] text-zinc-500 font-mono">
-                  <span>CONTROLS: WASD / ARROWS</span>
-                  <span className="text-emerald-400 font-bold">1 PLAYER</span>
-                </div>
-              </button>
-
-              {/* 2-Player Split Screen Duel Card */}
-              <button
-                type="button"
-                onClick={() => {
-                  setGameMode('DUEL');
-                  gameAudio.playCrispClick();
-                }}
-                className={`p-3 border-2 text-left flex flex-col justify-between transition relative rounded-none ${
-                  gameMode === 'DUEL'
-                    ? 'bg-yellow-950/50 border-yellow-400 shadow-[4px_4px_0_0_#78350f]'
-                    : 'bg-black/80 border-zinc-800 hover:border-yellow-600/70 text-zinc-400'
-                }`}>
-                {gameMode === 'DUEL' && (
-                  <span className="absolute top-2 right-2 flex items-center gap-1 text-[7px] bg-yellow-400 text-black px-1.5 py-0.5 font-bold uppercase">
-                    <Check size={10} /> ACTIVE
-                  </span>
-                )}
-                <div>
-                  <div className="flex items-center gap-1.5 mb-1">
-                    <Users size={15} className={gameMode === 'DUEL' ? 'text-yellow-400' : 'text-zinc-500'} />
-                    <span className={`text-[10px] font-bold uppercase ${gameMode === 'DUEL' ? 'text-yellow-300' : 'text-zinc-300'}`}>
-                      2P SPLIT SCREEN DUEL
-                    </span>
-                  </div>
-                  <span className="text-[7px] text-yellow-500/90 font-mono uppercase block mb-1.5">
-                    [ LOCAL HEAD-TO-HEAD RACE ]
-                  </span>
-                  <p className="text-[8px] text-zinc-400 leading-relaxed">
-                    Side-by-side split screen viewports. Race your opponent to claim distant high-multiplier platforms first!
-                  </p>
-                </div>
-                <div className="mt-2.5 pt-2 border-t border-zinc-800 flex items-center justify-between text-[7px] text-zinc-500 font-mono">
-                  <span>P1: WASD | P2: ARROWS</span>
-                  <span className="text-yellow-400 font-bold">2 PLAYERS</span>
-                </div>
-              </button>
-            </div>
-
-            {/* Pilot Callsign & Vessel Bay */}
-            <div className="w-full bg-black/90 border-2 border-emerald-800 p-3.5 mb-3.5 rounded-none">
-              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pb-2.5 border-b border-zinc-800 mb-3">
-                <div className="flex-1 w-full">
-                  <label className="text-[8px] uppercase tracking-wider text-emerald-400 font-bold block mb-1.5 flex items-center gap-1.5">
-                    <User size={12} className="text-emerald-400" />
-                    <span>{gameMode === 'DUEL' ? 'PLAYER 1 CALLSIGN (WASD):' : 'PILOT CALLSIGN FOR THIS SESSION:'}</span>
-                  </label>
-                  <input
-                    type="text"
-                    maxLength={16}
-                    value={pilotName}
-                    onChange={(e) => {
-                      const val = e.target.value.toUpperCase();
-                      setPilotName(val);
-                      setStoredPilotName(val);
-                    }}
-                    placeholder="ENTER CALLSIGN..."
-                    className="w-full bg-zinc-950 border-2 border-emerald-600 px-3 py-1.5 text-emerald-300 text-[10px] font-bold tracking-widest focus:outline-none focus:border-emerald-400 rounded-none mb-2"
-                  />
-                  {/* Preset Chips */}
-                  <div className="flex flex-wrap gap-1">
-                    {PRESET_PILOT_NAMES.slice(0, 6).map((name) => (
-                      <button
-                        key={name}
-                        type="button"
-                        onClick={() => {
-                          setPilotName(name);
-                          setStoredPilotName(name);
-                          gameAudio.playCrispClick();
-                        }}
-                        className={`text-[7px] px-2 py-0.5 border transition ${
-                          pilotName === name
-                            ? 'bg-emerald-500 text-black border-emerald-400 font-bold shadow-[1px_1px_0_0_#064e3b]'
-                            : 'bg-zinc-900 text-zinc-400 border-zinc-700 hover:text-white'
-                        }`}>
-                        {name}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Interactive Vessel Preview Chamber */}
-                <div className="w-full sm:w-auto flex sm:flex-col items-center justify-between sm:justify-center p-2.5 bg-zinc-950 border border-zinc-800 min-w-[130px]">
-                  <span className="text-[7px] text-zinc-500 uppercase tracking-widest block mb-1 font-mono">VESSEL PREVIEW</span>
-                  <div className="relative w-12 h-10 flex items-center justify-center my-1">
-                    {/* Glowing Engine Flare */}
-                    <div
-                      className="absolute bottom-0 w-3 h-4 rounded-full blur-[2px] animate-pulse"
-                      style={{ backgroundColor: p1Theme.color }}
-                    />
-                    {/* Lander Graphic */}
-                    {assets['lander'] ? (
-                      <img
-                        src={assets['lander'].src}
-                        alt="Lander Preview"
-                        className="w-10 h-8 object-contain relative z-10 drop-shadow-[0_0_8px_rgba(255,255,255,0.4)]"
-                      />
-                    ) : (
-                      <div className="w-8 h-6 bg-white rounded-sm" />
-                    )}
-                  </div>
-                  <span className="text-[7px] font-bold uppercase" style={{ color: p1Theme.color }}>
-                    {p1Theme.name}
-                  </span>
-                </div>
-              </div>
-
-              {/* Ship Livery / Hull Accent Swatches */}
-              <div className="flex items-center justify-between flex-wrap gap-2 pt-1">
-                <span className="text-[7px] text-zinc-400 uppercase font-mono flex items-center gap-1">
-                  <Shield size={10} className="text-zinc-500" />
-                  <span>HULL LIVERY ACCENT:</span>
-                </span>
-                <div className="flex items-center gap-1.5">
-                  {SHIP_THEMES.map((theme) => (
+                  <div className="grid grid-cols-2 gap-2">
                     <button
-                      key={theme.id}
                       type="button"
                       onClick={() => {
-                        setP1Theme(theme);
+                        setGameMode('SOLO');
                         gameAudio.playCrispClick();
                       }}
-                      title={theme.name}
-                      className={`w-6 h-6 border-2 flex items-center justify-center transition ${
-                        p1Theme.id === theme.id ? 'border-white scale-110 shadow-[0_0_8px_rgba(255,255,255,0.8)]' : 'border-zinc-700 opacity-60 hover:opacity-100'
-                      }`}
-                      style={{ backgroundColor: theme.color }}>
-                      {p1Theme.id === theme.id && <Check size={10} className="text-black font-bold" />}
+                      className={`p-2.5 border-2 text-left transition rounded-none ${
+                        gameMode === 'SOLO'
+                          ? 'bg-emerald-950/60 border-emerald-400 text-emerald-300 shadow-[2px_2px_0_0_#064e3b]'
+                          : 'bg-black/60 border-zinc-800 text-zinc-500 hover:border-zinc-600'
+                      }`}>
+                      <div className="flex items-center gap-1.5 font-bold text-[9px] uppercase mb-0.5">
+                        <Rocket size={13} className={gameMode === 'SOLO' ? 'text-emerald-400' : 'text-zinc-500'} />
+                        <span>SOLO FLIGHT</span>
+                      </div>
+                      <span className="text-[6.5px] block font-mono text-zinc-400">
+                        1 Pilot • 5 Degradation Eras
+                      </span>
                     </button>
-                  ))}
-                </div>
-              </div>
 
-              {/* In Duel Mode: Pilot 2 Configuration */}
-              {gameMode === 'DUEL' && (
-                <div className="mt-3 pt-3 border-t border-zinc-800">
-                  <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-                    <div className="flex-1 w-full">
-                      <label className="text-[8px] uppercase tracking-wider text-amber-400 font-bold block mb-1.5 flex items-center gap-1.5">
-                        <Users size={12} />
-                        <span>PLAYER 2 CALLSIGN (ARROW KEYS):</span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setGameMode('DUEL');
+                        gameAudio.playCrispClick();
+                      }}
+                      className={`p-2.5 border-2 text-left transition rounded-none ${
+                        gameMode === 'DUEL'
+                          ? 'bg-yellow-950/60 border-yellow-400 text-yellow-300 shadow-[2px_2px_0_0_#78350f]'
+                          : 'bg-black/60 border-zinc-800 text-zinc-500 hover:border-zinc-600'
+                      }`}>
+                      <div className="flex items-center gap-1.5 font-bold text-[9px] uppercase mb-0.5">
+                        <Users size={13} className={gameMode === 'DUEL' ? 'text-yellow-400' : 'text-zinc-500'} />
+                        <span>2P DUEL SPLIT</span>
+                      </div>
+                      <span className="text-[6.5px] block font-mono text-zinc-400">
+                        Local Head-to-Head Race
+                      </span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Pilot Callsign & Vessel Hangar */}
+                <div className="bg-black/80 border-2 border-zinc-800 p-3 rounded-none">
+                  <div className="flex items-center justify-between gap-3 mb-2">
+                    <div className="flex-1">
+                      <label className="text-[7.5px] uppercase font-mono text-emerald-400 font-bold block mb-1">
+                        {gameMode === 'DUEL' ? 'PLAYER 1 CALLSIGN (WASD):' : 'PILOT CALLSIGN:'}
+                      </label>
+                      <input
+                        type="text"
+                        maxLength={16}
+                        value={pilotName}
+                        onChange={(e) => {
+                          const val = e.target.value.toUpperCase();
+                          setPilotName(val);
+                          setStoredPilotName(val);
+                        }}
+                        className="w-full bg-zinc-950 border border-emerald-600 px-2.5 py-1 text-emerald-300 text-[9px] font-bold tracking-widest focus:outline-none focus:border-emerald-400 rounded-none mb-1.5"
+                      />
+                      {/* Preset Chips */}
+                      <div className="flex flex-wrap gap-1">
+                        {PRESET_PILOT_NAMES.slice(0, 5).map((name) => (
+                          <button
+                            key={name}
+                            type="button"
+                            onClick={() => {
+                              setPilotName(name);
+                              setStoredPilotName(name);
+                              gameAudio.playCrispClick();
+                            }}
+                            className={`text-[6.5px] px-1.5 py-0.5 border transition ${
+                              pilotName === name
+                                ? 'bg-emerald-500 text-black border-emerald-400 font-bold'
+                                : 'bg-zinc-900 text-zinc-400 border-zinc-700 hover:text-white'
+                            }`}>
+                            {name}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Vessel Preview Mini-Bay */}
+                    <div className="flex flex-col items-center justify-center p-2 bg-zinc-950 border border-zinc-800 min-w-[90px]">
+                      <div className="relative w-9 h-7 flex items-center justify-center my-0.5">
+                        <div
+                          className="absolute bottom-0 w-2.5 h-3 rounded-full blur-[2px] animate-pulse"
+                          style={{ backgroundColor: p1Theme.color }}
+                        />
+                        {assets['lander'] ? (
+                          <img
+                            src={assets['lander'].src}
+                            alt="Lander"
+                            className="w-8 h-6 object-contain relative z-10"
+                          />
+                        ) : (
+                          <div className="w-6 h-5 bg-white rounded-sm" />
+                        )}
+                      </div>
+                      <span className="text-[6.5px] font-bold uppercase truncate max-w-[80px]" style={{ color: p1Theme.color }}>
+                        {p1Theme.name}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Livery swatches */}
+                  <div className="flex items-center justify-between pt-1 border-t border-zinc-800/80">
+                    <span className="text-[6.5px] text-zinc-400 font-mono">HULL ACCENT:</span>
+                    <div className="flex items-center gap-1">
+                      {SHIP_THEMES.map((theme) => (
+                        <button
+                          key={theme.id}
+                          type="button"
+                          onClick={() => {
+                            setP1Theme(theme);
+                            gameAudio.playCrispClick();
+                          }}
+                          title={theme.name}
+                          className={`w-4 h-4 border transition ${
+                            p1Theme.id === theme.id ? 'border-white scale-110' : 'border-zinc-700 opacity-60 hover:opacity-100'
+                          }`}
+                          style={{ backgroundColor: theme.color }}
+                        />
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Player 2 in Duel Mode */}
+                  {gameMode === 'DUEL' && (
+                    <div className="mt-2.5 pt-2 border-t border-zinc-800">
+                      <label className="text-[7.5px] uppercase font-mono text-amber-400 font-bold block mb-1">
+                        PLAYER 2 CALLSIGN (ARROWS):
                       </label>
                       <input
                         type="text"
@@ -2831,155 +2913,149 @@ export default function App() {
                           setP2Name(val);
                           setStoredP2Name(val);
                         }}
-                        placeholder="ENTER PILOT 2..."
-                        className="w-full bg-zinc-950 border-2 border-amber-600 px-3 py-1.5 text-amber-300 text-[10px] font-bold tracking-widest focus:outline-none focus:border-amber-400 rounded-none mb-1.5"
+                        className="w-full bg-zinc-950 border border-amber-600 px-2.5 py-1 text-amber-300 text-[9px] font-bold tracking-widest focus:outline-none focus:border-amber-400 rounded-none mb-1.5"
                       />
+                      <div className="flex items-center justify-between">
+                        <span className="text-[6.5px] text-amber-400 font-mono">P2 HULL:</span>
+                        <div className="flex items-center gap-1">
+                          {SHIP_THEMES.map((theme) => (
+                            <button
+                              key={theme.id}
+                              type="button"
+                              onClick={() => {
+                                setP2Theme(theme);
+                                gameAudio.playCrispClick();
+                              }}
+                              className={`w-4 h-4 border transition ${
+                                p2Theme.id === theme.id ? 'border-white scale-110' : 'border-zinc-700 opacity-60 hover:opacity-100'
+                              }`}
+                              style={{ backgroundColor: theme.color }}
+                            />
+                          ))}
+                        </div>
+                      </div>
                     </div>
-                    {/* P2 Livery swatches */}
-                    <div className="flex items-center gap-1.5">
-                      <span className="text-[7px] text-amber-500 uppercase font-mono mr-1">P2 HULL:</span>
-                      {SHIP_THEMES.map((theme) => (
+                  )}
+                </div>
+
+                {/* Level 1 Extra Fuel Feature Banner */}
+                <div className="bg-emerald-950/30 border border-emerald-600/70 px-2.5 py-1.5 text-[7.5px] flex items-center justify-between font-mono">
+                  <span className="text-emerald-300 font-bold flex items-center gap-1.5">
+                    <Zap size={11} className="text-emerald-400 animate-pulse" />
+                    <span>LEVEL 1 REFUEL: 180L HIGH-CAPACITY TANKS EQUIPPED (+80% FUEL)</span>
+                  </span>
+                </div>
+              </div>
+
+              {/* RIGHT COLUMN (7 Cols): MISSION ENVIRONMENT & RETROGRESSION TIMELINE */}
+              <div className="lg:col-span-7 space-y-3 flex flex-col justify-between">
+                
+                {/* Technology Retrogression Timeline & Starting Era Selector */}
+                <div className="bg-black/80 border-2 border-emerald-700/80 p-3 rounded-none">
+                  <div className="flex items-center justify-between mb-2 pb-1 border-b border-zinc-800">
+                    <span className="text-[7.5px] font-mono text-emerald-400 font-bold flex items-center gap-1.5 uppercase">
+                      <Activity size={12} className="text-emerald-400" />
+                      <span>TECHNOLOGY RETROGRESSION (SELECT STARTING ERA):</span>
+                    </span>
+                    <span className="text-[6.5px] text-zinc-400 font-mono">
+                      [AGE BACKWARD IN TIME]
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-5 gap-1.5">
+                    {EPOCHS.map((epoch) => {
+                      const isSelected = selectedStartingEpoch === epoch.id;
+                      return (
                         <button
-                          key={theme.id}
+                          key={epoch.id}
                           type="button"
                           onClick={() => {
-                            setP2Theme(theme);
+                            setSelectedStartingEpoch(epoch.id);
                             gameAudio.playCrispClick();
                           }}
-                          title={`P2: ${theme.name}`}
-                          className={`w-5 h-5 border-2 flex items-center justify-center transition ${
-                            p2Theme.id === theme.id ? 'border-white scale-110 shadow-[0_0_8px_rgba(255,255,255,0.8)]' : 'border-zinc-700 opacity-60 hover:opacity-100'
+                          className={`p-2 text-left border transition relative flex flex-col justify-between rounded-none ${
+                            isSelected
+                              ? 'bg-zinc-900 shadow-[2px_2px_0_0_#fff]'
+                              : 'bg-zinc-950/70 border-zinc-800 hover:border-zinc-600'
                           }`}
-                          style={{ backgroundColor: theme.color }}>
-                          {p2Theme.id === theme.id && <Check size={8} className="text-black font-bold" />}
+                          style={{
+                            borderColor: isSelected ? epoch.themeColor : undefined,
+                            boxShadow: isSelected ? `2px 2px 0 0 ${epoch.themeColor}` : undefined,
+                          }}>
+                          <div>
+                            <div className="flex items-center justify-between mb-0.5">
+                              <span className="text-[7.5px] font-bold uppercase truncate" style={{ color: epoch.themeColor }}>
+                                {epoch.id}. {epoch.name}
+                              </span>
+                              {isSelected && <Check size={8} style={{ color: epoch.themeColor }} />}
+                            </div>
+                            <span className="text-[6.5px] text-zinc-400 block font-mono">
+                              {epoch.era}
+                            </span>
+                          </div>
+                          <span className="text-[6px] text-zinc-500 mt-1 block truncate">
+                            {epoch.hudStyle === 'modern' ? 'Glass Cockpit' : epoch.hudStyle === 'y2k' ? 'No-Pip' : epoch.hudStyle === 'eighties' ? 'Amber CRT' : epoch.hudStyle === 'apollo' ? 'Analog Gauge' : '95% Blackout'}
+                          </span>
                         </button>
-                      ))}
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Tactical Landing Targets */}
+                <div className="bg-black/80 border-2 border-zinc-800 p-2.5 rounded-none font-mono">
+                  <span className="text-[7.5px] text-zinc-400 uppercase block mb-1.5 font-bold flex items-center gap-1">
+                    <Crosshair size={11} className="text-cyan-400" />
+                    <span>TACTICAL TOUCHDOWN PLATFORMS & DISTANCE MULTIPLIERS:</span>
+                  </span>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
+                    <div className="bg-zinc-950 border border-emerald-600/70 p-1.5">
+                      <div className="flex items-center justify-between mb-0.5">
+                        <span className="text-[7.5px] font-bold text-emerald-400">ALPHA</span>
+                        <span className="text-[6.5px] font-bold text-emerald-300">1.0x</span>
+                      </div>
+                      <span className="text-[6px] text-zinc-400 block">~450m • Plateau</span>
+                    </div>
+                    <div className="bg-zinc-950 border border-sky-500/70 p-1.5">
+                      <div className="flex items-center justify-between mb-0.5">
+                        <span className="text-[7.5px] font-bold text-sky-400">BRAVO</span>
+                        <span className="text-[6.5px] font-bold text-sky-300">2.0x</span>
+                      </div>
+                      <span className="text-[6px] text-zinc-400 block">~1200m • Crags</span>
+                    </div>
+                    <div className="bg-zinc-950 border border-amber-500/70 p-1.5">
+                      <div className="flex items-center justify-between mb-0.5">
+                        <span className="text-[7.5px] font-bold text-amber-400">CHARLIE</span>
+                        <span className="text-[6.5px] font-bold text-amber-300">3.5x</span>
+                      </div>
+                      <span className="text-[6px] text-zinc-400 block">~2000m • Ridge</span>
+                    </div>
+                    <div className="bg-zinc-950 border border-pink-500/70 p-1.5">
+                      <div className="flex items-center justify-between mb-0.5">
+                        <span className="text-[7.5px] font-bold text-pink-400">OMEGA</span>
+                        <span className="text-[6.5px] font-bold text-pink-300">5.0x</span>
+                      </div>
+                      <span className="text-[6px] text-zinc-400 block">~2800m • Abyss</span>
                     </div>
                   </div>
                 </div>
-              )}
-            </div>
 
-            {/* Tactical Landing Targets Overview with Multipliers */}
-            <div className="w-full bg-black/80 border-2 border-zinc-800 p-2.5 mb-3.5">
-              <span className="text-[7px] text-zinc-400 uppercase font-mono block mb-1.5 font-bold flex items-center gap-1">
-                <Crosshair size={11} className="text-cyan-400" />
-                <span>TACTICAL TOUCHDOWN PLATFORMS & DISTANCE MULTIPLIERS:</span>
-              </span>
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 text-left font-mono">
-                {/* Alpha */}
-                <div className="bg-zinc-950 border border-emerald-600/70 p-1.5 flex flex-col justify-between">
-                  <div className="flex items-center justify-between mb-0.5">
-                    <span className="text-[8px] font-bold text-emerald-400">ALPHA</span>
-                    <span className="text-[7px] font-bold bg-emerald-950 text-emerald-300 px-1 border border-emerald-500">1.0x</span>
-                  </div>
-                  <span className="text-[6.5px] text-zinc-400">~450m • SAFE PLATEAU</span>
-                </div>
-                {/* Bravo */}
-                <div className="bg-zinc-950 border border-sky-500/70 p-1.5 flex flex-col justify-between">
-                  <div className="flex items-center justify-between mb-0.5">
-                    <span className="text-[8px] font-bold text-sky-400">BRAVO</span>
-                    <span className="text-[7px] font-bold bg-sky-950 text-sky-300 px-1 border border-sky-400">2.0x</span>
-                  </div>
-                  <span className="text-[6.5px] text-zinc-400">~1200m • CRAG GAP</span>
-                </div>
-                {/* Charlie */}
-                <div className="bg-zinc-950 border border-amber-500/70 p-1.5 flex flex-col justify-between">
-                  <div className="flex items-center justify-between mb-0.5">
-                    <span className="text-[8px] font-bold text-amber-400">CHARLIE</span>
-                    <span className="text-[7px] font-bold bg-amber-950 text-amber-300 px-1 border border-amber-400">3.5x</span>
-                  </div>
-                  <span className="text-[6.5px] text-zinc-400">~2000m • BASALT RIDGE</span>
-                </div>
-                {/* Omega */}
-                <div className="bg-zinc-950 border border-pink-500/70 p-1.5 flex flex-col justify-between">
-                  <div className="flex items-center justify-between mb-0.5">
-                    <span className="text-[8px] font-bold text-pink-400">OMEGA</span>
-                    <span className="text-[7px] font-bold bg-pink-950 text-pink-300 px-1 border border-pink-400">5.0x</span>
-                  </div>
-                  <span className="text-[6.5px] text-zinc-400">~2800m • DEEP ABYSS</span>
+                {/* Flight Hazards Advisory Banner */}
+                <div className="bg-red-950/20 border border-red-700/60 px-2.5 py-1.5 text-[7px] text-red-300 font-mono flex items-center justify-between">
+                  <span className="flex items-center gap-1.5">
+                    <AlertTriangle size={11} className="text-red-400 shrink-0" />
+                    <span>HAZARDS: Atmospheric turbulence crosswinds & drifting orbital micrometeorites active!</span>
+                  </span>
+                  <span className="text-zinc-500 hidden sm:inline">[THROTTLE CAUTION]</span>
                 </div>
               </div>
             </div>
 
-            {/* Level 1 Extra Fuel Feature Banner */}
-            <div className="w-full bg-emerald-950/30 border-2 border-emerald-600/80 px-3 py-1.5 mb-3 text-[8px] flex items-center justify-between font-mono">
-              <span className="text-emerald-300 font-bold flex items-center gap-1.5">
-                <Zap size={12} className="text-emerald-400 animate-pulse" />
-                <span>LEVEL 1 REFUEL: 180L HIGH-CAPACITY TANKS EQUIPPED (+80% FUEL MARGIN)</span>
-              </span>
-              <span className="text-[7px] text-emerald-400 bg-emerald-900/50 px-1.5 py-0.5 border border-emerald-500 hidden sm:inline">
-                EXPLORE DEEP PADS
-              </span>
-            </div>
-
-            {/* Technological Retrogression Timeline & Starting Era Selector */}
-            <div className="w-full bg-black/90 border-2 border-emerald-700/80 p-3 mb-4 rounded-none">
-              <div className="flex items-center justify-between mb-2 pb-1.5 border-b border-zinc-800">
-                <span className="text-[7.5px] md:text-[8px] text-emerald-400 uppercase font-mono font-bold flex items-center gap-1.5">
-                  <Activity size={12} className="text-emerald-400 animate-pulse" />
-                  <span>TECHNOLOGY RETROGRESSION TIMELINE (AVIONICS AGE BACKWARD):</span>
-                </span>
-                <span className="text-[7px] text-zinc-400 font-mono">
-                  [SELECT STARTING ERA]
-                </span>
-              </div>
-              <div className="grid grid-cols-2 sm:grid-cols-5 gap-1.5">
-                {EPOCHS.map((epoch) => {
-                  const isSelected = selectedStartingEpoch === epoch.id;
-                  return (
-                    <button
-                      key={epoch.id}
-                      type="button"
-                      onClick={() => {
-                        setSelectedStartingEpoch(epoch.id);
-                        gameAudio.playCrispClick();
-                      }}
-                      className={`p-1.5 text-left border-2 transition relative flex flex-col justify-between rounded-none ${
-                        isSelected
-                          ? 'bg-zinc-900 shadow-[2px_2px_0px_0px_#fff]'
-                          : 'bg-zinc-950/80 border-zinc-800 hover:border-zinc-600'
-                      }`}
-                      style={{
-                        borderColor: isSelected ? epoch.themeColor : undefined,
-                        boxShadow: isSelected ? `2px 2px 0px 0px ${epoch.themeColor}` : undefined,
-                      }}>
-                      <div>
-                        <div className="flex items-center justify-between mb-0.5">
-                          <span
-                            className="text-[7.5px] font-bold uppercase truncate"
-                            style={{ color: epoch.themeColor }}>
-                            {epoch.id}. {epoch.name}
-                          </span>
-                          {isSelected && <Check size={9} style={{ color: epoch.themeColor }} />}
-                        </div>
-                        <span className="text-[6.5px] text-zinc-400 block font-mono">
-                          {epoch.era}
-                        </span>
-                      </div>
-                      <span className="text-[6px] text-zinc-500 mt-1 block truncate">
-                        {epoch.hudStyle === 'modern'
-                          ? 'Glass Cockpit'
-                          : epoch.hudStyle === 'y2k'
-                          ? 'SCADA No-Pip'
-                          : epoch.hudStyle === 'eighties'
-                          ? 'Amber CRT'
-                          : epoch.hudStyle === 'apollo'
-                          ? 'Analog Gauge'
-                          : '95% Blackout'}
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* Main Action Launch Button */}
+            {/* Bottom Strip: Giant Launch Button & Controls */}
             <button
               ref={startBtnRef}
               onClick={initGame}
               autoFocus
-              className="w-full bg-emerald-400 hover:bg-emerald-300 text-black border-4 border-emerald-200 font-black text-sm md:text-base py-3.5 px-6 shadow-[0_0_20px_rgba(16,185,129,0.5)] active:translate-x-0.5 active:translate-y-0.5 transition flex items-center justify-center gap-2 uppercase rounded-none cursor-pointer group">
+              className="w-full bg-emerald-400 hover:bg-emerald-300 text-black border-4 border-emerald-200 font-black text-sm md:text-base py-3 px-6 shadow-[0_0_20px_rgba(16,185,129,0.5)] active:translate-x-0.5 active:translate-y-0.5 transition flex items-center justify-center gap-2 uppercase rounded-none cursor-pointer group mb-2.5">
               <Play size={18} fill="currentColor" className="group-hover:scale-110 transition-transform" />
               <span>
                 {gameMode === 'DUEL'
@@ -2993,49 +3069,49 @@ export default function App() {
               </span>
             </button>
 
-            {/* Audio & Extra Actions Footer */}
-            <div className="w-full flex items-center justify-between pt-3 mt-3 border-t border-zinc-800 text-[8px] flex-wrap gap-2">
-              <div className="flex items-center gap-2">
+            {/* Minimal Footer */}
+            <div className="w-full flex items-center justify-between pt-2 border-t border-zinc-800 text-[7.5px] font-mono text-zinc-400">
+              <div className="flex items-center gap-3">
                 <button
                   type="button"
                   onClick={() => {
                     const newMuted = gameAudio.toggleMute();
                     setIsSfxMuted(newMuted);
                   }}
-                  className="text-zinc-400 hover:text-white flex items-center gap-1 transition uppercase font-mono">
-                  {isSfxMuted ? <VolumeX size={12} className="text-red-400" /> : <Volume2 size={12} className="text-emerald-400" />}
+                  className="hover:text-white flex items-center gap-1 transition">
+                  {isSfxMuted ? <VolumeX size={11} className="text-red-400" /> : <Volume2 size={11} className="text-emerald-400" />}
                   <span>SFX: {isSfxMuted ? 'OFF' : 'ON'}</span>
                 </button>
-                <span className="text-zinc-700">|</span>
+                <span>|</span>
                 <button
                   type="button"
                   onClick={() => setIsMusicMuted((prev) => !prev)}
-                  className="text-zinc-400 hover:text-white flex items-center gap-1 transition uppercase font-mono">
-                  {isMusicMuted ? <VolumeX size={12} className="text-red-400" /> : <Volume2 size={12} className="text-emerald-400" />}
+                  className="hover:text-white flex items-center gap-1 transition">
+                  {isMusicMuted ? <VolumeX size={11} className="text-red-400" /> : <Volume2 size={11} className="text-emerald-400" />}
                   <span>BGM: {isMusicMuted ? 'OFF' : 'ON'}</span>
                 </button>
               </div>
 
-              <div className="flex items-center gap-3">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setIsLeaderboardOpen(true);
-                    gameAudio.playCrispClick();
-                  }}
-                  className="text-yellow-400 hover:text-yellow-300 flex items-center gap-1 transition underline uppercase font-bold">
-                  <Trophy size={12} />
-                  <span>[ ROSTER ]</span>
-                </button>
+              <div className="flex items-center gap-4">
                 <button
                   type="button"
                   onClick={() => {
                     setIsHowToPlayOpen(true);
                     gameAudio.playCrispClick();
                   }}
-                  className="text-zinc-400 hover:text-emerald-400 flex items-center gap-1 transition underline uppercase font-bold">
-                  <HelpCircle size={12} />
+                  className="hover:text-emerald-400 transition flex items-center gap-1 uppercase font-bold">
+                  <HelpCircle size={11} />
                   <span>[ FLIGHT MANUAL ]</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsLeaderboardOpen(true);
+                    gameAudio.playCrispClick();
+                  }}
+                  className="text-yellow-400 hover:text-yellow-300 transition flex items-center gap-1 uppercase font-bold">
+                  <Trophy size={11} />
+                  <span>[ SCOREBOARD ]</span>
                 </button>
               </div>
             </div>

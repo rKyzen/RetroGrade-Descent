@@ -86,7 +86,14 @@
 * **Pillar 3: Sensory Synesthesia**: Forcing players to transition their reliance from digital visual dials to auditory sonar feedback in total optical blackout.
 * **Pillar 4: Risk vs. Reward Navigation**: Distant landing platforms demand fuel conservation and risk-taking across rugged basalt obstacles in exchange for exponential score multipliers (up to 5x).
 
-### 2. Physics & Safe Touchdown Envelope (Forgiving & Accessible)
+### 2. Environmental Hazards & Progressive Level Difficulty
+To make lunar piloting an authentic challenge without ruining accessible touchdowns, dynamic environmental hazards are active:
+* **Drifting Orbital Micrometeorites / Debris**: Rotating space hazards drift across the approach corridors between pads. High-speed collisions cause severe structural breaches, while grazing impacts impart kinetic deflection impulses that require active pilot recovery.
+* **Atmospheric Crosswind Turbulence**: Dynamic crosswinds push the vessel laterally, scaling progressively from gentle $13\text{ px/s}$ breezes in Epoch 1 up to intense $41\text{ px/s}$ squalls in Epoch 5, demanding continuous RCS rotational counter-thrust.
+* **Basalt Ridge Spires**: Additional sharp volcanic crags divide the lunar plateaus, forcing pilots to maintain safe clearance when navigating toward distant pads.
+* **Progressive Fuel Burn Scaling**: Fuel consumption scales by $+8\%$ per epoch, requiring disciplined engine throttling to claim distant pads.
+
+### 3. Physics & Safe Touchdown Envelope (Forgiving & Accessible)
 To execute a successful touchdown without structural collapse, the vessel's telemetry must satisfy:
 1. **Vertical Speed ($V_y$)**: Below $75\text{ px/s}$ (increased from $45\text{ px/s}$ for smooth, accessible touchdowns).
 2. **Horizontal Drift ($V_x$)**: Below $45\text{ px/s}$ (increased from $25\text{ px/s}$ for generous lateral drift tolerance).
@@ -94,7 +101,11 @@ To execute a successful touchdown without structural collapse, the vessel's tele
 4. **Platform Alignment**: Landing footpads or fuselage aligned over the designated platform.
 5. **Hydraulic Suspension Cushion**: Touchdowns with slight overspeed or angle (within a $35\%$ margin) are absorbed by the landing gear's hydraulic springs with a soft bounce and regolith dust puffs, rather than catastrophic failure!
 
-### 3. Scoring Architecture
+### 4. Decluttered Full-Screen Command Deck
+* **Full-Screen 2-Column Bridge**: Edge-to-edge widescreen layout dividing pilot setup from mission briefing, eliminating nested vertical scrolling.
+* **Sleek Single-Line Cockpit HUD**: Replaced the multi-row box clutter with a semi-transparent glass bar featuring an integrated fuel progress bar, dynamic speed indicator, target pad beacon, and score counter.
+
+### 5. Scoring Architecture
 $$\text{Touchdown Score} = \Big(\text{Epoch Bonus} + \text{Fuel Conserved Bonus} + \text{Precision Landing Bonus}\Big) \times \text{Pad Multiplier}$$
 * **Epoch Bonus**: $\text{Epoch Level} \times 1,000\text{ pts}$
 * **Fuel Conserved Bonus**: $\text{Remaining Fuel (L)} \times 15\text{ pts}$
