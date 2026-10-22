@@ -1,0 +1,83 @@
+{
+  "schema": [
+    {
+      "name": "gravity",
+      "type": "number",
+      "label": "Lunar Gravity",
+      "default": 38,
+      "min": 20,
+      "max": 60,
+      "step": 1
+    },
+    {
+      "name": "mainThrust",
+      "type": "number",
+      "label": "Main Engine Thrust",
+      "default": 95,
+      "min": 60,
+      "max": 140,
+      "step": 5
+    },
+    {
+      "name": "rotationSpeed",
+      "type": "number",
+      "label": "RCS Rotation Speed",
+      "default": 2.4,
+      "min": 1,
+      "max": 5,
+      "step": 0.2
+    },
+    {
+      "name": "fuelConsumptionRate",
+      "type": "number",
+      "label": "Fuel Consumption Rate",
+      "default": 9.5,
+      "min": 5,
+      "max": 25,
+      "step": 0.5
+    },
+    {
+      "name": "maxSafeLandingVy",
+      "type": "number",
+      "label": "Max Safe Vertical Speed (px/s)",
+      "default": 45,
+      "min": 20,
+      "max": 80,
+      "step": 5
+    },
+    {
+      "name": "maxSafeLandingVx",
+      "type": "number",
+      "label": "Max Safe Horizontal Speed (px/s)",
+      "default": 25,
+      "min": 10,
+      "max": 50,
+      "step": 5
+    },
+    {
+      "name": "startingLives",
+      "type": "number",
+      "label": "Starting Lander Reserves",
+      "default": 3,
+      "min": 1,
+      "max": 5,
+      "step": 1
+    },
+    {
+      "name": "visualSonarAssist",
+      "type": "boolean",
+      "label": "Sonar Visual Accessibility Wave",
+      "default": true
+    }
+  ],
+  "values": {
+    "gravity": 38,
+    "mainThrust": 95,
+    "rotationSpeed": 2.4,
+    "fuelConsumptionRate": 9.5,
+    "maxSafeLandingVy": 45,
+    "maxSafeLandingVx": 25,
+    "startingLives": 3,
+    "visualSonarAssist": true
+  }
+}

@@ -1,0 +1,115 @@
+{
+  "title": "Retrograde Descent",
+  "hook": "Land blind as avionics regress",
+  "game_overview": "An intense lunar-lander simulation where each successful touchdown strips away cockpit avionics until players must pilot blind via audio sonar pings.",
+  "artstyle": "pixelated",
+  "genre": "arcade",
+  "winning_condition": "Successfully complete a touchdown in the final Blackout epoch to conquer the regression gauntlet.",
+  "losing_condition": "Crash into rough terrain, touch down with excessive vertical/horizontal speed, tilt past tolerance, or deplete all thruster fuel.",
+  "player_mode": "single_player",
+  "supported_orientations": [
+    "landscape",
+    "wide"
+  ],
+  "input_methods": [
+    "keyboard",
+    "touch",
+    "dpad"
+  ],
+  "score_options": {
+    "score_type": "points",
+    "score_order": "higher_is_better"
+  },
+  "low_end_device_support": true,
+  "mobile_playable": true,
+  "tv_playable": true,
+  "language": [
+    "en"
+  ],
+  "content_descriptors": [],
+  "controls": [
+    {
+      "input": "Up Arrow / W / Keypad 8 / Virtual Thrust Button",
+      "action": "Engage main rocket thruster to counteract gravity and slow descent (consumes fuel)."
+    },
+    {
+      "input": "Left Arrow / A / Keypad 4 / Virtual Steer Left",
+      "action": "Rotate lander counter-clockwise to vector thrust."
+    },
+    {
+      "input": "Right Arrow / D / Keypad 6 / Virtual Steer Right",
+      "action": "Rotate lander clockwise to vector thrust."
+    },
+    {
+      "input": "R / Tap Virtual Restart",
+      "action": "Quick reset current run after landing or crash."
+    }
+  ],
+  "sections": [
+    {
+      "title": "Design Pillars",
+      "content": "1. Information Asymmetry as Difficulty: Challenge escalates by systematically degrading and stripping player telemetry rather than spawning artificial hazards. 2. Rigorous Inertial Physics: Semi-implicit Euler integration governing momentum, gravity, and vectorized thrust. 3. Sensory Synesthesia: Shifting player reliance from visual glass-cockpit gauges down to visceral audio frequencies in the final sensory blackout.",
+      "summary": "Core philosophy driving Retrograde Descent."
+    },
+    {
+      "title": "Core Loop",
+      "content": "The player launches at high altitude over jagged terrain with a defined landing pad. Maneuvering against lunar gravity, the player regulates descent rate and attitude. Landing upright within speed tolerances awards precision score and regresses avionics to the next historical era (Modern -> Y2K -> Eighties -> Apollo -> Blackout). A crash resets the run. Completing Blackout crowns a master pilot.",
+      "summary": "The cycle of descent, touchdown, epoch regression, and scoring."
+    },
+    {
+      "title": "Epoch Regression State Machine",
+      "content": "1. MODERN: Full digital glass cockpit, velocity vector pip, numeric altitude/speed readouts, fuel percentage, landing guide reticle, high responsiveness. 2. Y2K: Reticle and autopilot assists stripped; controls switch to raw manual response. 3. EIGHTIES: Digital altitude display stripped and replaced with a rapid proximity strobe indicator. 4. APOLLO: Digital speed displays vanish; fuel gauge degrades into a delayed, laggy mechanical needle (~300ms damping). 5. BLACKOUT: Screen degrades to near total darkness with minimal silhouette visibility; landing guidance relies solely on acoustic sonar ping frequency modulating from 200 Hz at high altitude to 1200 Hz near surface contact.",
+      "summary": "Five distinct technological eras stripping instrumentation."
+    },
+    {
+      "title": "Physics and Touchdown Constraints",
+      "content": "Descent acceleration uses velocity += (thrust_vector + gravity) * delta and position += velocity * delta. Main thruster expends finite fuel reserves. Safe touchdown criteria requires: 1) Vertical speed below 45 px/s, 2) Horizontal speed below 25 px/s, 3) Tilt angle within +/- 8 degrees from true vertical, and 4) Both landing footpads cleanly contacting the designated flat surface. Any contact outside these envelopes triggers structural failure and crash explosion.",
+      "summary": "Semi-implicit Euler integration and strict landing envelope."
+    },
+    {
+      "title": "Visual Hierarchy & Layering",
+      "content": "Layer Separation: Background features deep space with desaturated distant lunar mountain silhouettes and twinkling starfields with zero collision. Playfield Layer features high-contrast vector crags, landing beacons, and high-visibility lander chassis. HUD & Shader Layer features an escalating Canvas/WebGL post-processing CRT filter: increasing scanlines, chromatic aberration, phosphor noise, and luminosity drop reaching near blackout in Epoch 5.",
+      "summary": "Multi-layer CRT scanline aesthetics with high contrast playfield."
+    },
+    {
+      "title": "Movement & Scrolling Alignment",
+      "content": "Scrolling Axis: Vertical descent (top to bottom playfield flow) with horizontal drift. Asset Orientation: The lunar lander faces straight up (12 o'clock) at neutral rotation and rotates dynamically 360 degrees. Playable bounds span full canvas width and height with bounce/clamp barriers on horizontal edges.",
+      "summary": "Vertical descent flow with horizontal maneuvering."
+    },
+    {
+      "title": "Attract Mode & Telemetry Persistence",
+      "content": "When inactive on title or game-over screen for 15 seconds, the game automatically enters Attract Mode: looping an autonomous demonstration autopilot run with simulated sensor glitches and rotating top records from localStorage (score, highest epoch reached, timestamp). Any user input immediately exits attract mode to the title menu.",
+      "summary": "Autonomous arcade idle demo and local storage leaderboards."
+    },
+    {
+      "title": "Characters & Enemies",
+      "content": "Player Lander: Modular lunar excursion module with articulated shock struts, dual RCS attitude thrusters, and main gimbal nozzle. Obstacles: Unforgiving basalt rock formations, narrow canyon approaches, and wind shear anomalies that buffet the lander.",
+      "summary": "Player spacecraft and environmental hazards."
+    },
+    {
+      "title": "Fairness Tools",
+      "content": "Visual touch pads highlight safe landing zones in contrasting neon emerald. Proximity radar provides audio cues even before full blackout to train player auditory estimation. Low fuel warnings trigger audible alarms before thruster burnout.",
+      "summary": "Assistance systems that reward skillful energy management."
+    },
+    {
+      "title": "Juice & Game Feel",
+      "content": "Anticipation Juice: Thruster flare sparks and expanding exhaust plume with engine vibration. State Change Juice: Screen shake on near-pad descent, warning lights pulsing amber on fuel reserves. Impact Juice: Gentle cushion strut compression and celebratory telemetry chime on soft landing; catastrophic fiery debris burst with heavy radial screen shake on crash.",
+      "summary": "Visceral sensory feedback for thruster burn and impact."
+    },
+    {
+      "title": "Accessibility",
+      "content": "Colorblind-friendly landing beacons (high-contrast shapes alongside colors). Visual wave frequency ripple option for hearing-impaired players during Blackout mode. Adjustable control sensitivity settings.",
+      "summary": "Visual and auditory dual accessibility."
+    },
+    {
+      "title": "Structural Integrity",
+      "content": "State flow: Title Screen (with Attract Timer) -> Briefing & Controls -> Active Descent -> Debrief / Epoch Transition -> Game Over / Attract Loop. High scores persist in localStorage across sessions.",
+      "summary": "Arcade kiosk screen flow and state management."
+    },
+    {
+      "title": "Virtual Touch Controls Implementation",
+      "content": "Render on-screen virtual buttons overlay on the game. Position Virtual Steer Left / Right buttons on bottom-left, and large Main Thrust button on bottom-right. Wire up onPointerDown, onPointerUp, onPointerLeave, and onPointerCancel to prevent stuck inputs. Apply touch-none and pointer-events-auto directly to buttons.",
+      "summary": "Mobile and touch kiosk controls overlay."
+    }
+  ]
+}
