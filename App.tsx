@@ -11,7 +11,9 @@ import {
   Flame,
   Gauge,
   HelpCircle,
+  Maximize2,
   Menu,
+  Minimize2,
   Play,
   Radio,
   Rocket,
@@ -313,6 +315,25 @@ export default function App() {
   // Audio mute controls
   const [isSfxMuted, setIsSfxMuted] = useState(false);
   const [isMusicMuted, setIsMusicMuted] = useState(false);
+
+  // Fullscreen State & API Control
+  const [isFullscreen, setIsFullscreen] = useState(false);
+
+  const toggleFullscreen = useCallback(() => {
+    if (!document.fullscreenElement) {
+      document.documentElement.requestFullscreen().then(() => setIsFullscreen(true)).catch(() => {});
+    } else {
+      document.exitFullscreen().then(() => setIsFullscreen(false)).catch(() => {});
+    }
+  }, []);
+
+  useEffect(() => {
+    const handleFsChange = () => {
+      setIsFullscreen(Boolean(document.fullscreenElement));
+    };
+    document.addEventListener('fullscreenchange', handleFsChange);
+    return () => document.removeEventListener('fullscreenchange', handleFsChange);
+  }, []);
 
   // In-Game Modals
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -2380,6 +2401,18 @@ export default function App() {
           <button
             onClick={() => {
               exitAttractMode();
+              toggleFullscreen();
+              gameAudio.playCrispClick();
+            }}
+            title={isFullscreen ? "Exit Fullscreen" : "Enter Fullscreen"}
+            className="bg-black hover:bg-emerald-400 hover:text-black text-emerald-400 border-2 border-emerald-500 px-2 py-1 shadow-[2px_2px_0px_0px_#064e3b] active:translate-x-0.5 active:translate-y-0.5 transition text-[9px] font-bold min-w-[40px] min-h-[40px] flex items-center justify-center uppercase rounded-none">
+            {isFullscreen ? <Minimize2 size={14} className="mr-1" /> : <Maximize2 size={14} className="mr-1" />}
+            <span className="hidden md:inline">{isFullscreen ? 'EXIT FS' : 'FULLSCREEN'}</span>
+          </button>
+
+          <button
+            onClick={() => {
+              exitAttractMode();
               setIsLeaderboardOpen(true);
               gameAudio.playCrispClick();
             }}
@@ -2538,28 +2571,41 @@ export default function App() {
 
       {/* START SCREEN: Session Name Input, Mode Selector, Mission Briefing */}
       {gameState.status === 'START' && !isAttractMode && (
-        <MenuOverlay tone="neutral" zIndex={40}>
-          <div className="w-full max-w-2xl bg-[#08080c]/95 backdrop-blur-md border-4 border-emerald-500 p-4 md:p-6 shadow-[10px_10px_0px_0px_#064e3b] flex flex-col items-center text-emerald-400 rounded-none relative">
+        <MenuOverlay tone="neutral" zIndex={40} fullScreen>
+          <div className="w-full max-w-4xl lg:max-w-5xl bg-[#08080c]/95 backdrop-blur-md border-4 border-emerald-500 p-4 md:p-6 shadow-[10px_10px_0px_0px_#064e3b] flex flex-col items-center text-emerald-400 rounded-none relative">
             
-            {/* Top All-Time High Score Ticker Banner */}
-            {leaderboardList && leaderboardList.length > 0 && (
+            {/* Top All-Time High Score Ticker Banner & Fullscreen Toggle */}
+            <div className="w-full flex items-center gap-2 mb-3">
+              {leaderboardList && leaderboardList.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsLeaderboardOpen(true);
+                    gameAudio.playCrispClick();
+                  }}
+                  className="flex-1 bg-yellow-950/40 hover:bg-yellow-900/60 border-2 border-yellow-500/70 px-3 py-1.5 text-[8px] md:text-[9px] flex items-center justify-between text-yellow-300 font-mono tracking-wider transition group shadow-[2px_2px_0px_0px_#78350f]">
+                  <span className="flex items-center gap-2 font-bold truncate">
+                    <Trophy size={14} className="text-yellow-400 animate-bounce shrink-0" />
+                    <span className="truncate">ALL-TIME RECORD: <strong className="text-yellow-200">{leaderboardList[0].pilotName}</strong> — {leaderboardList[0].score.toLocaleString()} PTS</span>
+                  </span>
+                  <span className="text-[7px] text-yellow-400 uppercase flex items-center gap-1 group-hover:text-yellow-200 font-bold shrink-0">
+                    <span>[{leaderboardList[0].padName}]</span>
+                    <ChevronRight size={12} />
+                  </span>
+                </button>
+              )}
               <button
                 type="button"
                 onClick={() => {
-                  setIsLeaderboardOpen(true);
+                  toggleFullscreen();
                   gameAudio.playCrispClick();
                 }}
-                className="w-full bg-yellow-950/40 hover:bg-yellow-900/60 border-2 border-yellow-500/70 px-3 py-1.5 mb-3 text-[8px] md:text-[9px] flex items-center justify-between text-yellow-300 font-mono tracking-wider transition group shadow-[2px_2px_0px_0px_#78350f]">
-                <span className="flex items-center gap-2 font-bold">
-                  <Trophy size={14} className="text-yellow-400 animate-bounce" />
-                  <span>ALL-TIME RECORD: <strong className="text-yellow-200">{leaderboardList[0].pilotName}</strong> — {leaderboardList[0].score.toLocaleString()} PTS</span>
-                </span>
-                <span className="text-[7px] text-yellow-400 uppercase flex items-center gap-1 group-hover:text-yellow-200 font-bold">
-                  <span>[{leaderboardList[0].padName}]</span>
-                  <ChevronRight size={12} />
-                </span>
+                title={isFullscreen ? "Exit Fullscreen" : "Enter Fullscreen"}
+                className="bg-black hover:bg-emerald-400 hover:text-black border-2 border-emerald-500 px-3 py-1.5 text-[8px] md:text-[9px] flex items-center gap-1.5 text-emerald-400 font-mono font-bold tracking-wider transition shadow-[2px_2px_0px_0px_#064e3b] shrink-0">
+                {isFullscreen ? <Minimize2 size={13} /> : <Maximize2 size={13} />}
+                <span className="hidden sm:inline">{isFullscreen ? 'EXIT FS' : 'FULLSCREEN'}</span>
               </button>
-            )}
+            </div>
 
             {/* Glowing Retro Terminal Header */}
             <div className="flex flex-col items-center text-center my-1 mb-4 w-full">
@@ -2911,8 +2957,8 @@ export default function App() {
 
       {/* TOUCHDOWN SUCCESS / LEVEL COMPLETE */}
       {gameState.status === 'LEVEL_COMPLETE' && lastTouchdownStats && (
-        <MenuOverlay tone="victory" zIndex={40}>
-          <div className="w-full max-w-md bg-[#08080c] border-4 border-emerald-500 p-5 md:p-6 shadow-[8px_8px_0px_0px_#064e3b] flex flex-col items-center text-emerald-400 rounded-none">
+        <MenuOverlay tone="victory" zIndex={40} fullScreen>
+          <div className="w-full max-w-xl bg-[#08080c] border-4 border-emerald-500 p-5 md:p-6 shadow-[8px_8px_0px_0px_#064e3b] flex flex-col items-center text-emerald-400 rounded-none">
             <Award className="text-emerald-400 mb-2 animate-bounce" size={36} />
             <h2 className="text-base md:text-xl font-bold text-center mb-1 uppercase tracking-wide">
               {gameMode === 'DUEL' ? `${lastTouchdownStats.pilotName} WINS DUEL!` : 'TOUCHDOWN CONFIRMED'}
@@ -2985,8 +3031,8 @@ export default function App() {
 
       {/* GAME OVER SCREEN */}
       {gameState.status === 'GAME_OVER' && (
-        <MenuOverlay tone="danger" zIndex={40}>
-          <div className="w-full max-w-md bg-[#08080c] border-4 border-red-500 p-5 md:p-6 shadow-[8px_8px_0px_0px_#7f1d1d] flex flex-col items-center text-red-500 rounded-none">
+        <MenuOverlay tone="danger" zIndex={40} fullScreen>
+          <div className="w-full max-w-xl bg-[#08080c] border-4 border-red-500 p-5 md:p-6 shadow-[8px_8px_0px_0px_#7f1d1d] flex flex-col items-center text-red-500 rounded-none">
             <AlertTriangle className="text-red-500 mb-2 animate-pulse" size={36} />
             <h2 className="text-base md:text-xl font-bold text-center mb-1 uppercase tracking-wide">
               EXPEDITION TERMINATED
@@ -3030,8 +3076,8 @@ export default function App() {
 
       {/* VICTORY OVERLAY */}
       {gameState.status === 'VICTORY' && (
-        <MenuOverlay tone="victory" zIndex={40}>
-          <div className="w-full max-w-md bg-[#08080c] border-4 border-yellow-400 p-6 shadow-[8px_8px_0px_0px_#78350f] flex flex-col items-center text-center text-yellow-400 rounded-none">
+        <MenuOverlay tone="victory" zIndex={40} fullScreen>
+          <div className="w-full max-w-xl bg-[#08080c] border-4 border-yellow-400 p-6 shadow-[8px_8px_0px_0px_#78350f] flex flex-col items-center text-center text-yellow-400 rounded-none">
             <Award className="text-yellow-400 mb-3 animate-bounce" size={44} />
             <h2 className="text-base md:text-2xl font-bold mb-1 uppercase tracking-wide">
               MASTER LUNAR PILOT
@@ -3074,21 +3120,31 @@ export default function App() {
 
       {/* REAL DATA LEADERBOARD / SCOREBOARD MODAL */}
       {isLeaderboardOpen && (
-        <MenuOverlay tone="neutral" zIndex={60}>
-          <div className="w-full max-w-lg bg-[#08080c] border-4 border-yellow-500 p-5 shadow-[8px_8px_0px_0px_#78350f] flex flex-col items-center text-yellow-400 rounded-none">
+        <MenuOverlay tone="neutral" zIndex={60} fullScreen>
+          <div className="w-full max-w-4xl bg-[#08080c]/95 backdrop-blur-md border-4 border-yellow-500 p-5 md:p-7 shadow-[12px_12px_0px_0px_#78350f] flex flex-col text-yellow-400 rounded-none">
             <div className="flex items-center justify-between w-full mb-3 pb-2 border-b-2 border-zinc-800">
               <h2 className="text-sm md:text-base font-bold flex items-center gap-2 uppercase">
                 <Trophy size={18} className="text-yellow-400" />
                 <span>FLIGHT LOG & LEADERBOARD</span>
               </h2>
-              <button
-                onClick={() => {
-                  setIsLeaderboardOpen(false);
-                  gameAudio.playCrispClick();
-                }}
-                className="p-1 hover:bg-yellow-400 hover:text-black border-2 border-zinc-700 text-zinc-400 rounded-none">
-                <X size={16} />
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={toggleFullscreen}
+                  title="Toggle Fullscreen"
+                  className="p-1 hover:bg-yellow-400 hover:text-black border-2 border-zinc-700 text-zinc-300 rounded-none text-[8px] flex items-center gap-1 font-mono uppercase">
+                  {isFullscreen ? <Minimize2 size={13} /> : <Maximize2 size={13} />}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsLeaderboardOpen(false);
+                    gameAudio.playCrispClick();
+                  }}
+                  className="p-1 hover:bg-yellow-400 hover:text-black border-2 border-zinc-700 text-zinc-400 rounded-none">
+                  <X size={16} />
+                </button>
+              </div>
             </div>
 
             <div className="w-full text-[8px] text-zinc-400 mb-2 uppercase font-bold flex justify-between">
@@ -3169,21 +3225,52 @@ export default function App() {
 
       {/* FLIGHT MENU MODAL */}
       {isMenuOpen && (
-        <MenuOverlay tone="neutral" zIndex={50}>
-          <div className="w-full max-w-md bg-[#08080c] border-4 border-emerald-500 p-5 shadow-[8px_8px_0px_0px_#064e3b] flex flex-col items-center text-emerald-400 rounded-none">
-            <div className="flex items-center justify-between w-full mb-4 pb-2 border-b-2 border-zinc-800">
-              <h2 className="text-base font-bold flex items-center gap-2 uppercase">
-                <Gauge size={18} />
-                <span>FLIGHT MENU</span>
+        <MenuOverlay tone="neutral" zIndex={50} fullScreen>
+          <div className="w-full max-w-2xl bg-[#08080c]/95 backdrop-blur-md border-4 border-emerald-500 p-6 md:p-8 shadow-[12px_12px_0px_0px_#064e3b] flex flex-col text-emerald-400 rounded-none">
+            <div className="flex items-center justify-between w-full mb-4 pb-3 border-b-2 border-zinc-800">
+              <h2 className="text-base md:text-lg font-bold flex items-center gap-2 uppercase">
+                <Gauge size={20} />
+                <span>FLIGHT COMMAND MENU</span>
               </h2>
-              <button
-                onClick={() => {
-                  setIsMenuOpen(false);
-                  gameAudio.playCrispClick();
-                }}
-                className="p-1 hover:bg-emerald-400 hover:text-black border-2 border-zinc-700 text-zinc-400 rounded-none">
-                <X size={16} />
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={toggleFullscreen}
+                  title="Toggle Fullscreen"
+                  className="p-1.5 hover:bg-emerald-400 hover:text-black border-2 border-zinc-700 text-zinc-300 rounded-none text-[8px] flex items-center gap-1 font-mono uppercase">
+                  {isFullscreen ? <Minimize2 size={13} /> : <Maximize2 size={13} />}
+                  <span className="hidden sm:inline">{isFullscreen ? 'EXIT FS' : 'FULLSCREEN'}</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsMenuOpen(false);
+                    gameAudio.playCrispClick();
+                  }}
+                  className="p-1.5 hover:bg-emerald-400 hover:text-black border-2 border-zinc-700 text-zinc-400 rounded-none">
+                  <X size={16} />
+                </button>
+              </div>
+            </div>
+
+            {/* In-Flight Telemetry Status Summary */}
+            <div className="w-full bg-black/80 border-2 border-emerald-900/80 p-3 mb-4 grid grid-cols-2 sm:grid-cols-4 gap-2 text-[8px] font-mono">
+              <div className="flex flex-col">
+                <span className="text-zinc-500">PILOT:</span>
+                <span className="font-bold text-emerald-300">{pilotName}</span>
+              </div>
+              <div className="flex flex-col">
+                <span className="text-zinc-500">CURRENT ERA:</span>
+                <span className="font-bold text-yellow-400">EPOCH {gameState.level} ({activeEpoch.name})</span>
+              </div>
+              <div className="flex flex-col">
+                <span className="text-zinc-500">SCORE:</span>
+                <span className="font-bold text-emerald-400">{gameState.score} PTS</span>
+              </div>
+              <div className="flex flex-col">
+                <span className="text-zinc-500">TARGET PAD:</span>
+                <span className="font-bold text-cyan-300">{telemetry.nearestPadName} [{telemetry.nearestPadMult}x]</span>
+              </div>
             </div>
 
             <div className="w-full space-y-2.5">
@@ -3193,13 +3280,14 @@ export default function App() {
                   setIsMenuOpen(false);
                   gameAudio.playCrispClick();
                 }}
-                className="w-full bg-black hover:bg-emerald-400 text-emerald-400 hover:text-black border-2 border-emerald-400 font-bold py-2.5 px-4 shadow-[2px_2px_0_0_#064e3b] active:translate-x-0.5 active:translate-y-0.5 transition flex items-center justify-center gap-2 uppercase rounded-none text-xs">
+                className="w-full bg-emerald-400 hover:bg-emerald-300 text-black border-2 border-emerald-200 font-bold py-3 px-4 shadow-[3px_3px_0_0_#064e3b] active:translate-x-0.5 active:translate-y-0.5 transition flex items-center justify-center gap-2 uppercase rounded-none text-xs">
                 <Play size={16} fill="currentColor" />
                 <span>RESUME DESCENT</span>
               </button>
 
               <div className="grid grid-cols-2 gap-2">
                 <button
+                  type="button"
                   onClick={() => {
                     const newMuted = gameAudio.toggleMute();
                     setIsSfxMuted(newMuted);
@@ -3214,6 +3302,7 @@ export default function App() {
                 </button>
 
                 <button
+                  type="button"
                   onClick={() => setIsMusicMuted((prev) => !prev)}
                   className={`flex items-center justify-center gap-2 py-2 px-2 border-2 text-[9px] font-bold transition uppercase shadow-[2px_2px_0_0_#000] rounded-none ${
                     isMusicMuted
@@ -3226,6 +3315,7 @@ export default function App() {
               </div>
 
               <button
+                type="button"
                 onClick={() => {
                   setIsMenuOpen(false);
                   setIsLeaderboardOpen(true);
@@ -3237,34 +3327,37 @@ export default function App() {
               </button>
 
               <button
+                type="button"
                 onClick={() => {
                   setIsMenuOpen(false);
                   resetLander(gameState.level);
                   gameAudio.playConfirmSelect();
                 }}
-                className="w-full bg-black hover:bg-zinc-800 border-2 border-zinc-700 text-white font-bold py-2 px-4 shadow-[2px_2px_0_0_#000] transition flex items-center justify-center gap-2 uppercase rounded-none text-[9px]">
+                className="w-full bg-black hover:bg-zinc-800 border-2 border-zinc-700 text-white font-bold py-2.5 px-4 shadow-[2px_2px_0_0_#000] transition flex items-center justify-center gap-2 uppercase rounded-none text-[9px]">
                 <RotateCw size={14} />
                 <span>RESTART CURRENT RUN</span>
               </button>
 
               <button
+                type="button"
                 onClick={() => {
                   setIsHowToPlayOpen(true);
                   gameAudio.playCrispClick();
                 }}
-                className="w-full bg-black hover:bg-zinc-800 border-2 border-zinc-700 text-white font-bold py-2 px-4 shadow-[2px_2px_0_0_#000] transition flex items-center justify-center gap-2 uppercase rounded-none text-[9px]">
+                className="w-full bg-black hover:bg-zinc-800 border-2 border-zinc-700 text-white font-bold py-2.5 px-4 shadow-[2px_2px_0_0_#000] transition flex items-center justify-center gap-2 uppercase rounded-none text-[9px]">
                 <HelpCircle size={14} />
                 <span>FLIGHT MANUAL & CONTROLS</span>
               </button>
 
               <button
+                type="button"
                 onClick={() => {
                   setIsMenuOpen(false);
                   gameAudio.stopThruster();
                   setGameState((prev) => ({...prev, status: 'START'}));
                   gameAudio.playCrispClick();
                 }}
-                className="w-full bg-black hover:bg-red-950 border-2 border-red-800 text-red-300 font-bold py-2 px-4 shadow-[2px_2px_0_0_#000] transition flex items-center justify-center gap-2 uppercase rounded-none text-[9px]">
+                className="w-full bg-black hover:bg-red-950 border-2 border-red-800 text-red-300 font-bold py-2.5 px-4 shadow-[2px_2px_0_0_#000] transition flex items-center justify-center gap-2 uppercase rounded-none text-[9px]">
                 <X size={14} />
                 <span>ABORT TO TITLE SCREEN</span>
               </button>
@@ -3275,24 +3368,36 @@ export default function App() {
 
       {/* HOW TO PLAY & AVIONICS MANUAL */}
       {isHowToPlayOpen && (
-        <MenuOverlay tone="neutral" zIndex={60}>
-          <div className="w-full max-w-lg bg-[#08080c] border-4 border-emerald-500 p-5 shadow-[8px_8px_0px_0px_#064e3b] flex flex-col items-center text-emerald-400 rounded-none">
+        <MenuOverlay tone="neutral" zIndex={60} fullScreen>
+          <div className="w-full max-w-4xl bg-[#08080c] border-4 border-emerald-500 p-5 md:p-6 shadow-[8px_8px_0px_0px_#064e3b] flex flex-col items-center text-emerald-400 rounded-none">
             <div className="flex items-center justify-between w-full mb-3 pb-2 border-b-2 border-zinc-800">
               <h2 className="text-sm md:text-base font-bold flex items-center gap-2 uppercase">
                 <HelpCircle size={18} />
                 <span>AVIONICS FLIGHT MANUAL</span>
               </h2>
-              <button
-                onClick={() => {
-                  setIsHowToPlayOpen(false);
-                  gameAudio.playCrispClick();
-                }}
-                className="p-1 hover:bg-emerald-400 hover:text-black border-2 border-zinc-700 text-zinc-400 rounded-none">
-                <X size={16} />
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    toggleFullscreen();
+                    gameAudio.playCrispClick();
+                  }}
+                  className="px-2 py-1 bg-black hover:bg-emerald-400 hover:text-black border-2 border-emerald-600 text-emerald-400 text-[8px] font-bold uppercase transition flex items-center gap-1">
+                  {isFullscreen ? <Minimize2 size={13} /> : <Maximize2 size={13} />}
+                  <span className="hidden sm:inline">{isFullscreen ? 'EXIT FS' : 'FULLSCREEN'}</span>
+                </button>
+                <button
+                  onClick={() => {
+                    setIsHowToPlayOpen(false);
+                    gameAudio.playCrispClick();
+                  }}
+                  className="p-1 hover:bg-emerald-400 hover:text-black border-2 border-zinc-700 text-zinc-400 rounded-none">
+                  <X size={16} />
+                </button>
+              </div>
             </div>
 
-            <div className="w-full space-y-3 text-[9px] text-zinc-300 leading-relaxed overflow-y-auto max-h-[58vh] pr-1">
+            <div className="w-full grid grid-cols-1 md:grid-cols-2 gap-3 text-[9px] text-zinc-300 leading-relaxed overflow-y-auto max-h-[62vh] pr-1">
               <div className="bg-black p-3 border-2 border-emerald-900 rounded-none">
                 <h3 className="font-bold text-emerald-400 mb-1.5 uppercase flex items-center gap-1">
                   <Zap size={12} />
@@ -3328,20 +3433,22 @@ export default function App() {
                 </p>
               </div>
 
-              <div className="bg-black p-3 border-2 border-cyan-900 rounded-none">
+              <div className="bg-black p-3 border-2 border-cyan-900 rounded-none md:col-span-2">
                 <h3 className="font-bold text-cyan-400 mb-1.5 uppercase flex items-center gap-1">
                   <Radio size={12} />
                   <span>Safe Landing Envelope</span>
                 </h3>
-                <p className="mb-1">
-                  1. <strong>Vertical Velocity:</strong> Below {getConfig('maxSafeLandingVy')} px/s.
-                </p>
-                <p className="mb-1">
-                  2. <strong>Lateral Velocity:</strong> Below {getConfig('maxSafeLandingVx')} px/s.
-                </p>
-                <p>
-                  3. <strong>Attitude Tilt:</strong> Within ±{getConfig('maxSafeAngleDeg')}° of true vertical.
-                </p>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                  <p>
+                    1. <strong>Vertical Velocity:</strong> Below {getConfig('maxSafeLandingVy')} px/s.
+                  </p>
+                  <p>
+                    2. <strong>Lateral Velocity:</strong> Below {getConfig('maxSafeLandingVx')} px/s.
+                  </p>
+                  <p>
+                    3. <strong>Attitude Tilt:</strong> Within ±{getConfig('maxSafeAngleDeg')}° of true vertical.
+                  </p>
+                </div>
               </div>
             </div>
 

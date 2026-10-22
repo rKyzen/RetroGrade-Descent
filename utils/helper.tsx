@@ -102,25 +102,29 @@ export interface MenuOverlayProps {
   children: React.ReactNode;
   tone?: OverlayTone;
   zIndex?: number;
+  fullScreen?: boolean;
+  maxWidthClass?: string;
 }
 
 /**
  * A highly resilient menu wrapper that statically decouples scrolling from flexbox alignment.
  * It strictly avoids the clipping bug on mobile by preventing flex justify-center from being assigned
  * to the overflow-y-auto boundary. Plugs seamlessly into the AI's generation workflows.
- * The inner children should provide their own box styling (e.g., w-full max-w-md bg-slate-900 rounded).
+ * Supports fullScreen mode and custom maxWidthClass for widescreen command center menus.
  */
 export function MenuOverlay({
   children,
   tone = 'neutral',
   zIndex = 40,
+  fullScreen = false,
+  maxWidthClass = 'max-w-md',
 }: MenuOverlayProps) {
   return (
     <div
       className={`absolute inset-0 ${TONE_CLASS[tone]} overflow-y-auto touch-auto`}
       style={{zIndex}}>
-      <div className="min-h-full flex flex-col items-center p-4">
-        <div className="m-auto w-full max-w-md flex flex-col items-center">
+      <div className={`min-h-full flex flex-col items-center ${fullScreen ? 'p-2 md:p-6 w-full justify-center' : 'p-4'}`}>
+        <div className={`m-auto w-full flex flex-col items-center ${fullScreen ? (maxWidthClass !== 'max-w-md' ? maxWidthClass : 'max-w-5xl') : maxWidthClass}`}>
           {children}
         </div>
       </div>
