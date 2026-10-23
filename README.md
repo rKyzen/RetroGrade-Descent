@@ -13,11 +13,23 @@
   * 🔴 **Mars (Ares)**: The Red Planet. Medium gravity ($52\text{ px/s}^2$ • $1.45\times$), thin $CO_2$ atmosphere ($0.01\text{ atm}$) with dynamic red dust devil squalls, iron-oxide canyons and dunes.
   * 🪐 **Venus (Cytherea)**: The Morning Star. Extreme gravity ($68\text{ px/s}^2$ • $1.90\times$), crushing sulfuric acid atmosphere ($90.0\text{ atm}$) with violent gale shears, scorched volcanic basalt and molten calderas.
 
-* **30 Unique Campaign Maps (10 Levels per Planet)**:
-  * Each planet features **10 distinct maps** that progressively increase in physical and environmental difficulty: narrower landing pads, higher wind shears, more micrometeorites/ejecta, and strictly restricted fuel capacities.
+* **30 Distinct Planetary Maps (10 Unique Levels per World)**:
+  * **Zero Map Re-use**: Map 1 of The Moon is fundamentally different from Map 1 of Mars and Map 1 of Venus. Each world possesses its own unique landing pad coordinates, elevations, widths, canyon/caldera formations, and geological procedural height signatures.
+  * **Geological Profiles**:
+    * 🌕 **Moon**: Harmonic crater depressions and rolling basalt mare lowlands.
+    * 🔴 **Mars**: Deep canyon faults (Valles Marineris), stepped mesas, and alluvial plains.
+    * 🪐 **Venus**: Sunken volcanic calderas, razor tectonic tesserae, and steep sulfuric spires.
 
-* **10-Step Interactive Retrogression Flow Map**:
-  * Every level (1 through 10) maps 1-to-1 to a strictly calibrated avionics degradation step, systematically stripping modern glass cockpit flight computers until the pilot must execute a blind touchdown in 95% optical darkness purely by acoustic sonar audio pings.
+* **Strict Cumulative Retrogression (Removed Tech NEVER Returns)**:
+  * When an instrument or cockpit assist is decommissioned at Level $K$, it remains **permanently offline for all subsequent levels ($L \ge K$)**. Technology strictly regresses backward in time.
+  * At Level 3: Velocity Vector Pip is decommissioned (never returns).
+  * At Level 4: Dotted Trajectory Predictor & Reticle decommissioned (never returns).
+  * At Level 5 & 6: Radar degrades to a low-frequency 2-second pulse strobe.
+  * At Level 6: Digital Numeric Altimeter decommissioned (never returns; fly by audio chirps).
+  * At Level 7: Tactical Radar Minimap & Target Beacon permanently decommissioned (dead CRT screens).
+  * At Level 8: Digital Numeric Speedometer decommissioned; fuel gauge becomes sluggish mechanical needle.
+  * At Level 9: Cockpit viewscreen blinded by 75% static noise fog.
+  * At Level 10: **Total Sensory Blackout** (all screens dead, 95% optical darkness, 100% acoustic sonar pitch only).
 
 * **3 Engaging Flight Modes**:
   * 🛰️ **Solo Expedition**: Pilot through all 10 campaign maps experiencing progressive avionics degradation.

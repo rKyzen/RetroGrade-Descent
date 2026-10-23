@@ -2,22 +2,22 @@
  * @fileoverview Planetary Worlds & 10-Level Retrogression Engine for Retrograde Descent.
  *
  * CELESTIAL WORLDS:
- * 1. THE MOON (Luna) - Low gravity (36 px/s^2), vacuum space backdrop, basalt terrain.
- * 2. MARS (Ares) - Medium gravity (52 px/s^2), red dust squalls, iron-oxide canyons.
- * 3. VENUS (Cytherea) - Heavy gravity (68 px/s^2), crushing sulfuric atmosphere, scorched basalt.
+ * 1. THE MOON (Luna) - Low gravity (36 px/s^2), vacuum space backdrop, basalt mare basins.
+ * 2. MARS (Ares) - Medium gravity (52 px/s^2), red dust squalls, iron-oxide canyons and rift mesas.
+ * 3. VENUS (Cytherea) - Heavy gravity (68 px/s^2), crushing sulfuric atmosphere, scorched calderas.
  *
- * RETROGRESSION FLOW (LEVELS 1 - 10):
- * With each subsequent map, avionics progressively degrade across 10 strictly calibrated steps:
- * - Level 1: STAGE 1 (Full Glass Cockpit) — Dotted trajectory predictor, velocity pip, tactical radar.
- * - Level 2: STAGE 1 (Telemetry Drift) — Crosswind drift active, auxiliary fuel tanks disengaged.
- * - Level 3: STAGE 2 (Vector Pip Offline) — Velocity vector reticle stripped; fly by raw numbers.
- * - Level 4: STAGE 2 (Predictor Stripped) — Dotted trajectory line and touchdown reticle offline.
- * - Level 5: STAGE 3 (Radar Strobe Decay) — Radar sweep degrades to low-frequency strobe pulses.
- * - Level 6: STAGE 3 (Digital Altimeter Dead) — Numeric altitude blanked; acoustic proximity beeps active.
- * - Level 7: STAGE 4 (Sensor Glitch & Static) — CRT screen static glitches; radar minimap offline.
- * - Level 8: STAGE 4 (Analog Fallback) — Digital telemetry dead; mechanical damped needle (~300ms lag).
- * - Level 9: STAGE 5 (75% Optical Failure) — Optical static covers cockpit; audio sonar chirps amplify.
- * - Level 10: STAGE 5 (Total Sensory Blackout) — 95% blackout; pilot lands purely by acoustic sonar audio pings.
+ * STRICT CUMULATIVE RETROGRESSION:
+ * "Technology retrogrades backward in time. Features already removed NEVER come back."
+ * - Level 1: Full Glass Cockpit (All flight computers online).
+ * - Level 2: Aux Fuel Tanks Jettisoned (165L), crosswind drift introduced.
+ * - Level 3: Velocity Vector Pip OFFLINE (permanently removed).
+ * - Level 4: Trajectory Predictor Arc & Reticle DECOMMISSIONED (permanently removed).
+ * - Level 5: Continuous Radar Sweep DEGRADED (Radar pulses once every 2.0s with decaying trace).
+ * - Level 6: Digital Numeric Laser Altimeter DECOMMISSIONED (Replaced by acoustic proximity chirps).
+ * - Level 7: Tactical Radar Minimap & Target Beacon PERMANENTLY OFFLINE (Screens dead/glitching).
+ * - Level 8: Digital Numeric Speedometers DECOMMISSIONED (Mechanical damped analog fuel needle with lag).
+ * - Level 9: Cockpit Viewscreen 75% BLIND (Dense optical static fog).
+ * - Level 10: TOTAL SENSORY BLACKOUT (All cockpit screens DEAD, 95% total optical darkness, 100% acoustic sonar pitch only).
  */
 
 export type PlanetId = 'moon' | 'mars' | 'venus';
@@ -27,9 +27,9 @@ export interface PlanetDef {
   name: string;
   subname: string;
   gravity: number; // px/s^2
-  mainThrust: number; // px/s^2 (scaled to maintain crisp thrust-to-weight authority)
+  mainThrust: number; // px/s^2
   atmospherePressure: string;
-  atmosphereDensity: number; // drag factor for physical drift
+  atmosphereDensity: number; // physical drag factor
   skyTopColor: string;
   skyBottomColor: string;
   hazeColor: string;
@@ -126,8 +126,60 @@ export interface RetrogressionStep {
   hazardCount: number;
   avionicsStatus: string;
   decommissioned: string[];
+  cumulativeOffline: string[];
   activeFeatures: string[];
   pilotWarning: string;
+}
+
+export const CUMULATIVE_RETROGRESSION_LEDGER = [
+  { level: 2, feature: 'Auxiliary Fuel Pods (Reduced from 180L to 165L)' },
+  { level: 2, feature: 'Atmospheric Crosswind Shear Active' },
+  { level: 3, feature: 'Velocity Vector Pip (Directional Marker) OFFLINE' },
+  { level: 4, feature: 'Live Dotted Trajectory Predictor Arc DECOMMISSIONED' },
+  { level: 4, feature: 'Landing Guidance Alignment Reticle OFFLINE' },
+  { level: 5, feature: 'Continuous Tactical Radar Sweep DEGRADED (Periodic 2s Strobe Pulse Only)' },
+  { level: 6, feature: 'Digital Numeric Laser Altimeter Readout OFFLINE' },
+  { level: 7, feature: 'Tactical Radar Minimap PERMANENTLY OFFLINE (Dead Screen)' },
+  { level: 7, feature: 'Target Navigation Compass Beacon OFFLINE' },
+  { level: 8, feature: 'Digital Numeric Speedometer (V-SPD / H-SPD) OFFLINE' },
+  { level: 8, feature: 'Digital Fuel Gauge Replaced by Sluggish Analog Needle (~300ms mechanical lag)' },
+  { level: 9, feature: 'Cockpit Viewscreen 75% BLIND (Dense Static Optical Noise Fog)' },
+  { level: 10, feature: 'TOTAL SENSORY BLACKOUT (All Cockpit Instruments Dead, 95% Darkness)' },
+];
+
+export function getNewlyDecommissioned(level: number): string[] {
+  return CUMULATIVE_RETROGRESSION_LEDGER
+    .filter(item => item.level === level)
+    .map(item => item.feature);
+}
+
+export function getPreviouslyDecommissioned(level: number): string[] {
+  return CUMULATIVE_RETROGRESSION_LEDGER
+    .filter(item => item.level < level)
+    .map(item => item.feature);
+}
+
+export function getAllDecommissioned(level: number): string[] {
+  return CUMULATIVE_RETROGRESSION_LEDGER
+    .filter(item => item.level <= level)
+    .map(item => item.feature);
+}
+
+export function getActiveOperationalSystems(level: number): string[] {
+  const systems = [];
+  if (level < 3) systems.push('Velocity Vector Pip');
+  if (level < 4) systems.push('Live Trajectory Predictor Arc', 'Touchdown Reticle');
+  if (level < 5) systems.push('Continuous Tactical Radar Minimap');
+  else if (level < 7) systems.push('Low-Frequency Radar Strobe (2.0s pulse)');
+  if (level < 6) systems.push('Digital Laser Altimeter');
+  else if (level < 10) systems.push('Acoustic Proximity Audio Chirps');
+  if (level < 7) systems.push('Target Compass Nav Beacon');
+  if (level < 8) systems.push('Digital Speedometers (Vx / Vy)', 'Digital Fuel Bar');
+  else if (level < 10) systems.push('Damped Mechanical Analog Fuel Needle');
+  if (level < 9) systems.push('100% Optical Viewscreen');
+  else if (level < 10) systems.push('25% Emergency Optical Window');
+  systems.push('Main Rocket Thruster', 'Hydraulic Suspension Struts', 'Acoustic Sonar Frequency Pitch (200-1200Hz)');
+  return systems;
 }
 
 export const RETROGRESSION_STEPS: RetrogressionStep[] = [
@@ -144,11 +196,13 @@ export const RETROGRESSION_STEPS: RetrogressionStep[] = [
     hazardCount: 4,
     avionicsStatus: '100% Operational',
     decommissioned: ['None (All flight computers online)'],
+    cumulativeOffline: [],
     activeFeatures: [
       'Live Dotted Trajectory Predictor Arc',
       'Velocity Vector Pip (Directional Marker)',
       'Touchdown Alignment Reticle',
       'Tactical Radar Minimap (High Refresh)',
+      'Digital Numeric Altimeter & Speedometers',
       '180L High-Capacity Auxiliary Fuel Tanks',
     ],
     pilotWarning: 'Baseline familiarization run. Test thruster authority and safe landing velocity envelope.',
@@ -166,8 +220,11 @@ export const RETROGRESSION_STEPS: RetrogressionStep[] = [
     hazardCount: 5,
     avionicsStatus: 'Telemetry Drift Active',
     decommissioned: [
-      'Auxiliary Fuel Pods Jettisoned (Standard 165L Tank)',
-      'Atmospheric Wind Sensor Calibration Active',
+      'Auxiliary Fuel Pods Jettisoned (Down to 165L)',
+      'Atmospheric Crosswind Shear Active',
+    ],
+    cumulativeOffline: [
+      'Auxiliary Fuel Pods (180L)',
     ],
     activeFeatures: [
       'Live Dotted Trajectory Predictor Arc',
@@ -190,13 +247,18 @@ export const RETROGRESSION_STEPS: RetrogressionStep[] = [
     hazardCount: 6,
     avionicsStatus: 'HUD Marker Stripped',
     decommissioned: [
-      'Directional Velocity Vector Pip OFFLINE',
-      'Fuel Capacity Reduced to 150L',
+      'Velocity Vector Pip (Directional Marker) OFFLINE',
+      'Fuel Capacity Restricted to 150L',
+    ],
+    cumulativeOffline: [
+      'Auxiliary Fuel Pods (180L)',
+      'Velocity Vector Pip (Directional Marker)',
     ],
     activeFeatures: [
       'Live Dotted Trajectory Arc',
       'Tactical Radar Minimap',
       'Digital Telemetry HUD (Numeric Vx / Vy)',
+      'Digital Laser Altimeter',
     ],
     pilotWarning: 'Flight computer no longer draws the velocity pip. Pilot must fly by raw numeric instruments.',
   },
@@ -216,6 +278,12 @@ export const RETROGRESSION_STEPS: RetrogressionStep[] = [
       'Live Dotted Trajectory Predictor Arc DECOMMISSIONED',
       'Touchdown Guidance Reticle OFFLINE',
       'Fuel Capacity Restricted to 140L',
+    ],
+    cumulativeOffline: [
+      'Auxiliary Fuel Pods (180L)',
+      'Velocity Vector Pip',
+      'Live Dotted Trajectory Arc',
+      'Touchdown Alignment Reticle',
     ],
     activeFeatures: [
       'Tactical Radar Minimap',
@@ -237,15 +305,22 @@ export const RETROGRESSION_STEPS: RetrogressionStep[] = [
     hazardCount: 8,
     avionicsStatus: 'Low-Frequency Pulse',
     decommissioned: [
-      'Continuous Radar Sweep DEGRADED (Pulses every 2.0 seconds)',
+      'Continuous Radar Sweep DEGRADED (Pulses every 2.0s with decaying trace)',
       'Fuel Capacity Restricted to 130L',
+    ],
+    cumulativeOffline: [
+      'Auxiliary Fuel Pods (180L)',
+      'Velocity Vector Pip',
+      'Live Trajectory Predictor Arc',
+      'Touchdown Guidance Reticle',
+      'Continuous Tactical Radar Sweep (Now 2.0s Strobe)',
     ],
     activeFeatures: [
       'Periodic Strobe Radar Pulse',
       'Digital Altimeter & Speedometers',
-      'Micrometeorite Collision Warning',
+      'Target Navigation Compass Beacon',
     ],
-    pilotWarning: 'Radar sensor capacitors degrading. Terrain topography and platform blips update in periodic pulses.',
+    pilotWarning: 'Radar sensor capacitors degrading. Topography and platform blips update only in periodic 2-second flashes.',
   },
   {
     level: 6,
@@ -262,6 +337,14 @@ export const RETROGRESSION_STEPS: RetrogressionStep[] = [
     decommissioned: [
       'Digital Numeric Altimeter Readout OFFLINE',
       'Fuel Capacity Restricted to 125L',
+    ],
+    cumulativeOffline: [
+      'Auxiliary Fuel Pods',
+      'Velocity Vector Pip',
+      'Live Trajectory Predictor Arc',
+      'Touchdown Reticle',
+      'Continuous Radar Sweep',
+      'Digital Numeric Laser Altimeter',
     ],
     activeFeatures: [
       'Acoustic Ground Proximity Chirps (Auditory cadence)',
@@ -283,14 +366,24 @@ export const RETROGRESSION_STEPS: RetrogressionStep[] = [
     hazardCount: 10,
     avionicsStatus: 'CRT Screen Noise',
     decommissioned: [
-      'Tactical Radar Minimap PERMANENTLY OFFLINE',
+      'Tactical Radar Minimap PERMANENTLY OFFLINE (Dead Screen)',
+      'Target Navigation Compass Beacon OFFLINE',
       'Speedometer Displays Suffer CRT Static Flickering',
       'Fuel Capacity Restricted to 120L',
     ],
+    cumulativeOffline: [
+      'Auxiliary Fuel Pods',
+      'Velocity Vector Pip',
+      'Live Trajectory Predictor Arc',
+      'Touchdown Reticle',
+      'Tactical Radar Minimap (PERMANENTLY OFFLINE)',
+      'Target Navigation Compass Beacon',
+      'Digital Numeric Laser Altimeter',
+    ],
     activeFeatures: [
-      'Analog Compass Bearing Needle',
-      'Acoustic Proximity Audio Audio',
-      'Emergency Strobe Beacon',
+      'Digital Speedometers (CRT Glitching)',
+      'Acoustic Proximity Audio Chirps',
+      'Visual Terrain Silhouette',
     ],
     pilotWarning: 'Electromagnetic static corrupts cockpit CRTs. Instruments flicker and radar is permanently dark.',
   },
@@ -307,16 +400,28 @@ export const RETROGRESSION_STEPS: RetrogressionStep[] = [
     hazardCount: 11,
     avionicsStatus: 'Mechanical Needles Only',
     decommissioned: [
-      'Digital Speedometers OFFLINE',
-      'Integrated Flight Computer Power Cut',
+      'Digital Speedometers (Vx / Vy) OFFLINE',
+      'Digital Fuel Gauge Replaced by Sluggish Mechanical Needle (~300ms lag)',
+      'Integrated Silicon Flight Computer Power Cut',
       'Fuel Capacity Restricted to 115L',
+    ],
+    cumulativeOffline: [
+      'Auxiliary Fuel Pods',
+      'Velocity Vector Pip',
+      'Live Trajectory Predictor Arc',
+      'Touchdown Reticle',
+      'Tactical Radar Minimap',
+      'Target Navigation Compass Beacon',
+      'Digital Laser Altimeter',
+      'Digital Speedometers (Vx / Vy)',
+      'Digital Fuel Bar',
     ],
     activeFeatures: [
       'Mechanical Damped Fuel Needle (~300ms physical lag)',
-      'Audio Altitude & Drift Chirps',
-      'Visual Sonar Accessibility Wave',
+      'Acoustic Audio Altitude Chirps',
+      'Visual Eyeball Flight by Terrain',
     ],
-    pilotWarning: 'Silicon avionics dead. Mechanical fuel needle suffers mechanical damping lag. High hazard density.',
+    pilotWarning: 'Silicon avionics dead. Speedometers are blank. Mechanical fuel needle suffers damping lag.',
   },
   {
     level: 9,
@@ -331,13 +436,25 @@ export const RETROGRESSION_STEPS: RetrogressionStep[] = [
     hazardCount: 12,
     avionicsStatus: '75% Optical Darkness',
     decommissioned: [
-      'Cockpit Optical Sensors 75% BLIND (Opaque static fog)',
+      'Cockpit Viewscreen 75% BLIND (Dense Static Optical Noise Fog)',
       'Mechanical Gauges Unlit',
       'Fuel Restricted to 110L',
     ],
+    cumulativeOffline: [
+      'Auxiliary Fuel Pods',
+      'Velocity Vector Pip',
+      'Live Trajectory Predictor Arc',
+      'Touchdown Reticle',
+      'Tactical Radar Minimap',
+      'Target Navigation Compass Beacon',
+      'Digital Laser Altimeter',
+      'Digital Speedometers (Vx / Vy)',
+      'Digital Fuel Bar',
+      '75% Optical Viewscreen Sight',
+    ],
     activeFeatures: [
       'Acoustic Sonar Frequency Pitch (200Hz - 1200Hz)',
-      'Emergency Landing Pad Strobe Glow',
+      'Emergency Landing Pad Strobe Glow (25% window)',
       'Hydraulic Touchdown Sensors',
     ],
     pilotWarning: 'Dense optical noise blinds 75% of viewscreen. Fly by audio acoustic sonar tone elevation.',
@@ -348,33 +465,37 @@ export const RETROGRESSION_STEPS: RetrogressionStep[] = [
     title: 'The Total Sensory Blackout',
     shortBadge: 'BLIND BLACKOUT',
     color: '#ef4444',
-    icon: '⬛',
+    icon: '🌑',
     hudStyle: 'blackout',
     fuelCapacity: 100,
     windSpeed: 46,
     hazardCount: 14,
     avionicsStatus: '100% Instrument Blackout',
     decommissioned: [
-      'ALL GLASS & DIGITAL INSTRUMENTS DEAD',
-      'Optical Viewscreen 95% BLIND',
-      'Minimal Emergency Fuel: 100L',
-      'Maximum Atmospheric & Debris Turbulence',
+      'ALL FLIGHT COMPUTERS & SCREENS DEAD',
+      'Viewscreen: 95% TOTAL SENSORY BLACKOUT',
+      'Fuel Restricted to 100L',
+    ],
+    cumulativeOffline: [
+      'ALL DIGITAL & ANALOG INSTRUMENTS DECOMMISSIONED',
+      'Optical Viewscreen 95% BLACKOUT',
+      'Only Acoustic Sonar Audio Survives',
     ],
     activeFeatures: [
-      'Acoustic Sonar Flight Pitch (Tone sweeps higher as altitude closes)',
-      'Visual Sonar Pulse Ring (Auditory Accessibility)',
+      '100% Pure Acoustic Sonar Audio Flight Pitch (Frequency sweeps higher as craft nears ground)',
+      'Hydraulic Touchdown Struts',
     ],
-    pilotWarning: 'Total sensory blackout. The ultimate test of piloting intuition. Land purely by sound.',
+    pilotWarning: 'Total sensory blackout. All instrumentation dead. Close eyes and land purely by acoustic sonar tone pitch.',
   },
 ];
 
 export interface LandingPadDef {
   name: string;
-  code: string;
-  xPercent: number; // 0..1 ratio of world width
-  yOffset: number; // offset relative to baseline padY
-  w: number; // platform width in px
-  multiplier: number;
+  code: 'ALPHA' | 'BRAVO' | 'CHARLIE' | 'OMEGA';
+  xPercent: number; // Ratio of worldWidth (0.0 to 1.0)
+  yOffset: number; // Height displacement from baseline
+  w: number; // Pad width in pixels
+  multiplier: number; // Score multiplier
   color: string;
   glowColor: string;
   distanceTier: 'NEAR' | 'MID' | 'FAR' | 'EXTREME';
@@ -383,9 +504,9 @@ export interface LandingPadDef {
 export interface LevelConfig {
   id: number;
   planetId: PlanetId;
-  name: string; // The Map Name
-  era: string; // The Retrogression Stage
-  retrogressionShort: string; // Short badge for map selector
+  name: string;
+  era: string;
+  retrogressionShort: string;
   themeColor: string;
   hudStyle: 'modern' | 'modern-nopip' | 'y2k' | 'eighties' | 'apollo' | 'blackout';
   mapType: string;
@@ -393,11 +514,11 @@ export interface LevelConfig {
   degradedAvionics: string[];
   worldWidth: number;
   worldHeight: number;
-  windSpeed: number; // px/s lateral turbulence
-  hazardCount: number; // micrometeorites / orbital debris count
-  fuelCapacity: number; // starting fuel liters
+  windSpeed: number;
+  hazardCount: number;
+  fuelCapacity: number;
   pads: LandingPadDef[];
-  cragPositions: number[]; // x ratios for basalt obstacles
+  cragPositions: number[];
   terrainOctaves: {
     baseAmp: number;
     w1Freq: number;
@@ -410,9 +531,10 @@ export interface LevelConfig {
 }
 
 export const LEVELS_BY_PLANET: Record<PlanetId, LevelConfig[]> = {
-  // ==========================================
-  // PLANET 1: THE MOON (10 Levels)
-  // ==========================================
+  // =========================================================================
+  // PLANET 1: THE MOON (Luna) - 10 Progressive Maps
+  // Topography: Wide basalt mare basins, impact crater rings, rolling lowlands.
+  // =========================================================================
   moon: [
     {
       id: 1,
@@ -424,20 +546,20 @@ export const LEVELS_BY_PLANET: Record<PlanetId, LevelConfig[]> = {
       hudStyle: 'modern',
       mapType: 'Smooth Lunar Lowlands',
       description: 'Expansive rolling lowlands with forgiving wide plateaus. All modern avionics online: live dotted trajectory predictor, tactical radar minimap, and landing guidance reticle.',
-      degradedAvionics: ['All systems 100% nominal — Live Dotted Trajectory Active', 'Auxiliary High-Capacity Fuel Tanks Online (180L)'],
+      degradedAvionics: ['All systems 100% nominal — Live Dotted Trajectory Active', 'Auxiliary Fuel Tanks Online (180L)'],
       worldWidth: 3400,
       worldHeight: 1400,
       windSpeed: 0,
       hazardCount: 4,
       fuelCapacity: 180,
       pads: [
-        { name: 'ALPHA BASE', code: 'ALPHA', xPercent: 0.22, yOffset: 0, w: 160, multiplier: 1.0, color: '#10b981', glowColor: 'rgba(16, 185, 129, 0.4)', distanceTier: 'NEAR' },
-        { name: 'BRAVO OUTPOST', code: 'BRAVO', xPercent: 0.46, yOffset: -14, w: 135, multiplier: 2.0, color: '#38bdf8', glowColor: 'rgba(56, 189, 248, 0.4)', distanceTier: 'MID' },
-        { name: 'CHARLIE CREST', code: 'CHARLIE', xPercent: 0.70, yOffset: 12, w: 115, multiplier: 3.5, color: '#f59e0b', glowColor: 'rgba(245, 158, 11, 0.4)', distanceTier: 'FAR' },
-        { name: 'OMEGA SANCTUARY', code: 'OMEGA', xPercent: 0.90, yOffset: -20, w: 95, multiplier: 5.0, color: '#ec4899', glowColor: 'rgba(236, 72, 153, 0.45)', distanceTier: 'EXTREME' },
+        { name: 'ALPHA BASE', code: 'ALPHA', xPercent: 0.18, yOffset: 10, w: 160, multiplier: 1.0, color: '#10b981', glowColor: 'rgba(16, 185, 129, 0.4)', distanceTier: 'NEAR' },
+        { name: 'BRAVO OUTPOST', code: 'BRAVO', xPercent: 0.42, yOffset: -25, w: 135, multiplier: 2.0, color: '#38bdf8', glowColor: 'rgba(56, 189, 248, 0.4)', distanceTier: 'MID' },
+        { name: 'CHARLIE CREST', code: 'CHARLIE', xPercent: 0.67, yOffset: 18, w: 115, multiplier: 3.5, color: '#f59e0b', glowColor: 'rgba(245, 158, 11, 0.4)', distanceTier: 'FAR' },
+        { name: 'OMEGA SANCTUARY', code: 'OMEGA', xPercent: 0.89, yOffset: -15, w: 95, multiplier: 5.0, color: '#ec4899', glowColor: 'rgba(236, 72, 153, 0.45)', distanceTier: 'EXTREME' },
       ],
-      cragPositions: [0.34, 0.40, 0.58, 0.64, 0.81, 0.86],
-      terrainOctaves: { baseAmp: 70, w1Freq: 2, w1Amp: 60, w2Freq: 5, w2Amp: 30, w3Freq: 9, w3Amp: 16 },
+      cragPositions: [0.30, 0.55, 0.78],
+      terrainOctaves: { baseAmp: 70, w1Freq: 2.0, w1Amp: 60, w2Freq: 5.0, w2Amp: 30, w3Freq: 9.0, w3Amp: 16 },
     },
     {
       id: 2,
@@ -456,12 +578,12 @@ export const LEVELS_BY_PLANET: Record<PlanetId, LevelConfig[]> = {
       hazardCount: 5,
       fuelCapacity: 165,
       pads: [
-        { name: 'PROCELLARUM PLAINS', code: 'ALPHA', xPercent: 0.20, yOffset: 5, w: 155, multiplier: 1.0, color: '#06b6d4', glowColor: 'rgba(6, 182, 212, 0.4)', distanceTier: 'NEAR' },
-        { name: 'STORM GAP', code: 'BRAVO', xPercent: 0.44, yOffset: -25, w: 130, multiplier: 2.0, color: '#38bdf8', glowColor: 'rgba(56, 189, 248, 0.4)', distanceTier: 'MID' },
-        { name: 'CRATER RIM', code: 'CHARLIE', xPercent: 0.68, yOffset: 18, w: 110, multiplier: 3.5, color: '#a855f7', glowColor: 'rgba(168, 85, 247, 0.4)', distanceTier: 'FAR' },
-        { name: 'OCEANUS MONOLITH', code: 'OMEGA', xPercent: 0.91, yOffset: -30, w: 90, multiplier: 5.0, color: '#f43f5e', glowColor: 'rgba(244, 63, 94, 0.45)', distanceTier: 'EXTREME' },
+        { name: 'PROCELLARUM PLAINS', code: 'ALPHA', xPercent: 0.24, yOffset: -15, w: 155, multiplier: 1.0, color: '#06b6d4', glowColor: 'rgba(6, 182, 212, 0.4)', distanceTier: 'NEAR' },
+        { name: 'STORM GAP', code: 'BRAVO', xPercent: 0.49, yOffset: 22, w: 130, multiplier: 2.0, color: '#38bdf8', glowColor: 'rgba(56, 189, 248, 0.4)', distanceTier: 'MID' },
+        { name: 'CRATER RIM', code: 'CHARLIE', xPercent: 0.73, yOffset: -35, w: 110, multiplier: 3.5, color: '#a855f7', glowColor: 'rgba(168, 85, 247, 0.4)', distanceTier: 'FAR' },
+        { name: 'OCEANUS MONOLITH', code: 'OMEGA', xPercent: 0.92, yOffset: 18, w: 90, multiplier: 5.0, color: '#f43f5e', glowColor: 'rgba(244, 63, 94, 0.45)', distanceTier: 'EXTREME' },
       ],
-      cragPositions: [0.31, 0.38, 0.54, 0.61, 0.78, 0.85],
+      cragPositions: [0.36, 0.61, 0.82],
       terrainOctaves: { baseAmp: 75, w1Freq: 2.2, w1Amp: 65, w2Freq: 4.8, w2Amp: 34, w3Freq: 8.5, w3Amp: 18 },
     },
     {
@@ -474,19 +596,19 @@ export const LEVELS_BY_PLANET: Record<PlanetId, LevelConfig[]> = {
       hudStyle: 'modern-nopip',
       mapType: 'Impact Crater Ridges',
       description: 'Rugged highlands surrounding the central peaks of Tycho crater. Velocity vector pip is stripped; pilots must fly by raw numeric instruments.',
-      degradedAvionics: ['Velocity Vector Pip OFFLINE', 'Raw Telemetry & Momentum Intuition Required'],
+      degradedAvionics: ['Velocity Vector Pip OFFLINE (Permanently removed)', 'Fuel Restricted to 150L'],
       worldWidth: 3600,
       worldHeight: 1420,
       windSpeed: 15,
       hazardCount: 6,
       fuelCapacity: 150,
       pads: [
-        { name: 'TYCHO RIDGE', code: 'ALPHA', xPercent: 0.23, yOffset: -8, w: 150, multiplier: 1.0, color: '#3b82f6', glowColor: 'rgba(59, 130, 246, 0.4)', distanceTier: 'NEAR' },
-        { name: 'CENTRAL PEAK', code: 'BRAVO', xPercent: 0.47, yOffset: 15, w: 125, multiplier: 2.0, color: '#10b981', glowColor: 'rgba(16, 185, 129, 0.4)', distanceTier: 'MID' },
-        { name: 'RAY CREST', code: 'CHARLIE', xPercent: 0.71, yOffset: -22, w: 105, multiplier: 3.5, color: '#f59e0b', glowColor: 'rgba(245, 158, 11, 0.4)', distanceTier: 'FAR' },
-        { name: 'ZENITH SPIRE', code: 'OMEGA', xPercent: 0.89, yOffset: 25, w: 85, multiplier: 5.0, color: '#ec4899', glowColor: 'rgba(236, 72, 153, 0.45)', distanceTier: 'EXTREME' },
+        { name: 'TYCHO RIDGE', code: 'ALPHA', xPercent: 0.16, yOffset: 28, w: 150, multiplier: 1.0, color: '#3b82f6', glowColor: 'rgba(59, 130, 246, 0.4)', distanceTier: 'NEAR' },
+        { name: 'CENTRAL PEAK', code: 'BRAVO', xPercent: 0.38, yOffset: -38, w: 125, multiplier: 2.0, color: '#10b981', glowColor: 'rgba(16, 185, 129, 0.4)', distanceTier: 'MID' },
+        { name: 'RAY CREST', code: 'CHARLIE', xPercent: 0.63, yOffset: 20, w: 105, multiplier: 3.5, color: '#f59e0b', glowColor: 'rgba(245, 158, 11, 0.4)', distanceTier: 'FAR' },
+        { name: 'ZENITH SPIRE', code: 'OMEGA', xPercent: 0.85, yOffset: -42, w: 85, multiplier: 5.0, color: '#ec4899', glowColor: 'rgba(236, 72, 153, 0.45)', distanceTier: 'EXTREME' },
       ],
-      cragPositions: [0.33, 0.39, 0.57, 0.63, 0.80, 0.84],
+      cragPositions: [0.28, 0.50, 0.74, 0.94],
       terrainOctaves: { baseAmp: 82, w1Freq: 2.4, w1Amp: 72, w2Freq: 5.2, w2Amp: 38, w3Freq: 9.8, w3Amp: 20 },
     },
     {
@@ -499,45 +621,45 @@ export const LEVELS_BY_PLANET: Record<PlanetId, LevelConfig[]> = {
       hudStyle: 'y2k',
       mapType: 'Basalt Rift Gorge',
       description: 'Deep jagged basalt canyons with sheer vertical drops. Live trajectory prediction and landing guidance reticles are completely decommissioned.',
-      degradedAvionics: ['Trajectory Predictor DECOMMISSIONED', 'Landing Guidance Reticle OFFLINE', 'Crosswinds: 20 px/s'],
+      degradedAvionics: ['Trajectory Predictor DECOMMISSIONED (Permanently removed)', 'Crosswinds: 20 px/s • Fuel: 140L'],
       worldWidth: 3700,
       worldHeight: 1420,
       windSpeed: 20,
       hazardCount: 7,
       fuelCapacity: 140,
       pads: [
-        { name: 'CANYON SHELF', code: 'ALPHA', xPercent: 0.21, yOffset: 10, w: 145, multiplier: 1.0, color: '#22c55e', glowColor: 'rgba(34, 197, 94, 0.4)', distanceTier: 'NEAR' },
-        { name: 'BASALT ROOST', code: 'BRAVO', xPercent: 0.45, yOffset: -18, w: 120, multiplier: 2.0, color: '#06b6d4', glowColor: 'rgba(6, 182, 212, 0.4)', distanceTier: 'MID' },
-        { name: 'GORGE PASS', code: 'CHARLIE', xPercent: 0.69, yOffset: 12, w: 100, multiplier: 3.5, color: '#eab308', glowColor: 'rgba(234, 179, 8, 0.4)', distanceTier: 'FAR' },
-        { name: 'SANCTUARY APEX', code: 'OMEGA', xPercent: 0.92, yOffset: -28, w: 80, multiplier: 5.0, color: '#ef4444', glowColor: 'rgba(239, 68, 68, 0.45)', distanceTier: 'EXTREME' },
+        { name: 'CANYON SHELF', code: 'ALPHA', xPercent: 0.27, yOffset: -32, w: 145, multiplier: 1.0, color: '#22c55e', glowColor: 'rgba(34, 197, 94, 0.4)', distanceTier: 'NEAR' },
+        { name: 'BASALT ROOST', code: 'BRAVO', xPercent: 0.51, yOffset: 35, w: 120, multiplier: 2.0, color: '#06b6d4', glowColor: 'rgba(6, 182, 212, 0.4)', distanceTier: 'MID' },
+        { name: 'GORGE PASS', code: 'CHARLIE', xPercent: 0.71, yOffset: -20, w: 100, multiplier: 3.5, color: '#eab308', glowColor: 'rgba(234, 179, 8, 0.4)', distanceTier: 'FAR' },
+        { name: 'SANCTUARY APEX', code: 'OMEGA', xPercent: 0.93, yOffset: 40, w: 80, multiplier: 5.0, color: '#ef4444', glowColor: 'rgba(239, 68, 68, 0.45)', distanceTier: 'EXTREME' },
       ],
-      cragPositions: [0.30, 0.36, 0.52, 0.60, 0.77, 0.86],
+      cragPositions: [0.19, 0.39, 0.62, 0.83],
       terrainOctaves: { baseAmp: 88, w1Freq: 2.5, w1Amp: 78, w2Freq: 5.4, w2Amp: 42, w3Freq: 10.2, w3Amp: 22 },
     },
     {
       id: 5,
       planetId: 'moon',
       name: 'FRA MAURO CRATERS',
-      era: 'STAGE 3: RADAR STROBE',
+      era: 'STAGE 3: RADAR STROBE DECAY',
       retrogressionShort: 'RADAR STROBE',
       themeColor: '#84cc16',
       hudStyle: 'y2k',
-      mapType: 'Volcanic Calderas',
-      description: 'Uneven volcanic ejecta and crater fields. Tactical radar refresh rate degrades to low-frequency strobe pulses with increased debris activity.',
-      degradedAvionics: ['Real-Time Radar Degraded to Low-Freq Strobe', 'Crosswinds: 25 px/s • Fuel Reduced to 130L'],
+      mapType: 'Impact Ridge Fields',
+      description: 'Ancient ejecta blanket from the Imbrium impact. Radar sensor sweep degrades to a periodic 2-second flash with phosphor decay.',
+      degradedAvionics: ['Continuous Radar Sweep DEGRADED (2s pulse strobe)', 'Fuel Restricted to 130L'],
       worldWidth: 3800,
-      worldHeight: 1450,
+      worldHeight: 1440,
       windSpeed: 25,
       hazardCount: 8,
       fuelCapacity: 130,
       pads: [
-        { name: 'CALDERA RIM', code: 'ALPHA', xPercent: 0.22, yOffset: -12, w: 140, multiplier: 1.0, color: '#84cc16', glowColor: 'rgba(132, 204, 22, 0.4)', distanceTier: 'NEAR' },
-        { name: 'FRA MAURO PERCH', code: 'BRAVO', xPercent: 0.48, yOffset: 20, w: 115, multiplier: 2.0, color: '#38bdf8', glowColor: 'rgba(56, 189, 248, 0.4)', distanceTier: 'MID' },
-        { name: 'BASALT VALLEY', code: 'CHARLIE', xPercent: 0.72, yOffset: -15, w: 95, multiplier: 3.5, color: '#f59e0b', glowColor: 'rgba(245, 158, 11, 0.4)', distanceTier: 'FAR' },
-        { name: 'EJECTA PINNACLE', code: 'OMEGA', xPercent: 0.90, yOffset: 30, w: 75, multiplier: 5.0, color: '#ec4899', glowColor: 'rgba(236, 72, 153, 0.45)', distanceTier: 'EXTREME' },
+        { name: 'EJECTA BENCH', code: 'ALPHA', xPercent: 0.20, yOffset: 20, w: 140, multiplier: 1.0, color: '#84cc16', glowColor: 'rgba(132, 204, 22, 0.4)', distanceTier: 'NEAR' },
+        { name: 'FRA MAURO PIT', code: 'BRAVO', xPercent: 0.45, yOffset: -30, w: 115, multiplier: 2.0, color: '#eab308', glowColor: 'rgba(234, 179, 8, 0.4)', distanceTier: 'MID' },
+        { name: 'IMBRIUM SPUR', code: 'CHARLIE', xPercent: 0.68, yOffset: 25, w: 95, multiplier: 3.5, color: '#ea580c', glowColor: 'rgba(234, 88, 12, 0.4)', distanceTier: 'FAR' },
+        { name: 'APOLLO MONOLITH', code: 'OMEGA', xPercent: 0.88, yOffset: -35, w: 75, multiplier: 5.0, color: '#f43f5e', glowColor: 'rgba(244, 63, 94, 0.45)', distanceTier: 'EXTREME' },
       ],
-      cragPositions: [0.32, 0.37, 0.55, 0.62, 0.79, 0.85],
-      terrainOctaves: { baseAmp: 94, w1Freq: 2.6, w1Amp: 84, w2Freq: 5.7, w2Amp: 46, w3Freq: 11.0, w3Amp: 24 },
+      cragPositions: [0.32, 0.57, 0.79],
+      terrainOctaves: { baseAmp: 94, w1Freq: 2.7, w1Amp: 84, w2Freq: 5.6, w2Amp: 46, w3Freq: 10.8, w3Amp: 24 },
     },
     {
       id: 6,
@@ -547,108 +669,108 @@ export const LEVELS_BY_PLANET: Record<PlanetId, LevelConfig[]> = {
       retrogressionShort: 'AUDIO ALTIMETER',
       themeColor: '#f59e0b',
       hudStyle: 'eighties',
-      mapType: 'Bay of Rainbows Cliffline',
-      description: 'Towering semi-circular crater walls overlooking smooth basalt seas. Digital altimeters are dead; pilots must rely on audio proximity chirps.',
-      degradedAvionics: ['Digital Altimeter OFFLINE', 'Acoustic Proximity Chirps ACTIVE', 'Severe Crosswinds: 30 px/s'],
+      mapType: 'Bay of Rainbows Cliffs',
+      description: 'A massive basalt impact bay flanked by the towering Promontorium Laplace cliffs. Digital numeric altitude readout is burnt out.',
+      degradedAvionics: ['Digital Numeric Altimeter DECOMMISSIONED', 'Acoustic Proximity Audio Active', 'Fuel: 125L'],
       worldWidth: 3900,
       worldHeight: 1460,
       windSpeed: 30,
       hazardCount: 9,
       fuelCapacity: 125,
       pads: [
-        { name: 'IRIDUM PLAINS', code: 'ALPHA', xPercent: 0.20, yOffset: 14, w: 135, multiplier: 1.0, color: '#f59e0b', glowColor: 'rgba(245, 158, 11, 0.4)', distanceTier: 'NEAR' },
-        { name: 'CLIFF PERCH', code: 'BRAVO', xPercent: 0.46, yOffset: -22, w: 110, multiplier: 2.0, color: '#eab308', glowColor: 'rgba(234, 179, 8, 0.4)', distanceTier: 'MID' },
-        { name: 'PROMONTORIUM', code: 'CHARLIE', xPercent: 0.70, yOffset: 16, w: 90, multiplier: 3.5, color: '#ea580c', glowColor: 'rgba(234, 88, 12, 0.4)', distanceTier: 'FAR' },
-        { name: 'RAINBOW APEX', code: 'OMEGA', xPercent: 0.91, yOffset: -35, w: 70, multiplier: 5.0, color: '#ef4444', glowColor: 'rgba(239, 68, 68, 0.45)', distanceTier: 'EXTREME' },
+        { name: 'RAINBOW SHORE', code: 'ALPHA', xPercent: 0.23, yOffset: -25, w: 135, multiplier: 1.0, color: '#f59e0b', glowColor: 'rgba(245, 158, 11, 0.4)', distanceTier: 'NEAR' },
+        { name: 'LAPLACE BLUFF', code: 'BRAVO', xPercent: 0.53, yOffset: 28, w: 110, multiplier: 2.0, color: '#ef4444', glowColor: 'rgba(239, 68, 68, 0.4)', distanceTier: 'MID' },
+        { name: 'HERACLIDES LEDGE', code: 'CHARLIE', xPercent: 0.75, yOffset: -30, w: 90, multiplier: 3.5, color: '#ec4899', glowColor: 'rgba(236, 72, 153, 0.4)', distanceTier: 'FAR' },
+        { name: 'IRIDUM TERMINUS', code: 'OMEGA', xPercent: 0.94, yOffset: -50, w: 70, multiplier: 5.0, color: '#dc2626', glowColor: 'rgba(220, 38, 38, 0.45)', distanceTier: 'EXTREME' },
       ],
-      cragPositions: [0.29, 0.35, 0.53, 0.61, 0.78, 0.87],
-      terrainOctaves: { baseAmp: 100, w1Freq: 2.8, w1Amp: 90, w2Freq: 6.0, w2Amp: 50, w3Freq: 11.5, w3Amp: 26 },
+      cragPositions: [0.15, 0.38, 0.65, 0.85],
+      terrainOctaves: { baseAmp: 100, w1Freq: 2.8, w1Amp: 90, w2Freq: 5.8, w2Amp: 50, w3Freq: 11.2, w3Amp: 26 },
     },
     {
       id: 7,
       planetId: 'moon',
       name: 'APENNINE CRAGS',
-      era: 'STAGE 4: SENSORS FLICKERING',
+      era: 'STAGE 4: SENSOR CRT GLITCH',
       retrogressionShort: 'SENSOR GLITCH',
       themeColor: '#ea580c',
       hudStyle: 'eighties',
       mapType: 'Mountain Spire Trench',
-      description: 'Lunar mountain peaks rising over 4,000 meters. Cockpit instruments flicker with CRT static; narrow plateaus are bordered by razor-sharp crags.',
-      degradedAvionics: ['Speedometers Glitching & Flickering', 'Heavy Volcanic Spire Obstacles', 'Crosswinds: 35 px/s'],
+      description: 'Towering lunar mountain peaks rising 5,000 meters above the plain. Tactical radar is permanently offline, screens suffer electromagnetic static noise.',
+      degradedAvionics: ['Tactical Radar PERMANENTLY OFFLINE', 'Compass Beacon Offline', 'Fuel: 120L'],
       worldWidth: 4000,
       worldHeight: 1480,
       windSpeed: 35,
       hazardCount: 10,
       fuelCapacity: 120,
       pads: [
-        { name: 'APENNINE VALLEY', code: 'ALPHA', xPercent: 0.23, yOffset: -18, w: 130, multiplier: 1.0, color: '#ea580c', glowColor: 'rgba(234, 88, 12, 0.4)', distanceTier: 'NEAR' },
-        { name: 'SPIRE CREST', code: 'BRAVO', xPercent: 0.47, yOffset: 24, w: 105, multiplier: 2.0, color: '#f59e0b', glowColor: 'rgba(245, 158, 11, 0.4)', distanceTier: 'MID' },
-        { name: 'MONS HUYGENS', code: 'CHARLIE', xPercent: 0.71, yOffset: -28, w: 85, multiplier: 3.5, color: '#f43f5e', glowColor: 'rgba(244, 63, 94, 0.4)', distanceTier: 'FAR' },
-        { name: 'APEX PINNACLE', code: 'OMEGA', xPercent: 0.89, yOffset: 32, w: 68, multiplier: 5.0, color: '#a855f7', glowColor: 'rgba(168, 85, 247, 0.45)', distanceTier: 'EXTREME' },
+        { name: 'HADLEY SPUR', code: 'ALPHA', xPercent: 0.15, yOffset: 38, w: 130, multiplier: 1.0, color: '#ea580c', glowColor: 'rgba(234, 88, 12, 0.4)', distanceTier: 'NEAR' },
+        { name: 'APENNINE PASS', code: 'BRAVO', xPercent: 0.40, yOffset: -45, w: 105, multiplier: 2.0, color: '#f97316', glowColor: 'rgba(249, 115, 22, 0.4)', distanceTier: 'MID' },
+        { name: 'HUYGENS PINNACLE', code: 'CHARLIE', xPercent: 0.65, yOffset: 32, w: 85, multiplier: 3.5, color: '#dc2626', glowColor: 'rgba(220, 38, 38, 0.4)', distanceTier: 'FAR' },
+        { name: 'APENNINE ABYSS', code: 'OMEGA', xPercent: 0.86, yOffset: -35, w: 65, multiplier: 5.0, color: '#991b1b', glowColor: 'rgba(153, 27, 27, 0.45)', distanceTier: 'EXTREME' },
       ],
-      cragPositions: [0.31, 0.38, 0.56, 0.63, 0.80, 0.84],
-      terrainOctaves: { baseAmp: 106, w1Freq: 3.0, w1Amp: 96, w2Freq: 6.3, w2Amp: 54, w3Freq: 12.0, w3Amp: 28 },
+      cragPositions: [0.27, 0.52, 0.76, 0.95],
+      terrainOctaves: { baseAmp: 108, w1Freq: 3.0, w1Amp: 98, w2Freq: 6.0, w2Amp: 54, w3Freq: 11.8, w3Amp: 28 },
     },
     {
       id: 8,
       planetId: 'moon',
-      name: 'CLAVIUS CHASM',
+      name: 'CLAVIUS ABYSS',
       era: 'STAGE 4: ANALOG GAUGES',
       retrogressionShort: 'ANALOG GAUGES',
       themeColor: '#94a3b8',
       hudStyle: 'apollo',
-      mapType: 'Ancient Crater Floor',
-      description: 'One of the oldest and largest lunar craters, scarred by secondary impacts. Digital telemetry is dead; fuel needle is damped with mechanical lag.',
-      degradedAvionics: ['Digital Speedometers OFFLINE', 'Mechanical Damped Fuel Gauge Active (~300ms lag)', 'High Micrometeorite Density'],
-      worldWidth: 4100,
+      mapType: 'Colossal Crater Floor',
+      description: 'One of the oldest impact craters on the Moon. Digital speedometers are dead; fuel gauge is replaced by a mechanical needle with physical inertia.',
+      degradedAvionics: ['Digital Speedometers OFFLINE', 'Mechanical Damped Fuel Needle Active', 'Fuel: 115L'],
+      worldWidth: 4150,
       worldHeight: 1500,
       windSpeed: 38,
       hazardCount: 11,
       fuelCapacity: 115,
       pads: [
-        { name: 'CLAVIUS BASE', code: 'ALPHA', xPercent: 0.21, yOffset: 12, w: 125, multiplier: 1.0, color: '#94a3b8', glowColor: 'rgba(148, 163, 184, 0.4)', distanceTier: 'NEAR' },
-        { name: 'RUTHERFURD RIM', code: 'BRAVO', xPercent: 0.45, yOffset: -20, w: 100, multiplier: 2.0, color: '#cbd5e1', glowColor: 'rgba(203, 213, 225, 0.4)', distanceTier: 'MID' },
-        { name: 'PORTER CHASM', code: 'CHARLIE', xPercent: 0.69, yOffset: 25, w: 80, multiplier: 3.5, color: '#f59e0b', glowColor: 'rgba(245, 158, 11, 0.4)', distanceTier: 'FAR' },
-        { name: 'DEEP ABYSS', code: 'OMEGA', xPercent: 0.92, yOffset: -32, w: 65, multiplier: 5.0, color: '#ef4444', glowColor: 'rgba(239, 68, 68, 0.45)', distanceTier: 'EXTREME' },
+        { name: 'CLAVIUS FLOOR', code: 'ALPHA', xPercent: 0.25, yOffset: -35, w: 125, multiplier: 1.0, color: '#94a3b8', glowColor: 'rgba(148, 163, 184, 0.4)', distanceTier: 'NEAR' },
+        { name: 'PORTER CREST', code: 'BRAVO', xPercent: 0.48, yOffset: 24, w: 100, multiplier: 2.0, color: '#cbd5e1', glowColor: 'rgba(203, 213, 225, 0.4)', distanceTier: 'MID' },
+        { name: 'RUTHERFURD CHASM', code: 'CHARLIE', xPercent: 0.72, yOffset: -48, w: 80, multiplier: 3.5, color: '#e2e8f0', glowColor: 'rgba(226, 232, 240, 0.4)', distanceTier: 'FAR' },
+        { name: 'CLAVIUS APEX', code: 'OMEGA', xPercent: 0.91, yOffset: 22, w: 60, multiplier: 5.0, color: '#ffffff', glowColor: 'rgba(255, 255, 255, 0.45)', distanceTier: 'EXTREME' },
       ],
-      cragPositions: [0.28, 0.34, 0.51, 0.59, 0.76, 0.85],
-      terrainOctaves: { baseAmp: 112, w1Freq: 3.1, w1Amp: 102, w2Freq: 6.5, w2Amp: 58, w3Freq: 12.5, w3Amp: 30 },
+      cragPositions: [0.18, 0.37, 0.60, 0.82],
+      terrainOctaves: { baseAmp: 114, w1Freq: 3.2, w1Amp: 104, w2Freq: 6.4, w2Amp: 58, w3Freq: 12.4, w3Amp: 30 },
     },
     {
       id: 9,
       planetId: 'moon',
-      name: 'DARK SIDE TRENCH',
-      era: 'STAGE 5: DIMMED OPTICS',
-      retrogressionShort: '70% BLIND',
+      name: 'RUPES RECTA FAULT',
+      era: 'STAGE 5: OPTICAL SENSOR DECAY',
+      retrogressionShort: '75% BLIND',
       themeColor: '#f43f5e',
       hudStyle: 'apollo',
-      mapType: 'Lunar Far Side Ravine',
-      description: 'Far side lunar corridor enveloped in heavy shadow. Cockpit optical sensors dimmed by 75%; intense crosswinds buffet the lander over sheer drops.',
-      degradedAvionics: ['Optical Sensors: 75% DIMMED', 'Severe Crosswinds: 42 px/s', 'Fuel Restricted to 110L'],
-      worldWidth: 4200,
+      mapType: 'Linear Fault Scarp',
+      description: 'The infamous Straight Wall scarp. Viewscreen is 75% blinded by static noise; pilot must rely on acoustic sonar frequency pitch.',
+      degradedAvionics: ['Viewscreen: 75% BLIND (Static noise)', 'Acoustic Sonar Flight Mode', 'Fuel: 110L'],
+      worldWidth: 4250,
       worldHeight: 1500,
       windSpeed: 42,
       hazardCount: 12,
       fuelCapacity: 110,
       pads: [
-        { name: 'FARSIDE PASS', code: 'ALPHA', xPercent: 0.22, yOffset: -16, w: 120, multiplier: 1.0, color: '#f43f5e', glowColor: 'rgba(244, 63, 94, 0.4)', distanceTier: 'NEAR' },
-        { name: 'SHADOW GORGE', code: 'BRAVO', xPercent: 0.46, yOffset: 28, w: 95, multiplier: 2.0, color: '#fb7185', glowColor: 'rgba(251, 113, 133, 0.4)', distanceTier: 'MID' },
-        { name: 'DARK CHASM', code: 'CHARLIE', xPercent: 0.70, yOffset: -25, w: 75, multiplier: 3.5, color: '#e11d48', glowColor: 'rgba(225, 29, 72, 0.4)', distanceTier: 'FAR' },
-        { name: 'GAGARIN ABYSS', code: 'OMEGA', xPercent: 0.90, yOffset: 35, w: 60, multiplier: 5.0, color: '#be123c', glowColor: 'rgba(190, 18, 60, 0.45)', distanceTier: 'EXTREME' },
+        { name: 'WALL OUTPOST', code: 'ALPHA', xPercent: 0.17, yOffset: 25, w: 120, multiplier: 1.0, color: '#f43f5e', glowColor: 'rgba(244, 63, 94, 0.4)', distanceTier: 'NEAR' },
+        { name: 'SCARP TRENCH', code: 'BRAVO', xPercent: 0.46, yOffset: -40, w: 95, multiplier: 2.0, color: '#fb7185', glowColor: 'rgba(251, 113, 133, 0.4)', distanceTier: 'MID' },
+        { name: 'FAULT PRECIPICE', code: 'CHARLIE', xPercent: 0.70, yOffset: 35, w: 75, multiplier: 3.5, color: '#e11d48', glowColor: 'rgba(225, 29, 72, 0.4)', distanceTier: 'FAR' },
+        { name: 'RECTA MONOLITH', code: 'OMEGA', xPercent: 0.93, yOffset: -55, w: 55, multiplier: 5.0, color: '#be123c', glowColor: 'rgba(190, 18, 60, 0.45)', distanceTier: 'EXTREME' },
       ],
-      cragPositions: [0.30, 0.36, 0.54, 0.62, 0.78, 0.86],
-      terrainOctaves: { baseAmp: 118, w1Freq: 3.3, w1Amp: 108, w2Freq: 6.8, w2Amp: 62, w3Freq: 13.0, w3Amp: 32 },
+      cragPositions: [0.31, 0.58, 0.82],
+      terrainOctaves: { baseAmp: 120, w1Freq: 3.4, w1Amp: 110, w2Freq: 6.8, w2Amp: 62, w3Freq: 13.0, w3Amp: 32 },
     },
     {
       id: 10,
       planetId: 'moon',
-      name: 'THE VOID GAUNTLET',
-      era: 'STAGE 5: SENSORY BLACKOUT',
+      name: 'MARE ORIENTALE VOID',
+      era: 'STAGE 5: TOTAL SENSORY BLACKOUT',
       retrogressionShort: 'BLIND BLACKOUT',
       themeColor: '#ef4444',
       hudStyle: 'blackout',
       mapType: 'Deep Void Rift',
-      description: 'Total optical darkness. All glass cockpit instruments are dead. Pilot must navigate purely by acoustic sonar audio chirps (200Hz - 1200Hz) to touch down safely.',
+      description: 'Total optical darkness. All cockpit displays are dead. Pilot must navigate purely by acoustic sonar audio chirps (200Hz - 1200Hz) to touch down safely.',
       degradedAvionics: ['ALL INSTRUMENTS OFFLINE', 'Optical Sensors: 95% BLIND', 'Acoustic Sonar Flight ACTIVE', 'Maximum Hazard Density'],
       worldWidth: 4400,
       worldHeight: 1520,
@@ -656,19 +778,21 @@ export const LEVELS_BY_PLANET: Record<PlanetId, LevelConfig[]> = {
       hazardCount: 14,
       fuelCapacity: 100,
       pads: [
-        { name: 'VOID OUTPOST', code: 'ALPHA', xPercent: 0.20, yOffset: 20, w: 110, multiplier: 1.0, color: '#ef4444', glowColor: 'rgba(239, 68, 68, 0.4)', distanceTier: 'NEAR' },
-        { name: 'DARK CHASM', code: 'BRAVO', xPercent: 0.44, yOffset: -30, w: 85, multiplier: 2.0, color: '#f87171', glowColor: 'rgba(248, 113, 113, 0.4)', distanceTier: 'MID' },
-        { name: 'SONAR CREST', code: 'CHARLIE', xPercent: 0.68, yOffset: 26, w: 70, multiplier: 3.5, color: '#dc2626', glowColor: 'rgba(220, 38, 38, 0.4)', distanceTier: 'FAR' },
-        { name: 'OMEGA BLACKOUT', code: 'OMEGA', xPercent: 0.91, yOffset: -40, w: 55, multiplier: 5.0, color: '#b91c1c', glowColor: 'rgba(185, 28, 28, 0.45)', distanceTier: 'EXTREME' },
+        { name: 'VOID OUTPOST', code: 'ALPHA', xPercent: 0.19, yOffset: -28, w: 110, multiplier: 1.0, color: '#ef4444', glowColor: 'rgba(239, 68, 68, 0.4)', distanceTier: 'NEAR' },
+        { name: 'DARK CHASM', code: 'BRAVO', xPercent: 0.43, yOffset: 30, w: 85, multiplier: 2.0, color: '#f87171', glowColor: 'rgba(248, 113, 113, 0.4)', distanceTier: 'MID' },
+        { name: 'SONAR CREST', code: 'CHARLIE', xPercent: 0.66, yOffset: -45, w: 70, multiplier: 3.5, color: '#dc2626', glowColor: 'rgba(220, 38, 38, 0.4)', distanceTier: 'FAR' },
+        { name: 'OMEGA BLACKOUT', code: 'OMEGA', xPercent: 0.89, yOffset: -60, w: 55, multiplier: 5.0, color: '#b91c1c', glowColor: 'rgba(185, 28, 28, 0.45)', distanceTier: 'EXTREME' },
       ],
-      cragPositions: [0.28, 0.35, 0.52, 0.60, 0.77, 0.86],
+      cragPositions: [0.14, 0.32, 0.54, 0.78],
       terrainOctaves: { baseAmp: 125, w1Freq: 3.5, w1Amp: 115, w2Freq: 7.0, w2Amp: 66, w3Freq: 13.5, w3Amp: 34 },
     },
   ],
 
-  // ==========================================
-  // PLANET 2: MARS (10 Levels)
-  // ==========================================
+  // =========================================================================
+  // PLANET 2: MARS (Ares) - 10 Progressive Maps
+  // Topography: Stepped red alluvial mesas, colossal rift canyons, iron dunes.
+  // Completely unique pad layouts and elevated terraces!
+  // =========================================================================
   mars: [
     {
       id: 1,
@@ -687,12 +811,12 @@ export const LEVELS_BY_PLANET: Record<PlanetId, LevelConfig[]> = {
       hazardCount: 4,
       fuelCapacity: 180,
       pads: [
-        { name: 'VIKING SITE 1', code: 'ALPHA', xPercent: 0.22, yOffset: 2, w: 160, multiplier: 1.0, color: '#f97316', glowColor: 'rgba(249, 115, 22, 0.4)', distanceTier: 'NEAR' },
-        { name: 'GOLDEN BASIN', code: 'BRAVO', xPercent: 0.46, yOffset: -12, w: 135, multiplier: 2.0, color: '#fb923c', glowColor: 'rgba(251, 146, 60, 0.4)', distanceTier: 'MID' },
-        { name: 'ARES STRATA', code: 'CHARLIE', xPercent: 0.70, yOffset: 16, w: 115, multiplier: 3.5, color: '#ea580c', glowColor: 'rgba(234, 88, 12, 0.4)', distanceTier: 'FAR' },
-        { name: 'RED SANCTUARY', code: 'OMEGA', xPercent: 0.90, yOffset: -22, w: 95, multiplier: 5.0, color: '#ef4444', glowColor: 'rgba(239, 68, 68, 0.45)', distanceTier: 'EXTREME' },
+        { name: 'VIKING SITE 1', code: 'ALPHA', xPercent: 0.30, yOffset: 32, w: 160, multiplier: 1.0, color: '#f97316', glowColor: 'rgba(249, 115, 22, 0.4)', distanceTier: 'NEAR' },
+        { name: 'GOLDEN BASIN', code: 'BRAVO', xPercent: 0.54, yOffset: -38, w: 135, multiplier: 2.0, color: '#fb923c', glowColor: 'rgba(251, 146, 60, 0.4)', distanceTier: 'MID' },
+        { name: 'ARES STRATA', code: 'CHARLIE', xPercent: 0.78, yOffset: 16, w: 115, multiplier: 3.5, color: '#ea580c', glowColor: 'rgba(234, 88, 12, 0.4)', distanceTier: 'FAR' },
+        { name: 'RED SANCTUARY', code: 'OMEGA', xPercent: 0.95, yOffset: -28, w: 95, multiplier: 5.0, color: '#ef4444', glowColor: 'rgba(239, 68, 68, 0.45)', distanceTier: 'EXTREME' },
       ],
-      cragPositions: [0.33, 0.41, 0.57, 0.65, 0.80, 0.87],
+      cragPositions: [0.18, 0.42, 0.66, 0.87],
       terrainOctaves: { baseAmp: 74, w1Freq: 2.1, w1Amp: 64, w2Freq: 5.1, w2Amp: 32, w3Freq: 9.2, w3Amp: 17 },
     },
     {
@@ -712,12 +836,12 @@ export const LEVELS_BY_PLANET: Record<PlanetId, LevelConfig[]> = {
       hazardCount: 5,
       fuelCapacity: 165,
       pads: [
-        { name: 'UTOPIA STATION', code: 'ALPHA', xPercent: 0.21, yOffset: 8, w: 155, multiplier: 1.0, color: '#ea580c', glowColor: 'rgba(234, 88, 12, 0.4)', distanceTier: 'NEAR' },
-        { name: 'FROST SHELF', code: 'BRAVO', xPercent: 0.45, yOffset: -22, w: 130, multiplier: 2.0, color: '#f97316', glowColor: 'rgba(249, 115, 22, 0.4)', distanceTier: 'MID' },
-        { name: 'POLYGON RIM', code: 'CHARLIE', xPercent: 0.69, yOffset: 15, w: 110, multiplier: 3.5, color: '#c2410c', glowColor: 'rgba(194, 65, 12, 0.4)', distanceTier: 'FAR' },
-        { name: 'UTOPIA DOME', code: 'OMEGA', xPercent: 0.91, yOffset: -28, w: 90, multiplier: 5.0, color: '#dc2626', glowColor: 'rgba(220, 38, 38, 0.45)', distanceTier: 'EXTREME' },
+        { name: 'UTOPIA STATION', code: 'ALPHA', xPercent: 0.17, yOffset: -18, w: 155, multiplier: 1.0, color: '#ea580c', glowColor: 'rgba(234, 88, 12, 0.4)', distanceTier: 'NEAR' },
+        { name: 'FROST SHELF', code: 'BRAVO', xPercent: 0.41, yOffset: 30, w: 130, multiplier: 2.0, color: '#f97316', glowColor: 'rgba(249, 115, 22, 0.4)', distanceTier: 'MID' },
+        { name: 'POLYGON RIM', code: 'CHARLIE', xPercent: 0.66, yOffset: -28, w: 110, multiplier: 3.5, color: '#c2410c', glowColor: 'rgba(194, 65, 12, 0.4)', distanceTier: 'FAR' },
+        { name: 'UTOPIA DOME', code: 'OMEGA', xPercent: 0.87, yOffset: 35, w: 90, multiplier: 5.0, color: '#dc2626', glowColor: 'rgba(220, 38, 38, 0.45)', distanceTier: 'EXTREME' },
       ],
-      cragPositions: [0.32, 0.39, 0.55, 0.62, 0.79, 0.86],
+      cragPositions: [0.29, 0.53, 0.77],
       terrainOctaves: { baseAmp: 78, w1Freq: 2.3, w1Amp: 68, w2Freq: 5.0, w2Amp: 36, w3Freq: 9.0, w3Amp: 19 },
     },
     {
@@ -737,12 +861,12 @@ export const LEVELS_BY_PLANET: Record<PlanetId, LevelConfig[]> = {
       hazardCount: 6,
       fuelCapacity: 150,
       pads: [
-        { name: 'LABYRINTH GATE', code: 'ALPHA', xPercent: 0.22, yOffset: -10, w: 150, multiplier: 1.0, color: '#c2410c', glowColor: 'rgba(194, 65, 12, 0.4)', distanceTier: 'NEAR' },
-        { name: 'VALLEY FORK', code: 'BRAVO', xPercent: 0.47, yOffset: 18, w: 125, multiplier: 2.0, color: '#ea580c', glowColor: 'rgba(234, 88, 12, 0.4)', distanceTier: 'MID' },
-        { name: 'SHADOW BLUFF', code: 'CHARLIE', xPercent: 0.71, yOffset: -20, w: 105, multiplier: 3.5, color: '#e11d48', glowColor: 'rgba(225, 29, 72, 0.4)', distanceTier: 'FAR' },
-        { name: 'NOCTIS MONOLITH', code: 'OMEGA', xPercent: 0.90, yOffset: 26, w: 85, multiplier: 5.0, color: '#be123c', glowColor: 'rgba(190, 18, 60, 0.45)', distanceTier: 'EXTREME' },
+        { name: 'LABYRINTH GATE', code: 'ALPHA', xPercent: 0.25, yOffset: -40, w: 150, multiplier: 1.0, color: '#c2410c', glowColor: 'rgba(194, 65, 12, 0.4)', distanceTier: 'NEAR' },
+        { name: 'VALLEY FORK', code: 'BRAVO', xPercent: 0.49, yOffset: 42, w: 125, multiplier: 2.0, color: '#ea580c', glowColor: 'rgba(234, 88, 12, 0.4)', distanceTier: 'MID' },
+        { name: 'SHADOW BLUFF', code: 'CHARLIE', xPercent: 0.73, yOffset: -25, w: 105, multiplier: 3.5, color: '#e11d48', glowColor: 'rgba(225, 29, 72, 0.4)', distanceTier: 'FAR' },
+        { name: 'NOCTIS MONOLITH', code: 'OMEGA', xPercent: 0.92, yOffset: -48, w: 85, multiplier: 5.0, color: '#be123c', glowColor: 'rgba(190, 18, 60, 0.45)', distanceTier: 'EXTREME' },
       ],
-      cragPositions: [0.31, 0.38, 0.56, 0.63, 0.81, 0.87],
+      cragPositions: [0.15, 0.37, 0.61, 0.83],
       terrainOctaves: { baseAmp: 85, w1Freq: 2.5, w1Amp: 75, w2Freq: 5.3, w2Amp: 40, w3Freq: 10.0, w3Amp: 21 },
     },
     {
@@ -762,169 +886,171 @@ export const LEVELS_BY_PLANET: Record<PlanetId, LevelConfig[]> = {
       hazardCount: 7,
       fuelCapacity: 140,
       pads: [
-        { name: 'MARINER CLIFF', code: 'ALPHA', xPercent: 0.20, yOffset: 12, w: 145, multiplier: 1.0, color: '#b45309', glowColor: 'rgba(180, 83, 9, 0.4)', distanceTier: 'NEAR' },
-        { name: 'CANYON FLOOR', code: 'BRAVO', xPercent: 0.45, yOffset: -18, w: 120, multiplier: 2.0, color: '#ea580c', glowColor: 'rgba(234, 88, 12, 0.4)', distanceTier: 'MID' },
-        { name: 'ECHUS CHASM', code: 'CHARLIE', xPercent: 0.69, yOffset: 14, w: 100, multiplier: 3.5, color: '#f59e0b', glowColor: 'rgba(245, 158, 11, 0.4)', distanceTier: 'FAR' },
-        { name: 'MARINERIS APEX', code: 'OMEGA', xPercent: 0.92, yOffset: -32, w: 80, multiplier: 5.0, color: '#ef4444', glowColor: 'rgba(239, 68, 68, 0.45)', distanceTier: 'EXTREME' },
+        { name: 'MARINER CLIFF', code: 'ALPHA', xPercent: 0.32, yOffset: 28, w: 145, multiplier: 1.0, color: '#b45309', glowColor: 'rgba(180, 83, 9, 0.4)', distanceTier: 'NEAR' },
+        { name: 'CANYON FLOOR', code: 'BRAVO', xPercent: 0.58, yOffset: -55, w: 120, multiplier: 2.0, color: '#ea580c', glowColor: 'rgba(234, 88, 12, 0.4)', distanceTier: 'MID' },
+        { name: 'ECHUS CHASM', code: 'CHARLIE', xPercent: 0.79, yOffset: -15, w: 100, multiplier: 3.5, color: '#f59e0b', glowColor: 'rgba(245, 158, 11, 0.4)', distanceTier: 'FAR' },
+        { name: 'MARINERIS APEX', code: 'OMEGA', xPercent: 0.96, yOffset: 45, w: 80, multiplier: 5.0, color: '#ef4444', glowColor: 'rgba(239, 68, 68, 0.45)', distanceTier: 'EXTREME' },
       ],
-      cragPositions: [0.29, 0.36, 0.53, 0.61, 0.78, 0.85],
-      terrainOctaves: { baseAmp: 92, w1Freq: 2.6, w1Amp: 82, w2Freq: 5.6, w2Amp: 44, w3Freq: 10.4, w3Amp: 23 },
+      cragPositions: [0.20, 0.45, 0.69, 0.88],
+      terrainOctaves: { baseAmp: 92, w1Freq: 2.6, w1Amp: 82, w2Freq: 5.5, w2Amp: 44, w3Freq: 10.4, w3Amp: 23 },
     },
     {
       id: 5,
       planetId: 'mars',
-      name: 'OLYMPUS CALDERA',
-      era: 'STAGE 3: RADAR STROBE',
+      name: 'OLYMPUS MONS FOOTHILLS',
+      era: 'STAGE 3: RADAR STROBE DECAY',
       retrogressionShort: 'RADAR STROBE',
       themeColor: '#d97706',
       hudStyle: 'y2k',
-      mapType: 'Volcanic Shield Summit',
-      description: 'The crowning caldera of Olympus Mons, 22 kilometers above datum. Radar strobe decay challenges situational awareness amidst falling volcanic tephra.',
-      degradedAvionics: ['Radar Degraded to Strobe Pulses', 'Crosswinds: 28 px/s • Fuel: 130L'],
+      mapType: 'Volcanic Shield Flank',
+      description: 'The base of the solar system largest volcano. Low-frequency radar pulse flashes every 2 seconds amidst tumbling volcanic ejecta.',
+      degradedAvionics: ['Continuous Radar Sweep DEGRADED (2s pulse strobe)', 'Crosswinds: 28 px/s • Fuel: 130L'],
       worldWidth: 3850,
       worldHeight: 1460,
       windSpeed: 28,
       hazardCount: 8,
       fuelCapacity: 130,
       pads: [
-        { name: 'SUMMIT CREST', code: 'ALPHA', xPercent: 0.23, yOffset: -14, w: 140, multiplier: 1.0, color: '#d97706', glowColor: 'rgba(217, 119, 6, 0.4)', distanceTier: 'NEAR' },
-        { name: 'CALDERA SHELF', code: 'BRAVO', xPercent: 0.48, yOffset: 22, w: 115, multiplier: 2.0, color: '#ea580c', glowColor: 'rgba(234, 88, 12, 0.4)', distanceTier: 'MID' },
-        { name: 'BASALT PLUG', code: 'CHARLIE', xPercent: 0.72, yOffset: -18, w: 95, multiplier: 3.5, color: '#dc2626', glowColor: 'rgba(220, 38, 38, 0.4)', distanceTier: 'FAR' },
-        { name: 'OLYMPUS ZENITH', code: 'OMEGA', xPercent: 0.90, yOffset: 34, w: 75, multiplier: 5.0, color: '#b91c1c', glowColor: 'rgba(185, 28, 28, 0.45)', distanceTier: 'EXTREME' },
+        { name: 'CALDERA APRON', code: 'ALPHA', xPercent: 0.19, yOffset: -22, w: 140, multiplier: 1.0, color: '#d97706', glowColor: 'rgba(217, 119, 6, 0.4)', distanceTier: 'NEAR' },
+        { name: 'BASALT BENCH', code: 'BRAVO', xPercent: 0.44, yOffset: 38, w: 115, multiplier: 2.0, color: '#f59e0b', glowColor: 'rgba(245, 158, 11, 0.4)', distanceTier: 'MID' },
+        { name: 'AURA TERRACE', code: 'CHARLIE', xPercent: 0.70, yOffset: 12, w: 95, multiplier: 3.5, color: '#ea580c', glowColor: 'rgba(234, 88, 12, 0.4)', distanceTier: 'FAR' },
+        { name: 'OLYMPUS SUMMIT', code: 'OMEGA', xPercent: 0.90, yOffset: -45, w: 75, multiplier: 5.0, color: '#dc2626', glowColor: 'rgba(220, 38, 38, 0.45)', distanceTier: 'EXTREME' },
       ],
-      cragPositions: [0.32, 0.37, 0.54, 0.62, 0.80, 0.86],
-      terrainOctaves: { baseAmp: 98, w1Freq: 2.7, w1Amp: 88, w2Freq: 5.8, w2Amp: 48, w3Freq: 11.2, w3Amp: 25 },
+      cragPositions: [0.31, 0.57, 0.80],
+      terrainOctaves: { baseAmp: 98, w1Freq: 2.8, w1Amp: 88, w2Freq: 5.7, w2Amp: 48, w3Freq: 10.9, w3Amp: 25 },
     },
     {
       id: 6,
       planetId: 'mars',
-      name: 'HELLAS BASIN',
+      name: 'HELLAS IMPACT BASIN',
       era: 'STAGE 3: ALTIMETER OFFLINE',
       retrogressionShort: 'AUDIO ALTIMETER',
-      themeColor: '#e11d48',
+      themeColor: '#b91c1c',
       hudStyle: 'eighties',
-      mapType: 'Dense Atmosphere Sink',
-      description: 'The deepest impact basin on Mars where atmospheric pressure is highest. Digital altimeter fails; listen to rising audio sonar chirps as the ground rushes up.',
-      degradedAvionics: ['Digital Altimeter OFFLINE', 'Acoustic Proximity Chirps ACTIVE', 'Crosswinds: 32 px/s'],
+      mapType: 'Dense Atmosphere Abyss',
+      description: 'The deepest impact structure on Mars, where atmospheric pressure is highest. Numeric laser altimeter is offline; rely on acoustic ground proximity beeps.',
+      degradedAvionics: ['Digital Numeric Altimeter DECOMMISSIONED', 'Acoustic Ground Proximity Audio Active', 'Fuel: 125L'],
       worldWidth: 3950,
       worldHeight: 1480,
       windSpeed: 32,
       hazardCount: 9,
       fuelCapacity: 125,
       pads: [
-        { name: 'HELLAS RIM', code: 'ALPHA', xPercent: 0.20, yOffset: 16, w: 135, multiplier: 1.0, color: '#e11d48', glowColor: 'rgba(225, 29, 72, 0.4)', distanceTier: 'NEAR' },
-        { name: 'SINK FLOOR', code: 'BRAVO', xPercent: 0.46, yOffset: -24, w: 110, multiplier: 2.0, color: '#f43f5e', glowColor: 'rgba(244, 63, 94, 0.4)', distanceTier: 'MID' },
-        { name: 'ALFEIOS RIDGE', code: 'CHARLIE', xPercent: 0.70, yOffset: 18, w: 90, multiplier: 3.5, color: '#ea580c', glowColor: 'rgba(234, 88, 12, 0.4)', distanceTier: 'FAR' },
-        { name: 'ABYSS ROOST', code: 'OMEGA', xPercent: 0.91, yOffset: -38, w: 70, multiplier: 5.0, color: '#be123c', glowColor: 'rgba(190, 18, 60, 0.45)', distanceTier: 'EXTREME' },
+        { name: 'HELLAS RIM', code: 'ALPHA', xPercent: 0.27, yOffset: -45, w: 135, multiplier: 1.0, color: '#b91c1c', glowColor: 'rgba(185, 28, 28, 0.4)', distanceTier: 'NEAR' },
+        { name: 'DEEP DEPRESSION', code: 'BRAVO', xPercent: 0.52, yOffset: 18, w: 110, multiplier: 2.0, color: '#ef4444', glowColor: 'rgba(239, 68, 68, 0.4)', distanceTier: 'MID' },
+        { name: 'ALFEI LEDGE', code: 'CHARLIE', xPercent: 0.76, yOffset: -38, w: 90, multiplier: 3.5, color: '#f87171', glowColor: 'rgba(248, 113, 113, 0.4)', distanceTier: 'FAR' },
+        { name: 'HELLAS SANCTUARY', code: 'OMEGA', xPercent: 0.94, yOffset: -65, w: 70, multiplier: 5.0, color: '#7f1d1d', glowColor: 'rgba(127, 29, 29, 0.45)', distanceTier: 'EXTREME' },
       ],
-      cragPositions: [0.30, 0.36, 0.53, 0.61, 0.78, 0.87],
-      terrainOctaves: { baseAmp: 104, w1Freq: 2.9, w1Amp: 94, w2Freq: 6.1, w2Amp: 52, w3Freq: 11.8, w3Amp: 27 },
+      cragPositions: [0.16, 0.39, 0.64, 0.85],
+      terrainOctaves: { baseAmp: 104, w1Freq: 2.9, w1Amp: 94, w2Freq: 5.9, w2Amp: 52, w3Freq: 11.3, w3Amp: 27 },
     },
     {
       id: 7,
       planetId: 'mars',
-      name: 'CERBERUS FOSSAE',
-      era: 'STAGE 4: SENSORS FLICKERING',
+      name: 'CYDONIA MENSAE',
+      era: 'STAGE 4: SENSOR CRT GLITCH',
       retrogressionShort: 'SENSOR GLITCH',
-      themeColor: '#c026d3',
+      themeColor: '#991b1b',
       hudStyle: 'eighties',
-      mapType: 'Fissure Fault Crags',
-      description: 'Recent tectonic fissures that cut across volcanic plains. Radar is completely dark and cockpit screens flicker with CRT electrostatic interference.',
-      degradedAvionics: ['Radar Minimap OFFLINE', 'Speedometer CRT Static Glitching', 'Crosswinds: 38 px/s'],
+      mapType: 'Mesa Plain with Anomalies',
+      description: 'Eroded mesas and enigmatic buttes. Tactical radar is permanently offline, screens suffer electromagnetic static noise.',
+      degradedAvionics: ['Tactical Radar PERMANENTLY OFFLINE', 'Target Compass Offline', 'Fuel: 120L'],
       worldWidth: 4050,
-      worldHeight: 1490,
-      windSpeed: 38,
+      worldHeight: 1480,
+      windSpeed: 36,
       hazardCount: 10,
       fuelCapacity: 120,
       pads: [
-        { name: 'FOSSAE SHELF', code: 'ALPHA', xPercent: 0.23, yOffset: -18, w: 130, multiplier: 1.0, color: '#c026d3', glowColor: 'rgba(192, 38, 211, 0.4)', distanceTier: 'NEAR' },
-        { name: 'FISSURE GAP', code: 'BRAVO', xPercent: 0.47, yOffset: 26, w: 105, multiplier: 2.0, color: '#e879f9', glowColor: 'rgba(232, 121, 249, 0.4)', distanceTier: 'MID' },
-        { name: 'CERBERUS CREST', code: 'CHARLIE', xPercent: 0.71, yOffset: -30, w: 85, multiplier: 3.5, color: '#ea580c', glowColor: 'rgba(234, 88, 12, 0.4)', distanceTier: 'FAR' },
-        { name: 'TECTONIC PINNACLE', code: 'OMEGA', xPercent: 0.89, yOffset: 35, w: 68, multiplier: 5.0, color: '#9333ea', glowColor: 'rgba(147, 51, 234, 0.45)', distanceTier: 'EXTREME' },
+        { name: 'MENSA PLATFORM', code: 'ALPHA', xPercent: 0.15, yOffset: 45, w: 130, multiplier: 1.0, color: '#991b1b', glowColor: 'rgba(153, 27, 27, 0.4)', distanceTier: 'NEAR' },
+        { name: 'FACE CRAG', code: 'BRAVO', xPercent: 0.38, yOffset: -30, w: 105, multiplier: 2.0, color: '#dc2626', glowColor: 'rgba(220, 38, 38, 0.4)', distanceTier: 'MID' },
+        { name: 'PYRAMID CREST', code: 'CHARLIE', xPercent: 0.64, yOffset: 38, w: 85, multiplier: 3.5, color: '#ef4444', glowColor: 'rgba(239, 68, 68, 0.4)', distanceTier: 'FAR' },
+        { name: 'CYDONIA MONOLITH', code: 'OMEGA', xPercent: 0.85, yOffset: -35, w: 65, multiplier: 5.0, color: '#450a0a', glowColor: 'rgba(69, 10, 10, 0.45)', distanceTier: 'EXTREME' },
       ],
-      cragPositions: [0.31, 0.38, 0.55, 0.63, 0.80, 0.85],
-      terrainOctaves: { baseAmp: 110, w1Freq: 3.1, w1Amp: 100, w2Freq: 6.4, w2Amp: 56, w3Freq: 12.2, w3Amp: 29 },
+      cragPositions: [0.26, 0.51, 0.75, 0.95],
+      terrainOctaves: { baseAmp: 110, w1Freq: 3.1, w1Amp: 100, w2Freq: 6.2, w2Amp: 56, w3Freq: 11.9, w3Amp: 29 },
     },
     {
       id: 8,
       planetId: 'mars',
-      name: 'CYDONIA MONOLITHS',
+      name: 'ARCADIA PLANITIA',
       era: 'STAGE 4: ANALOG GAUGES',
       retrogressionShort: 'ANALOG GAUGES',
-      themeColor: '#78716c',
+      themeColor: '#78350f',
       hudStyle: 'apollo',
-      mapType: 'Mesa & Butte Fields',
-      description: 'Enigmatic rock formations and eroded mesas. Digital instruments are dead; pilot manages descent with a lagged mechanical fuel needle.',
-      degradedAvionics: ['Digital Speedometers OFFLINE', 'Mechanical Damped Fuel Needle Active (~300ms lag)', 'Fuel: 115L'],
+      mapType: 'Volcanic Plains & Lava Flows',
+      description: 'Smooth volcanic flows crossed by subsurface ice sheets. Digital speedometers are dead; fuel gauge is replaced by a mechanical needle with physical inertia.',
+      degradedAvionics: ['Digital Speedometers OFFLINE', 'Mechanical Damped Fuel Needle Active', 'Fuel: 115L'],
       worldWidth: 4150,
-      worldHeight: 1510,
-      windSpeed: 42,
+      worldHeight: 1500,
+      windSpeed: 40,
       hazardCount: 11,
       fuelCapacity: 115,
       pads: [
-        { name: 'CYDONIA MESA', code: 'ALPHA', xPercent: 0.21, yOffset: 14, w: 125, multiplier: 1.0, color: '#78716c', glowColor: 'rgba(120, 113, 108, 0.4)', distanceTier: 'NEAR' },
-        { name: 'FACE PLATEAU', code: 'BRAVO', xPercent: 0.45, yOffset: -22, w: 100, multiplier: 2.0, color: '#a8a29e', glowColor: 'rgba(168, 162, 158, 0.4)', distanceTier: 'MID' },
-        { name: 'PYRAMID PASS', code: 'CHARLIE', xPercent: 0.69, yOffset: 28, w: 80, multiplier: 3.5, color: '#f59e0b', glowColor: 'rgba(245, 158, 11, 0.4)', distanceTier: 'FAR' },
-        { name: 'ANCIENT ABYSS', code: 'OMEGA', xPercent: 0.92, yOffset: -35, w: 65, multiplier: 5.0, color: '#dc2626', glowColor: 'rgba(220, 38, 38, 0.45)', distanceTier: 'EXTREME' },
+        { name: 'ARCADIA BASE', code: 'ALPHA', xPercent: 0.31, yOffset: -18, w: 125, multiplier: 1.0, color: '#78350f', glowColor: 'rgba(120, 53, 15, 0.4)', distanceTier: 'NEAR' },
+        { name: 'ICE FLOW', code: 'BRAVO', xPercent: 0.56, yOffset: 34, w: 100, multiplier: 2.0, color: '#92400e', glowColor: 'rgba(146, 64, 14, 0.4)', distanceTier: 'MID' },
+        { name: 'FROST DIKE', code: 'CHARLIE', xPercent: 0.78, yOffset: -42, w: 80, multiplier: 3.5, color: '#b45309', glowColor: 'rgba(180, 83, 9, 0.4)', distanceTier: 'FAR' },
+        { name: 'ARCADIA TERMINUS', code: 'OMEGA', xPercent: 0.95, yOffset: 28, w: 60, multiplier: 5.0, color: '#d97706', glowColor: 'rgba(217, 119, 6, 0.45)', distanceTier: 'EXTREME' },
       ],
-      cragPositions: [0.28, 0.35, 0.52, 0.60, 0.77, 0.86],
-      terrainOctaves: { baseAmp: 116, w1Freq: 3.2, w1Amp: 106, w2Freq: 6.6, w2Amp: 60, w3Freq: 12.8, w3Amp: 31 },
+      cragPositions: [0.19, 0.43, 0.67, 0.87],
+      terrainOctaves: { baseAmp: 116, w1Freq: 3.3, w1Amp: 106, w2Freq: 6.5, w2Amp: 60, w3Freq: 12.5, w3Amp: 31 },
     },
     {
       id: 9,
       planetId: 'mars',
-      name: 'ELYSIUM DUST ABYSS',
-      era: 'STAGE 5: DIMMED OPTICS',
+      name: 'CERBERUS FOSSAE',
+      era: 'STAGE 5: OPTICAL SENSOR DECAY',
       retrogressionShort: '75% BLIND',
-      themeColor: '#f43f5e',
+      themeColor: '#450a0a',
       hudStyle: 'apollo',
-      mapType: 'Raging Dust Chasm',
-      description: 'A blinding planet-wide dust storm engulfs Elysium Planitia. Cockpit view is 75% shrouded in swirling red static; acoustic sonar is essential.',
-      degradedAvionics: ['Optical Sensors: 75% BLIND', 'Severe Crosswinds: 45 px/s', 'Fuel Restricted to 110L'],
-      worldWidth: 4250,
-      worldHeight: 1520,
-      windSpeed: 45,
-      hazardCount: 13,
+      mapType: 'Recent Tectonic Fissure',
+      description: 'Active young tectonic rifts that recently spewed lava and volcanic gases. Cockpit viewscreen is 75% blinded by thick red atmospheric haze and electromagnetic noise.',
+      degradedAvionics: ['Viewscreen: 75% BLIND (Red static fog)', 'Acoustic Sonar Flight Mode', 'Fuel: 110L'],
+      worldWidth: 4300,
+      worldHeight: 1500,
+      windSpeed: 44,
+      hazardCount: 12,
       fuelCapacity: 110,
       pads: [
-        { name: 'ELYSIUM SHELF', code: 'ALPHA', xPercent: 0.22, yOffset: -18, w: 120, multiplier: 1.0, color: '#f43f5e', glowColor: 'rgba(244, 63, 94, 0.4)', distanceTier: 'NEAR' },
-        { name: 'DUST PASS', code: 'BRAVO', xPercent: 0.46, yOffset: 30, w: 95, multiplier: 2.0, color: '#fb7185', glowColor: 'rgba(251, 113, 133, 0.4)', distanceTier: 'MID' },
-        { name: 'RED CHASM', code: 'CHARLIE', xPercent: 0.70, yOffset: -28, w: 75, multiplier: 3.5, color: '#e11d48', glowColor: 'rgba(225, 29, 72, 0.4)', distanceTier: 'FAR' },
-        { name: 'HURRICANE PINNACLE', code: 'OMEGA', xPercent: 0.90, yOffset: 38, w: 60, multiplier: 5.0, color: '#be123c', glowColor: 'rgba(190, 18, 60, 0.45)', distanceTier: 'EXTREME' },
+        { name: 'FOSSAE SHELF', code: 'ALPHA', xPercent: 0.22, yOffset: -48, w: 120, multiplier: 1.0, color: '#450a0a', glowColor: 'rgba(69, 10, 10, 0.4)', distanceTier: 'NEAR' },
+        { name: 'MAGMA CRACK', code: 'BRAVO', xPercent: 0.47, yOffset: 42, w: 95, multiplier: 2.0, color: '#7f1d1d', glowColor: 'rgba(127, 29, 29, 0.4)', distanceTier: 'MID' },
+        { name: 'TECTONIC APEX', code: 'CHARLIE', xPercent: 0.71, yOffset: -32, w: 75, multiplier: 3.5, color: '#991b1b', glowColor: 'rgba(153, 27, 27, 0.4)', distanceTier: 'FAR' },
+        { name: 'CERBERUS SPIRE', code: 'OMEGA', xPercent: 0.89, yOffset: -58, w: 55, multiplier: 5.0, color: '#b91c1c', glowColor: 'rgba(185, 28, 28, 0.45)', distanceTier: 'EXTREME' },
       ],
-      cragPositions: [0.29, 0.36, 0.54, 0.62, 0.79, 0.86],
-      terrainOctaves: { baseAmp: 122, w1Freq: 3.4, w1Amp: 112, w2Freq: 6.9, w2Amp: 64, w3Freq: 13.2, w3Amp: 33 },
+      cragPositions: [0.34, 0.59, 0.80],
+      terrainOctaves: { baseAmp: 122, w1Freq: 3.5, w1Amp: 112, w2Freq: 6.9, w2Amp: 64, w3Freq: 13.2, w3Amp: 33 },
     },
     {
       id: 10,
       planetId: 'mars',
-      name: 'ARES APEX GAUNTLET',
-      era: 'STAGE 5: SENSORY BLACKOUT',
+      name: 'ELYSIUM PLANITIA ABYSS',
+      era: 'STAGE 5: TOTAL SENSORY BLACKOUT',
       retrogressionShort: 'BLIND BLACKOUT',
       themeColor: '#ef4444',
       hudStyle: 'blackout',
-      mapType: 'Martian Void Gauntlet',
-      description: 'Zero optical visibility. All flight computers dead. Pilot must manage Mars 52 px/s² gravity purely through sonar audio feedback.',
-      degradedAvionics: ['ALL INSTRUMENTS OFFLINE', 'Optical Sensors: 95% BLIND', 'Acoustic Sonar Navigation ACTIVE', 'Maximum Gravity & Dust Hazards'],
+      mapType: 'Volcanic Dust Blackout',
+      description: 'A global dust storm creates complete sensory blackout. All flight instruments are dead. Pilot must touch down purely by acoustic sonar frequency sweeps.',
+      degradedAvionics: ['ALL INSTRUMENTS OFFLINE', 'Optical Sensors: 95% BLIND', 'Acoustic Sonar Flight ACTIVE', 'Maximum Hazard Density'],
       worldWidth: 4450,
-      worldHeight: 1530,
+      worldHeight: 1520,
       windSpeed: 48,
       hazardCount: 14,
       fuelCapacity: 100,
       pads: [
-        { name: 'ARES OUTPOST', code: 'ALPHA', xPercent: 0.20, yOffset: 22, w: 110, multiplier: 1.0, color: '#ef4444', glowColor: 'rgba(239, 68, 68, 0.4)', distanceTier: 'NEAR' },
-        { name: 'RED CALAMITY', code: 'BRAVO', xPercent: 0.44, yOffset: -32, w: 85, multiplier: 2.0, color: '#f87171', glowColor: 'rgba(248, 113, 113, 0.4)', distanceTier: 'MID' },
-        { name: 'SONAR PERCH', code: 'CHARLIE', xPercent: 0.68, yOffset: 28, w: 70, multiplier: 3.5, color: '#dc2626', glowColor: 'rgba(220, 38, 38, 0.4)', distanceTier: 'FAR' },
-        { name: 'ARES CALDERA', code: 'OMEGA', xPercent: 0.91, yOffset: -42, w: 55, multiplier: 5.0, color: '#b91c1c', glowColor: 'rgba(185, 28, 28, 0.45)', distanceTier: 'EXTREME' },
+        { name: 'ARES OUTPOST', code: 'ALPHA', xPercent: 0.28, yOffset: 24, w: 110, multiplier: 1.0, color: '#ef4444', glowColor: 'rgba(239, 68, 68, 0.4)', distanceTier: 'NEAR' },
+        { name: 'RED CHASM', code: 'BRAVO', xPercent: 0.54, yOffset: -54, w: 85, multiplier: 2.0, color: '#f87171', glowColor: 'rgba(248, 113, 113, 0.4)', distanceTier: 'MID' },
+        { name: 'ELYSIUM RIDGE', code: 'CHARLIE', xPercent: 0.77, yOffset: 38, w: 70, multiplier: 3.5, color: '#dc2626', glowColor: 'rgba(220, 38, 38, 0.4)', distanceTier: 'FAR' },
+        { name: 'MARS BLACKOUT', code: 'OMEGA', xPercent: 0.96, yOffset: -70, w: 55, multiplier: 5.0, color: '#991b1b', glowColor: 'rgba(153, 27, 27, 0.45)', distanceTier: 'EXTREME' },
       ],
-      cragPositions: [0.27, 0.35, 0.52, 0.60, 0.77, 0.86],
+      cragPositions: [0.17, 0.41, 0.65, 0.87],
       terrainOctaves: { baseAmp: 128, w1Freq: 3.6, w1Amp: 118, w2Freq: 7.1, w2Amp: 68, w3Freq: 13.8, w3Amp: 35 },
     },
   ],
 
-  // ==========================================
-  // PLANET 3: VENUS (10 Levels)
-  // ==========================================
+  // =========================================================================
+  // PLANET 3: VENUS (Cytherea) - 10 Progressive Maps
+  // Topography: Crushing sulfuric calderas, razor tectonic tesserae, molten spires.
+  // Completely unique pad layouts and extreme elevation cliffs!
+  // =========================================================================
   venus: [
     {
       id: 1,
@@ -935,7 +1061,7 @@ export const LEVELS_BY_PLANET: Record<PlanetId, LevelConfig[]> = {
       themeColor: '#eab308',
       hudStyle: 'modern',
       mapType: 'Highland Crustal Plateau',
-      description: 'The largest highland region on Venus. Wide basalt pads allow pilots to acclimate to heavy 68 px/s² gravity with full glass cockpit aids.',
+      description: 'The largest highland region on Venus. Wide volcanic shelf pads allow pilots to acclimate to heavy 68 px/s² gravity with full glass cockpit aids.',
       degradedAvionics: ['100% Avionics Nominal — Dotted Trajectory & Radar Online', '180L Auxiliary Tanks Active'],
       worldWidth: 3500,
       worldHeight: 1440,
@@ -943,12 +1069,12 @@ export const LEVELS_BY_PLANET: Record<PlanetId, LevelConfig[]> = {
       hazardCount: 4,
       fuelCapacity: 180,
       pads: [
-        { name: 'APHRODITE SHELF', code: 'ALPHA', xPercent: 0.22, yOffset: 0, w: 160, multiplier: 1.0, color: '#eab308', glowColor: 'rgba(234, 179, 8, 0.4)', distanceTier: 'NEAR' },
-        { name: 'CYTHEREA BASE', code: 'BRAVO', xPercent: 0.46, yOffset: -14, w: 135, multiplier: 2.0, color: '#facc15', glowColor: 'rgba(250, 204, 21, 0.4)', distanceTier: 'MID' },
-        { name: 'SULFUR CREST', code: 'CHARLIE', xPercent: 0.70, yOffset: 14, w: 115, multiplier: 3.5, color: '#ca8a04', glowColor: 'rgba(202, 138, 4, 0.4)', distanceTier: 'FAR' },
-        { name: 'GOLDEN CALDERA', code: 'OMEGA', xPercent: 0.90, yOffset: -24, w: 95, multiplier: 5.0, color: '#ea580c', glowColor: 'rgba(234, 88, 12, 0.45)', distanceTier: 'EXTREME' },
+        { name: 'APHRODITE SHELF', code: 'ALPHA', xPercent: 0.15, yOffset: -22, w: 160, multiplier: 1.0, color: '#eab308', glowColor: 'rgba(234, 179, 8, 0.4)', distanceTier: 'NEAR' },
+        { name: 'CYTHEREA BASE', code: 'BRAVO', xPercent: 0.40, yOffset: 42, w: 135, multiplier: 2.0, color: '#facc15', glowColor: 'rgba(250, 204, 21, 0.4)', distanceTier: 'MID' },
+        { name: 'SULFUR CREST', code: 'CHARLIE', xPercent: 0.63, yOffset: -48, w: 115, multiplier: 3.5, color: '#ca8a04', glowColor: 'rgba(202, 138, 4, 0.4)', distanceTier: 'FAR' },
+        { name: 'GOLDEN CALDERA', code: 'OMEGA', xPercent: 0.85, yOffset: 32, w: 95, multiplier: 5.0, color: '#ea580c', glowColor: 'rgba(234, 88, 12, 0.45)', distanceTier: 'EXTREME' },
       ],
-      cragPositions: [0.34, 0.42, 0.58, 0.66, 0.81, 0.88],
+      cragPositions: [0.27, 0.51, 0.74, 0.94],
       terrainOctaves: { baseAmp: 76, w1Freq: 2.2, w1Amp: 66, w2Freq: 5.2, w2Amp: 34, w3Freq: 9.4, w3Amp: 18 },
     },
     {
@@ -961,56 +1087,56 @@ export const LEVELS_BY_PLANET: Record<PlanetId, LevelConfig[]> = {
       hudStyle: 'modern',
       mapType: 'Dense Atmosphere Lowlands',
       description: 'A northern highland plateau covered in thick yellow-green cloud deck. Heavy atmospheric drag and lateral gusts challenge descent vector tracking.',
-      degradedAvionics: ['Atmospheric Gale Crosswinds (14 px/s)', 'Fuel Capacity: 165L'],
+      degradedAvionics: ['Sulfuric Acid Gale Shear (14 px/s)', 'Fuel Reserve: 165L'],
       worldWidth: 3600,
       worldHeight: 1440,
       windSpeed: 14,
       hazardCount: 5,
       fuelCapacity: 165,
       pads: [
-        { name: 'ISHTAR PLAINS', code: 'ALPHA', xPercent: 0.20, yOffset: 6, w: 155, multiplier: 1.0, color: '#ca8a04', glowColor: 'rgba(202, 138, 4, 0.4)', distanceTier: 'NEAR' },
-        { name: 'ACID BASIN', code: 'BRAVO', xPercent: 0.44, yOffset: -24, w: 130, multiplier: 2.0, color: '#eab308', glowColor: 'rgba(234, 179, 8, 0.4)', distanceTier: 'MID' },
-        { name: 'LAKSHMI EDGE', code: 'CHARLIE', xPercent: 0.68, yOffset: 16, w: 110, multiplier: 3.5, color: '#a16207', glowColor: 'rgba(161, 98, 7, 0.4)', distanceTier: 'FAR' },
-        { name: 'CYTHEREAN DOME', code: 'OMEGA', xPercent: 0.91, yOffset: -30, w: 90, multiplier: 5.0, color: '#f97316', glowColor: 'rgba(249, 115, 22, 0.45)', distanceTier: 'EXTREME' },
+        { name: 'LAKSHMI SHELF', code: 'ALPHA', xPercent: 0.31, yOffset: 38, w: 155, multiplier: 1.0, color: '#ca8a04', glowColor: 'rgba(202, 138, 4, 0.4)', distanceTier: 'NEAR' },
+        { name: 'ISHTAR ROOST', code: 'BRAVO', xPercent: 0.55, yOffset: -24, w: 130, multiplier: 2.0, color: '#eab308', glowColor: 'rgba(234, 179, 8, 0.4)', distanceTier: 'MID' },
+        { name: 'MAXWELL CREST', code: 'CHARLIE', xPercent: 0.77, yOffset: 48, w: 110, multiplier: 3.5, color: '#a16207', glowColor: 'rgba(161, 98, 7, 0.4)', distanceTier: 'FAR' },
+        { name: 'ISHTAR MONOLITH', code: 'OMEGA', xPercent: 0.94, yOffset: -38, w: 90, multiplier: 5.0, color: '#c2410c', glowColor: 'rgba(194, 65, 12, 0.45)', distanceTier: 'EXTREME' },
       ],
-      cragPositions: [0.31, 0.38, 0.54, 0.62, 0.79, 0.86],
-      terrainOctaves: { baseAmp: 82, w1Freq: 2.4, w1Amp: 72, w2Freq: 5.1, w2Amp: 38, w3Freq: 9.3, w3Amp: 20 },
+      cragPositions: [0.19, 0.43, 0.66, 0.86],
+      terrainOctaves: { baseAmp: 80, w1Freq: 2.4, w1Amp: 70, w2Freq: 5.2, w2Amp: 38, w3Freq: 9.3, w3Amp: 20 },
     },
     {
       id: 3,
       planetId: 'venus',
-      name: 'MAXWELL MONTES',
+      name: 'BETA REGIO',
       era: 'STAGE 2: VECTOR PIP OFFLINE',
       retrogressionShort: 'NO VECTOR PIP',
       themeColor: '#a16207',
       hudStyle: 'modern-nopip',
-      mapType: 'Metallic Radar Ridge',
-      description: 'The highest mountain range on Venus, towering 11 kilometers. Metallic pyrite snow covers the peaks; vector pip is offline, requiring raw instrument flight.',
-      degradedAvionics: ['Velocity Vector Pip OFFLINE', 'Fuel Restricted to 150L'],
+      mapType: 'Volcanic Rift Highlands',
+      description: 'A volcanic highland dominated by the massive Theia Mons shield. Velocity vector pip is stripped; manage high vertical descent speed purely by instruments.',
+      degradedAvionics: ['Velocity Vector Pip DECOMMISSIONED', 'Fuel Restricted to 150L'],
       worldWidth: 3700,
       worldHeight: 1460,
       windSpeed: 20,
       hazardCount: 6,
       fuelCapacity: 150,
       pads: [
-        { name: 'MAXWELL SHELF', code: 'ALPHA', xPercent: 0.23, yOffset: -12, w: 150, multiplier: 1.0, color: '#a16207', glowColor: 'rgba(161, 98, 7, 0.4)', distanceTier: 'NEAR' },
-        { name: 'PYRITE PASS', code: 'BRAVO', xPercent: 0.47, yOffset: 20, w: 125, multiplier: 2.0, color: '#ca8a04', glowColor: 'rgba(202, 138, 4, 0.4)', distanceTier: 'MID' },
-        { name: 'MONTES SPIRE', code: 'CHARLIE', xPercent: 0.71, yOffset: -24, w: 105, multiplier: 3.5, color: '#eab308', glowColor: 'rgba(234, 179, 8, 0.4)', distanceTier: 'FAR' },
-        { name: 'MAXWELL APEX', code: 'OMEGA', xPercent: 0.89, yOffset: 28, w: 85, multiplier: 5.0, color: '#ef4444', glowColor: 'rgba(239, 68, 68, 0.45)', distanceTier: 'EXTREME' },
+        { name: 'THEIA FLANK', code: 'ALPHA', xPercent: 0.19, yOffset: -32, w: 150, multiplier: 1.0, color: '#a16207', glowColor: 'rgba(161, 98, 7, 0.4)', distanceTier: 'NEAR' },
+        { name: 'DEVANA CHASM', code: 'BRAVO', xPercent: 0.47, yOffset: 28, w: 125, multiplier: 2.0, color: '#ca8a04', glowColor: 'rgba(202, 138, 4, 0.4)', distanceTier: 'MID' },
+        { name: 'RHEA PINNACLE', code: 'CHARLIE', xPercent: 0.72, yOffset: -48, w: 105, multiplier: 3.5, color: '#ea580c', glowColor: 'rgba(234, 88, 12, 0.4)', distanceTier: 'FAR' },
+        { name: 'BETA OMEGA', code: 'OMEGA', xPercent: 0.90, yOffset: 34, w: 85, multiplier: 5.0, color: '#b45309', glowColor: 'rgba(180, 83, 9, 0.45)', distanceTier: 'EXTREME' },
       ],
-      cragPositions: [0.32, 0.39, 0.57, 0.64, 0.81, 0.87],
+      cragPositions: [0.33, 0.60, 0.81],
       terrainOctaves: { baseAmp: 88, w1Freq: 2.6, w1Amp: 78, w2Freq: 5.4, w2Amp: 42, w3Freq: 10.2, w3Amp: 22 },
     },
     {
       id: 4,
       planetId: 'venus',
-      name: 'LAKSHMI PLANUM',
+      name: 'MAAT MONS CALDERA',
       era: 'STAGE 2: PREDICTOR OFFLINE',
       retrogressionShort: 'NO PREDICTOR',
       themeColor: '#854d0e',
       hudStyle: 'y2k',
-      mapType: 'Volcanic Lava Plains',
-      description: 'A smooth lava plateau ringed by intensely deformed mountain chains. Trajectory prediction line decommissioned; pilots must counter heavy 68 px/s² gravity by feel.',
+      mapType: 'Highest Active Volcano',
+      description: 'The highest volcano on Venus, rising 8 kilometers. Live trajectory predictor arc is offline; pilots must judge steep parabolic arcs amidst acidic thermal currents.',
       degradedAvionics: ['Trajectory Predictor DECOMMISSIONED', 'Crosswinds: 26 px/s • Fuel: 140L'],
       worldWidth: 3800,
       worldHeight: 1460,
@@ -1018,162 +1144,162 @@ export const LEVELS_BY_PLANET: Record<PlanetId, LevelConfig[]> = {
       hazardCount: 7,
       fuelCapacity: 140,
       pads: [
-        { name: 'LAVA SHELF', code: 'ALPHA', xPercent: 0.21, yOffset: 12, w: 145, multiplier: 1.0, color: '#854d0e', glowColor: 'rgba(133, 77, 14, 0.4)', distanceTier: 'NEAR' },
-        { name: 'BASALT CORONA', code: 'BRAVO', xPercent: 0.45, yOffset: -20, w: 120, multiplier: 2.0, color: '#a16207', glowColor: 'rgba(161, 98, 7, 0.4)', distanceTier: 'MID' },
-        { name: 'PLANUM ROOST', code: 'CHARLIE', xPercent: 0.69, yOffset: 16, w: 100, multiplier: 3.5, color: '#ca8a04', glowColor: 'rgba(202, 138, 4, 0.4)', distanceTier: 'FAR' },
-        { name: 'MOLTEN SANCTUARY', code: 'OMEGA', xPercent: 0.92, yOffset: -34, w: 80, multiplier: 5.0, color: '#dc2626', glowColor: 'rgba(220, 38, 38, 0.45)', distanceTier: 'EXTREME' },
+        { name: 'MAAT CRATER', code: 'ALPHA', xPercent: 0.24, yOffset: 44, w: 145, multiplier: 1.0, color: '#854d0e', glowColor: 'rgba(133, 77, 14, 0.4)', distanceTier: 'NEAR' },
+        { name: 'CALDERA ABYSS', code: 'BRAVO', xPercent: 0.50, yOffset: -58, w: 120, multiplier: 2.0, color: '#b45309', glowColor: 'rgba(180, 83, 9, 0.4)', distanceTier: 'MID' },
+        { name: 'LAVA RIDGE', code: 'CHARLIE', xPercent: 0.75, yOffset: 22, w: 100, multiplier: 3.5, color: '#d97706', glowColor: 'rgba(217, 119, 6, 0.4)', distanceTier: 'FAR' },
+        { name: 'MAAT PEAK', code: 'OMEGA', xPercent: 0.93, yOffset: -52, w: 80, multiplier: 5.0, color: '#dc2626', glowColor: 'rgba(220, 38, 38, 0.45)', distanceTier: 'EXTREME' },
       ],
-      cragPositions: [0.30, 0.37, 0.54, 0.62, 0.79, 0.86],
-      terrainOctaves: { baseAmp: 94, w1Freq: 2.7, w1Amp: 84, w2Freq: 5.7, w2Amp: 46, w3Freq: 10.6, w3Amp: 24 },
+      cragPositions: [0.14, 0.37, 0.62, 0.84],
+      terrainOctaves: { baseAmp: 95, w1Freq: 2.7, w1Amp: 85, w2Freq: 5.6, w2Amp: 46, w3Freq: 10.6, w3Amp: 24 },
     },
     {
       id: 5,
       planetId: 'venus',
-      name: 'SIF MONS CALDERA',
-      era: 'STAGE 3: RADAR STROBE',
+      name: 'LAKSHMI PLANUM',
+      era: 'STAGE 3: RADAR STROBE DECAY',
       retrogressionShort: 'RADAR STROBE',
       themeColor: '#713f12',
       hudStyle: 'y2k',
-      mapType: 'Corrosive Shield Volcano',
-      description: 'A massive shield volcano with extensive fluid lava channels. Radar strobe pulses every 2 seconds amidst dense sulfuric mist and thermal turbulence.',
-      degradedAvionics: ['Radar Degraded to Strobe Pulses', 'Crosswinds: 30 px/s • Fuel: 130L'],
+      mapType: 'Elevated Lava Plateau',
+      description: 'An elevated smooth volcanic plateau ringed by intensely deformed mountain chains. Radar sweep degrades to a periodic 2-second pulse strobe.',
+      degradedAvionics: ['Continuous Radar Sweep DEGRADED (2s pulse strobe)', 'Crosswinds: 30 px/s • Fuel: 130L'],
       worldWidth: 3900,
       worldHeight: 1480,
       windSpeed: 30,
       hazardCount: 8,
       fuelCapacity: 130,
       pads: [
-        { name: 'SIF PERCH', code: 'ALPHA', xPercent: 0.22, yOffset: -14, w: 140, multiplier: 1.0, color: '#713f12', glowColor: 'rgba(113, 63, 18, 0.4)', distanceTier: 'NEAR' },
-        { name: 'CALDERA RIM', code: 'BRAVO', xPercent: 0.48, yOffset: 24, w: 115, multiplier: 2.0, color: '#854d0e', glowColor: 'rgba(133, 77, 14, 0.4)', distanceTier: 'MID' },
-        { name: 'SULFUR TRENCH', code: 'CHARLIE', xPercent: 0.72, yOffset: -20, w: 95, multiplier: 3.5, color: '#ea580c', glowColor: 'rgba(234, 88, 12, 0.4)', distanceTier: 'FAR' },
-        { name: 'SIF APEX', code: 'OMEGA', xPercent: 0.90, yOffset: 36, w: 75, multiplier: 5.0, color: '#ef4444', glowColor: 'rgba(239, 68, 68, 0.45)', distanceTier: 'EXTREME' },
+        { name: 'LAKSHMI PLAIN', code: 'ALPHA', xPercent: 0.14, yOffset: -28, w: 140, multiplier: 1.0, color: '#713f12', glowColor: 'rgba(113, 63, 18, 0.4)', distanceTier: 'NEAR' },
+        { name: 'VOLCANIC DOME', code: 'BRAVO', xPercent: 0.39, yOffset: 32, w: 115, multiplier: 2.0, color: '#a16207', glowColor: 'rgba(161, 98, 7, 0.4)', distanceTier: 'MID' },
+        { name: 'DANU SPUR', code: 'CHARLIE', xPercent: 0.65, yOffset: -38, w: 95, multiplier: 3.5, color: '#c2410c', glowColor: 'rgba(194, 65, 12, 0.4)', distanceTier: 'FAR' },
+        { name: 'LAKSHMI OMEGA', code: 'OMEGA', xPercent: 0.88, yOffset: 48, w: 75, multiplier: 5.0, color: '#ea580c', glowColor: 'rgba(234, 88, 12, 0.45)', distanceTier: 'EXTREME' },
       ],
-      cragPositions: [0.32, 0.38, 0.55, 0.63, 0.81, 0.87],
-      terrainOctaves: { baseAmp: 100, w1Freq: 2.8, w1Amp: 90, w2Freq: 5.9, w2Amp: 50, w3Freq: 11.4, w3Amp: 26 },
+      cragPositions: [0.26, 0.52, 0.76, 0.96],
+      terrainOctaves: { baseAmp: 102, w1Freq: 2.9, w1Amp: 92, w2Freq: 5.8, w2Amp: 50, w3Freq: 11.1, w3Amp: 26 },
     },
     {
       id: 6,
       planetId: 'venus',
-      name: 'DIANA CHASM',
+      name: 'ARTEMIS CORONA',
       era: 'STAGE 3: ALTIMETER OFFLINE',
       retrogressionShort: 'AUDIO ALTIMETER',
       themeColor: '#ea580c',
       hudStyle: 'eighties',
-      mapType: 'Tectonic Acid Trench',
-      description: 'One of the deepest rift chasms on Venus. Digital altimeter displays blank out; rely on acoustic proximity audio pings to gauge proximity to basalt ridges.',
-      degradedAvionics: ['Digital Altimeter OFFLINE', 'Acoustic Proximity Beeps ACTIVE', 'Crosswinds: 35 px/s'],
+      mapType: 'Massive Circular Fracture',
+      description: 'The largest corona feature on Venus, 2,600 km in diameter, encircled by deep tectonic rift trenches. Laser altimeter dead; listen for acoustic altitude chirps.',
+      degradedAvionics: ['Digital Numeric Altimeter DECOMMISSIONED', 'Acoustic Ground Proximity Audio Active', 'Fuel: 125L'],
       worldWidth: 4000,
-      worldHeight: 1490,
-      windSpeed: 35,
+      worldHeight: 1480,
+      windSpeed: 34,
       hazardCount: 9,
       fuelCapacity: 125,
       pads: [
-        { name: 'DIANA SHELF', code: 'ALPHA', xPercent: 0.20, yOffset: 16, w: 135, multiplier: 1.0, color: '#ea580c', glowColor: 'rgba(234, 88, 12, 0.4)', distanceTier: 'NEAR' },
-        { name: 'CHASM FLOOR', code: 'BRAVO', xPercent: 0.46, yOffset: -26, w: 110, multiplier: 2.0, color: '#f97316', glowColor: 'rgba(249, 115, 22, 0.4)', distanceTier: 'MID' },
-        { name: 'RIFT BUTTE', code: 'CHARLIE', xPercent: 0.70, yOffset: 20, w: 90, multiplier: 3.5, color: '#dc2626', glowColor: 'rgba(220, 38, 38, 0.4)', distanceTier: 'FAR' },
-        { name: 'DIANA PINNACLE', code: 'OMEGA', xPercent: 0.91, yOffset: -40, w: 70, multiplier: 5.0, color: '#b91c1c', glowColor: 'rgba(185, 28, 28, 0.45)', distanceTier: 'EXTREME' },
+        { name: 'CORONA RING', code: 'ALPHA', xPercent: 0.28, yOffset: 22, w: 135, multiplier: 1.0, color: '#ea580c', glowColor: 'rgba(234, 88, 12, 0.4)', distanceTier: 'NEAR' },
+        { name: 'ARTEMIS CHASM', code: 'BRAVO', xPercent: 0.53, yOffset: -64, w: 110, multiplier: 2.0, color: '#f97316', glowColor: 'rgba(249, 115, 22, 0.4)', distanceTier: 'MID' },
+        { name: 'FAULT CREST', code: 'CHARLIE', xPercent: 0.77, yOffset: 38, w: 90, multiplier: 3.5, color: '#fb923c', glowColor: 'rgba(251, 146, 60, 0.4)', distanceTier: 'FAR' },
+        { name: 'CORONA SANCTUARY', code: 'OMEGA', xPercent: 0.95, yOffset: -48, w: 70, multiplier: 5.0, color: '#dc2626', glowColor: 'rgba(220, 38, 38, 0.45)', distanceTier: 'EXTREME' },
       ],
-      cragPositions: [0.29, 0.36, 0.54, 0.62, 0.79, 0.88],
-      terrainOctaves: { baseAmp: 106, w1Freq: 3.0, w1Amp: 96, w2Freq: 6.2, w2Amp: 54, w3Freq: 12.0, w3Amp: 28 },
+      cragPositions: [0.18, 0.41, 0.65, 0.86],
+      terrainOctaves: { baseAmp: 108, w1Freq: 3.0, w1Amp: 98, w2Freq: 6.0, w2Amp: 54, w3Freq: 11.6, w3Amp: 28 },
     },
     {
       id: 7,
       planetId: 'venus',
-      name: 'BETA REGIO CRAGS',
-      era: 'STAGE 4: SENSORS FLICKERING',
+      name: 'OVDA REGIO TESSERA',
+      era: 'STAGE 4: SENSOR CRT GLITCH',
       retrogressionShort: 'SENSOR GLITCH',
       themeColor: '#c2410c',
       hudStyle: 'eighties',
-      mapType: 'Volcanic Lightning Rift',
-      description: 'A volcanic highland subjected to constant atmospheric lightning. CRT instruments glitch with electrostatic noise; radar is permanently offline.',
-      degradedAvionics: ['Radar Minimap OFFLINE', 'Speedometers Flickering CRT Static', 'Crosswinds: 40 px/s'],
+      mapType: 'Intersecting Ridge Tesserae',
+      description: 'Extremely rugged tessera terrain featuring complex intersecting faults, ridges, and graben. Radar is permanently offline, screens glitch with acid fog interference.',
+      degradedAvionics: ['Tactical Radar PERMANENTLY OFFLINE', 'Target Compass Offline', 'Fuel: 120L'],
       worldWidth: 4100,
       worldHeight: 1500,
-      windSpeed: 40,
+      windSpeed: 38,
       hazardCount: 10,
       fuelCapacity: 120,
       pads: [
-        { name: 'BETA VALLEY', code: 'ALPHA', xPercent: 0.23, yOffset: -20, w: 130, multiplier: 1.0, color: '#c2410c', glowColor: 'rgba(194, 65, 12, 0.4)', distanceTier: 'NEAR' },
-        { name: 'THEIA PERCH', code: 'BRAVO', xPercent: 0.47, yOffset: 28, w: 105, multiplier: 2.0, color: '#ea580c', glowColor: 'rgba(234, 88, 12, 0.4)', distanceTier: 'MID' },
-        { name: 'LIGHTNING CREST', code: 'CHARLIE', xPercent: 0.71, yOffset: -32, w: 85, multiplier: 3.5, color: '#dc2626', glowColor: 'rgba(220, 38, 38, 0.4)', distanceTier: 'FAR' },
-        { name: 'REGIO APEX', code: 'OMEGA', xPercent: 0.89, yOffset: 36, w: 68, multiplier: 5.0, color: '#991b1b', glowColor: 'rgba(153, 27, 27, 0.45)', distanceTier: 'EXTREME' },
+        { name: 'TESSERA BENCH', code: 'ALPHA', xPercent: 0.17, yOffset: 48, w: 130, multiplier: 1.0, color: '#c2410c', glowColor: 'rgba(194, 65, 12, 0.4)', distanceTier: 'NEAR' },
+        { name: 'GRABEN FLOOR', code: 'BRAVO', xPercent: 0.43, yOffset: -42, w: 105, multiplier: 2.0, color: '#ea580c', glowColor: 'rgba(234, 88, 12, 0.4)', distanceTier: 'MID' },
+        { name: 'OVDA APEX', code: 'CHARLIE', xPercent: 0.68, yOffset: 32, w: 85, multiplier: 3.5, color: '#f97316', glowColor: 'rgba(249, 115, 22, 0.4)', distanceTier: 'FAR' },
+        { name: 'TESSERA CHASM', code: 'OMEGA', xPercent: 0.89, yOffset: -68, w: 65, multiplier: 5.0, color: '#7c2d12', glowColor: 'rgba(124, 45, 18, 0.45)', distanceTier: 'EXTREME' },
       ],
-      cragPositions: [0.31, 0.38, 0.56, 0.64, 0.81, 0.86],
-      terrainOctaves: { baseAmp: 112, w1Freq: 3.2, w1Amp: 102, w2Freq: 6.5, w2Amp: 58, w3Freq: 12.4, w3Amp: 30 },
+      cragPositions: [0.30, 0.55, 0.79],
+      terrainOctaves: { baseAmp: 114, w1Freq: 3.2, w1Amp: 104, w2Freq: 6.3, w2Amp: 58, w3Freq: 12.1, w3Amp: 30 },
     },
     {
       id: 8,
       planetId: 'venus',
-      name: 'ATALANTA PLANITIA',
+      name: 'SAPAS MONS LAVA TUBES',
       era: 'STAGE 4: ANALOG GAUGES',
       retrogressionShort: 'ANALOG GAUGES',
-      themeColor: '#57534e',
+      themeColor: '#9a3412',
       hudStyle: 'apollo',
-      mapType: 'Scorched Lowland Sink',
-      description: 'The lowest depression on Venus under maximum atmospheric pressure. Digital readouts are completely disabled; pilot navigates with a lagged analog fuel needle.',
-      degradedAvionics: ['Digital Speedometers OFFLINE', 'Mechanical Damped Fuel Gauge Active (~300ms lag)', 'High Hazard Density'],
+      mapType: 'Radiating Molten Lava Lobes',
+      description: 'An isolated volcano flanked by double-peaked summit calderas and hundreds of solidified lava tubes. Speedometers dead; mechanical fuel needle lags with momentum.',
+      degradedAvionics: ['Digital Speedometers OFFLINE', 'Mechanical Damped Fuel Needle Active', 'Fuel: 115L'],
       worldWidth: 4200,
-      worldHeight: 1520,
-      windSpeed: 44,
+      worldHeight: 1500,
+      windSpeed: 42,
       hazardCount: 11,
       fuelCapacity: 115,
       pads: [
-        { name: 'ATALANTA BASE', code: 'ALPHA', xPercent: 0.21, yOffset: 16, w: 125, multiplier: 1.0, color: '#57534e', glowColor: 'rgba(87, 83, 78, 0.4)', distanceTier: 'NEAR' },
-        { name: 'SINKHOLE ROOST', code: 'BRAVO', xPercent: 0.45, yOffset: -24, w: 100, multiplier: 2.0, color: '#78716c', glowColor: 'rgba(120, 113, 108, 0.4)', distanceTier: 'MID' },
-        { name: 'BOILING CHASM', code: 'CHARLIE', xPercent: 0.69, yOffset: 30, w: 80, multiplier: 3.5, color: '#ea580c', glowColor: 'rgba(234, 88, 12, 0.4)', distanceTier: 'FAR' },
-        { name: 'VENUSIAN DEEP', code: 'OMEGA', xPercent: 0.92, yOffset: -38, w: 65, multiplier: 5.0, color: '#dc2626', glowColor: 'rgba(220, 38, 38, 0.45)', distanceTier: 'EXTREME' },
+        { name: 'SAPAS BASE', code: 'ALPHA', xPercent: 0.33, yOffset: -38, w: 125, multiplier: 1.0, color: '#9a3412', glowColor: 'rgba(154, 52, 18, 0.4)', distanceTier: 'NEAR' },
+        { name: 'LOBE TERRACE', code: 'BRAVO', xPercent: 0.59, yOffset: 44, w: 100, multiplier: 2.0, color: '#c2410c', glowColor: 'rgba(194, 65, 12, 0.4)', distanceTier: 'MID' },
+        { name: 'SUMMIT HORN', code: 'CHARLIE', xPercent: 0.81, yOffset: -54, w: 80, multiplier: 3.5, color: '#ea580c', glowColor: 'rgba(234, 88, 12, 0.4)', distanceTier: 'FAR' },
+        { name: 'SAPAS APEX', code: 'OMEGA', xPercent: 0.96, yOffset: 22, w: 60, multiplier: 5.0, color: '#ef4444', glowColor: 'rgba(239, 68, 68, 0.45)', distanceTier: 'EXTREME' },
       ],
-      cragPositions: [0.28, 0.35, 0.52, 0.60, 0.77, 0.86],
-      terrainOctaves: { baseAmp: 118, w1Freq: 3.3, w1Amp: 108, w2Freq: 6.7, w2Amp: 62, w3Freq: 13.0, w3Amp: 32 },
+      cragPositions: [0.21, 0.46, 0.70, 0.89],
+      terrainOctaves: { baseAmp: 120, w1Freq: 3.4, w1Amp: 110, w2Freq: 6.6, w2Amp: 62, w3Freq: 12.8, w3Amp: 32 },
     },
     {
       id: 9,
       planetId: 'venus',
-      name: 'MAAT MONS CORONA',
-      era: 'STAGE 5: DIMMED OPTICS',
+      name: 'DIANA CHASMA',
+      era: 'STAGE 5: OPTICAL SENSOR DECAY',
       retrogressionShort: '75% BLIND',
-      themeColor: '#f43f5e',
+      themeColor: '#7c2d12',
       hudStyle: 'apollo',
-      mapType: 'Dense Acid Fog Chasm',
-      description: 'The highest volcano on Venus enshrouded in corrosive acid fog. Optical cameras 75% blinded; intense 48 px/s crosswinds buffet the heavy craft.',
-      degradedAvionics: ['Optical Sensors: 75% BLIND', 'Severe Crosswinds: 48 px/s', 'Fuel Restricted to 110L'],
-      worldWidth: 4300,
-      worldHeight: 1530,
-      windSpeed: 48,
-      hazardCount: 13,
+      mapType: 'Deep Acid Rift Trench',
+      description: 'One of the deepest chasms on Venus, dropping nearly 3 km below the mean planetary radius. Blinding sulfuric acid cloud fog obscures 75% of viewscreen.',
+      degradedAvionics: ['Viewscreen: 75% BLIND (Acid cloud fog)', 'Acoustic Sonar Flight Mode', 'Fuel: 110L'],
+      worldWidth: 4350,
+      worldHeight: 1520,
+      windSpeed: 45,
+      hazardCount: 12,
       fuelCapacity: 110,
       pads: [
-        { name: 'MAAT SHELF', code: 'ALPHA', xPercent: 0.22, yOffset: -18, w: 120, multiplier: 1.0, color: '#f43f5e', glowColor: 'rgba(244, 63, 94, 0.4)', distanceTier: 'NEAR' },
-        { name: 'CORONA GORGE', code: 'BRAVO', xPercent: 0.46, yOffset: 32, w: 95, multiplier: 2.0, color: '#fb7185', glowColor: 'rgba(251, 113, 133, 0.4)', distanceTier: 'MID' },
-        { name: 'ACID CHASM', code: 'CHARLIE', xPercent: 0.70, yOffset: -30, w: 75, multiplier: 3.5, color: '#e11d48', glowColor: 'rgba(225, 29, 72, 0.4)', distanceTier: 'FAR' },
-        { name: 'VOLCANIC APEX', code: 'OMEGA', xPercent: 0.90, yOffset: 40, w: 60, multiplier: 5.0, color: '#be123c', glowColor: 'rgba(190, 18, 60, 0.45)', distanceTier: 'EXTREME' },
+        { name: 'CHASMA RIM', code: 'ALPHA', xPercent: 0.22, yOffset: 32, w: 120, multiplier: 1.0, color: '#7c2d12', glowColor: 'rgba(124, 45, 18, 0.4)', distanceTier: 'NEAR' },
+        { name: 'ACID CHASM', code: 'BRAVO', xPercent: 0.48, yOffset: -72, w: 95, multiplier: 2.0, color: '#9a3412', glowColor: 'rgba(154, 52, 18, 0.4)', distanceTier: 'MID' },
+        { name: 'FAULT PRECIPICE', code: 'CHARLIE', xPercent: 0.73, yOffset: 48, w: 75, multiplier: 3.5, color: '#c2410c', glowColor: 'rgba(194, 65, 12, 0.4)', distanceTier: 'FAR' },
+        { name: 'DIANA MONOLITH', code: 'OMEGA', xPercent: 0.91, yOffset: -64, w: 55, multiplier: 5.0, color: '#ea580c', glowColor: 'rgba(234, 88, 12, 0.45)', distanceTier: 'EXTREME' },
       ],
-      cragPositions: [0.30, 0.37, 0.55, 0.63, 0.80, 0.87],
-      terrainOctaves: { baseAmp: 124, w1Freq: 3.5, w1Amp: 114, w2Freq: 7.0, w2Amp: 66, w3Freq: 13.4, w3Amp: 34 },
+      cragPositions: [0.35, 0.60, 0.82],
+      terrainOctaves: { baseAmp: 126, w1Freq: 3.6, w1Amp: 116, w2Freq: 7.0, w2Amp: 66, w3Freq: 13.5, w3Amp: 34 },
     },
     {
       id: 10,
       planetId: 'venus',
-      name: 'CYTHEREAN INFERNO',
-      era: 'STAGE 5: SENSORY BLACKOUT',
+      name: 'TARTARUS COLLES BLACKOUT',
+      era: 'STAGE 5: TOTAL SENSORY BLACKOUT',
       retrogressionShort: 'BLIND BLACKOUT',
       themeColor: '#ef4444',
       hudStyle: 'blackout',
-      mapType: 'Crushing Acidic Void',
-      description: 'The supreme test of landing capability. Crushing 68 px/s² gravity, violent sulfuric atmospheric turbulence, 95% sensory blackout. Touchdown purely by audio sonar frequency.',
-      degradedAvionics: ['ALL INSTRUMENTS OFFLINE', 'Optical Sensors: 95% BLIND', 'Acoustic Sonar Navigation ACTIVE', 'Maximum Gravity & Thermal Hazards'],
+      mapType: 'Scorched Acidic Void',
+      description: 'The ultimate trial: crushing 90 atmospheres, 470°C heat, and total sensory blackout. All flight screens are dead. Touch down on acoustic sonar pitch alone.',
+      degradedAvionics: ['ALL INSTRUMENTS OFFLINE', 'Optical Sensors: 95% BLIND', 'Acoustic Sonar Flight ACTIVE', 'Maximum Hazard Density'],
       worldWidth: 4500,
-      worldHeight: 1550,
-      windSpeed: 52,
-      hazardCount: 15,
+      worldHeight: 1540,
+      windSpeed: 48,
+      hazardCount: 14,
       fuelCapacity: 100,
       pads: [
-        { name: 'INFERNO OUTPOST', code: 'ALPHA', xPercent: 0.20, yOffset: 24, w: 110, multiplier: 1.0, color: '#ef4444', glowColor: 'rgba(239, 68, 68, 0.4)', distanceTier: 'NEAR' },
-        { name: 'SULFUR ABYSS', code: 'BRAVO', xPercent: 0.44, yOffset: -34, w: 85, multiplier: 2.0, color: '#f87171', glowColor: 'rgba(248, 113, 113, 0.4)', distanceTier: 'MID' },
-        { name: 'SONAR ROOST', code: 'CHARLIE', xPercent: 0.68, yOffset: 30, w: 70, multiplier: 3.5, color: '#dc2626', glowColor: 'rgba(220, 38, 38, 0.4)', distanceTier: 'FAR' },
-        { name: 'CYTHEREAN VOID', code: 'OMEGA', xPercent: 0.91, yOffset: -45, w: 55, multiplier: 5.0, color: '#b91c1c', glowColor: 'rgba(185, 28, 28, 0.45)', distanceTier: 'EXTREME' },
+        { name: 'INFERNO OUTPOST', code: 'ALPHA', xPercent: 0.16, yOffset: -45, w: 110, multiplier: 1.0, color: '#ef4444', glowColor: 'rgba(239, 68, 68, 0.4)', distanceTier: 'NEAR' },
+        { name: 'SULFUR ABYSS', code: 'BRAVO', xPercent: 0.42, yOffset: 55, w: 85, multiplier: 2.0, color: '#f87171', glowColor: 'rgba(248, 113, 113, 0.4)', distanceTier: 'MID' },
+        { name: 'SONAR ROOST', code: 'CHARLIE', xPercent: 0.66, yOffset: -68, w: 70, multiplier: 3.5, color: '#dc2626', glowColor: 'rgba(220, 38, 38, 0.4)', distanceTier: 'FAR' },
+        { name: 'CYTHEREAN VOID', code: 'OMEGA', xPercent: 0.88, yOffset: -78, w: 55, multiplier: 5.0, color: '#b91c1c', glowColor: 'rgba(185, 28, 28, 0.45)', distanceTier: 'EXTREME' },
       ],
-      cragPositions: [0.27, 0.35, 0.52, 0.60, 0.77, 0.86],
+      cragPositions: [0.29, 0.54, 0.77, 0.96],
       terrainOctaves: { baseAmp: 130, w1Freq: 3.7, w1Amp: 120, w2Freq: 7.2, w2Amp: 70, w3Freq: 14.0, w3Amp: 36 },
     },
   ],

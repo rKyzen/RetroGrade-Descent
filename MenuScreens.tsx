@@ -56,6 +56,9 @@ import {
   RETROGRESSION_STEPS,
   RetrogressionStep,
   PlanetProgression,
+  getPreviouslyDecommissioned,
+  getNewlyDecommissioned,
+  getActiveOperationalSystems,
 } from './levels';
 import {AI_PERSONAS, AiPersona} from './aiPilot';
 import {
@@ -2439,17 +2442,20 @@ export default function MenuScreens({
                   </p>
                 </div>
 
-                {/* Explicit Decommissioned Avionics List */}
+                {/* Newly Decommissioned Avionics */}
                 <div>
                   <span className="text-[7.5px] text-red-400 uppercase font-black block mb-1.5 tracking-wider flex items-center gap-1.5">
                     <span>⚠️</span>
-                    <span>AVIONICS DECOMMISSIONED ON LEVEL {nextLevelNum}:</span>
+                    <span>NEWLY DECOMMISSIONED ON LEVEL {nextLevelNum}:</span>
                   </span>
-                  <div className="space-y-1.5 max-h-[140px] overflow-y-auto">
-                    {nextRetrogression.decommissioned.map((degraded, i) => (
-                      <div key={i} className="flex items-start gap-2 bg-black/90 border border-red-900/90 p-2 text-[7.5px]">
+                  <div className="space-y-1">
+                    {(getNewlyDecommissioned(nextLevelNum).length > 0
+                      ? getNewlyDecommissioned(nextLevelNum)
+                      : nextRetrogression.decommissioned
+                    ).map((degraded, i) => (
+                      <div key={i} className="flex items-start gap-2 bg-black/90 border border-red-900/90 p-1.5 text-[7.5px]">
                         <span className="text-red-400 font-black text-[6.5px] px-1.5 py-0.5 bg-red-950 border border-red-700 shrink-0 uppercase">
-                          OFFLINE
+                          STRIPPED
                         </span>
                         <span className="text-yellow-200 font-bold leading-tight">
                           {degraded}
@@ -2459,14 +2465,36 @@ export default function MenuScreens({
                   </div>
                 </div>
 
+                {/* Previously Decommissioned (Never Comes Back) */}
+                {getPreviouslyDecommissioned(nextLevelNum).length > 0 && (
+                  <div>
+                    <span className="text-[7px] text-zinc-400 uppercase font-bold block mb-1 tracking-wider flex items-center gap-1">
+                      <span>🚫</span>
+                      <span>PREVIOUSLY DECOMMISSIONED (PERMANENTLY OFFLINE — WILL NOT RETURN):</span>
+                    </span>
+                    <div className="space-y-1 max-h-[85px] overflow-y-auto pr-1">
+                      {getPreviouslyDecommissioned(nextLevelNum).map((prevDegraded, i) => (
+                        <div key={i} className="flex items-center justify-between gap-1 bg-zinc-950/90 border border-zinc-800/80 px-2 py-1 text-[7px]">
+                          <span className="text-zinc-400 truncate">
+                            {prevDegraded}
+                          </span>
+                          <span className="text-zinc-600 font-mono text-[6px] shrink-0 font-bold uppercase">
+                            PERMANENTLY OFFLINE
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
                 {/* Operational Flight Systems Remaining */}
                 <div>
-                  <span className="text-[7px] text-zinc-400 uppercase font-bold block mb-1">
-                    OPERATIONAL FLIGHT SYSTEMS REMAINING ONLINE:
+                  <span className="text-[7px] text-emerald-400 uppercase font-bold block mb-1 tracking-wider">
+                    ✓ OPERATIONAL FLIGHT SYSTEMS REMAINING ONLINE:
                   </span>
                   <div className="flex flex-wrap gap-1">
-                    {nextRetrogression.activeFeatures.map((feat, i) => (
-                      <span key={i} className="text-[7px] px-2 py-0.5 bg-emerald-950/70 border border-emerald-800 text-emerald-300 font-mono">
+                    {getActiveOperationalSystems(nextLevelNum).map((feat, i) => (
+                      <span key={i} className="text-[6.5px] px-1.5 py-0.5 bg-emerald-950/70 border border-emerald-800 text-emerald-300 font-mono">
                         ✓ {feat}
                       </span>
                     ))}

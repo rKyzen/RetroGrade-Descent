@@ -576,17 +576,47 @@ export default function App() {
 
     platformsRef.current = padsConfig;
 
-    // Multi-octave natural lunar height function with levelConfig topography
+    const planetId = selectedPlanetRef.current;
+
+    // Multi-octave natural planetary height function with distinct geological signatures per world
     const getNaturalHeight = (x: number) => {
       const normX = (((x % wWidth) + wWidth) % wWidth) / wWidth;
       const baseline = wHeight * 0.74;
       const oct = levelConfig.terrainOctaves;
 
-      const wave1 = Math.sin(normX * Math.PI * 2 * oct.w1Freq + epoch * 0.7) * oct.w1Amp;
-      const wave2 = Math.sin(normX * Math.PI * 2 * oct.w2Freq + 1.2 + epoch * 1.1) * oct.w2Amp;
-      const wave3 = Math.cos(normX * Math.PI * 2 * oct.w3Freq + 2.5 + epoch * 0.4) * oct.w3Amp;
+      let wave1 = 0;
+      let wave2 = 0;
+      let wave3 = 0;
+      let geoFeature = 0;
 
-      return baseline + wave1 + wave2 + wave3;
+      if (planetId === 'moon') {
+        // Moon (Luna): harmonic crater basins and undulating basalt mares
+        wave1 = Math.sin(normX * Math.PI * 2 * oct.w1Freq + epoch * 0.7) * oct.w1Amp;
+        wave2 = Math.sin(normX * Math.PI * 2 * oct.w2Freq + 1.2 + epoch * 1.1) * oct.w2Amp;
+        wave3 = Math.cos(normX * Math.PI * 2 * oct.w3Freq + 2.5 + epoch * 0.4) * oct.w3Amp;
+        // Lunar crater rims & circular impact depressions
+        geoFeature = Math.sin(normX * Math.PI * 4 + 0.6) * 18;
+      } else if (planetId === 'mars') {
+        // Mars (Ares): stepped mesas, canyon rift fractures, and Valles Marineris fault cliffs
+        wave1 = Math.sin(normX * Math.PI * 2 * oct.w1Freq + 3.7 + epoch * 0.85) * oct.w1Amp;
+        wave2 = Math.sin(normX * Math.PI * 2 * oct.w2Freq + 4.9 + epoch * 1.2) * oct.w2Amp;
+        wave3 = Math.cos(normX * Math.PI * 2 * oct.w3Freq + 1.3 + epoch * 0.5) * oct.w3Amp;
+        // Stepped canyon terraces and deep fault rifts
+        const mesa = Math.tanh(Math.sin(normX * Math.PI * 3 + 1.8) * 2.5) * 24;
+        const canyon = (Math.abs(Math.sin(normX * Math.PI * 2 + 0.9)) - 0.5) * 32;
+        geoFeature = mesa + canyon;
+      } else {
+        // Venus (Cytherea): volcanic calderas, razor tectonic tessera ridges, sulfuric spires
+        wave1 = Math.sin(normX * Math.PI * 2 * oct.w1Freq + 7.3 + epoch * 0.95) * oct.w1Amp;
+        wave2 = Math.sin(normX * Math.PI * 2 * oct.w2Freq + 2.8 + epoch * 1.3) * oct.w2Amp;
+        wave3 = Math.cos(normX * Math.PI * 2 * oct.w3Freq + 5.1 + epoch * 0.6) * oct.w3Amp;
+        // Sunken volcanic cauldrons and jagged tectonic peaks
+        const cauldron = (Math.pow(Math.abs(Math.sin(normX * Math.PI * 2.5 + 2.2)), 2) - 0.45) * 38;
+        const spire = (Math.exp(-Math.pow(((normX * 3.5) % 1.0) * 8 - 4, 2)) - 0.2) * 35;
+        geoFeature = cauldron + spire;
+      }
+
+      return baseline + wave1 + wave2 + wave3 + geoFeature;
     };
 
     // Calculate final blended terrain height with flat plateaus for all 4 pads
@@ -2319,10 +2349,10 @@ export default function App() {
     }
 
     // -----------------------------------------------------------------------
-    // LIVE TRAJECTORY PREDICTOR (Level 1 & Modern Avionics)
-    // Real-time dotted trajectory path projection & touchdown impact reticle
+    // LIVE TRAJECTORY PREDICTOR (Levels 1-3 only)
+    // Decommissioned at Level 4; NEVER RETURNS
     // -----------------------------------------------------------------------
-    const showTrajectoryPredictor = currentEpoch === 1 || epochInfo.hudStyle === 'modern';
+    const showTrajectoryPredictor = currentEpoch < 4;
     if (showTrajectoryPredictor && !activeLander.crashed && !activeLander.landed) {
       ctx.save();
       const gravityVal = planetDef.gravity;
@@ -2437,8 +2467,9 @@ export default function App() {
       ctx.restore();
     }
 
-    // Modern Guidance Velocity Vector Pip
-    if (epochInfo.hudStyle === 'modern') {
+    // Velocity Vector Pip (Levels 1-2 only; Decommissioned at Level 3, NEVER RETURNS)
+    const showVelocityVectorPip = currentEpoch < 3;
+    if (showVelocityVectorPip) {
       ctx.save();
       ctx.strokeStyle = activeLander.themeColor;
       ctx.lineWidth = 2;
@@ -2463,56 +2494,108 @@ export default function App() {
     ctx.restore(); // Restore Camera Matrix
 
     // -----------------------------------------------------------------------
-    // SENSORY BLACKOUT / EIGHTIES CRT OVERLAYS
+    // SENSORY BLACKOUT / OPTICAL NOISE / CRT STATIC OVERLAYS
     // -----------------------------------------------------------------------
-    if (epochInfo.hudStyle === 'blackout') {
+    if (currentEpoch === 10) {
+      // Stage 5 (Level 10): Total Sensory Blackout - 95% Darkness
       const screenLanderX = activeLander.x - camX;
       const screenLanderY = activeLander.y - camY;
       const groundY = getTerrainSurfaceY(activeLander.x);
       const padDist = Math.max(0, groundY - activeLander.y);
-      const closeRadius = Math.max(30, 150 - padDist * 0.15);
+      const closeRadius = Math.max(25, 120 - padDist * 0.15);
 
       const darknessGrad = ctx.createRadialGradient(
         screenLanderX,
         screenLanderY,
-        15,
+        10,
         screenLanderX,
         screenLanderY,
-        Math.max(25, closeRadius),
+        Math.max(20, closeRadius),
       );
       darknessGrad.addColorStop(0, 'rgba(3, 7, 18, 0.45)');
-      darknessGrad.addColorStop(0.4, 'rgba(3, 7, 18, 0.9)');
-      darknessGrad.addColorStop(1, 'rgba(3, 7, 18, 0.985)');
+      darknessGrad.addColorStop(0.3, 'rgba(3, 7, 18, 0.92)');
+      darknessGrad.addColorStop(1, 'rgba(3, 7, 18, 0.995)');
 
       ctx.fillStyle = darknessGrad;
       ctx.fillRect(0, 0, viewportW, viewportH);
 
       ctx.fillStyle = '#ef4444';
-      ctx.font = '11px "Press Start 2P", monospace';
+      ctx.font = '10px "Press Start 2P", monospace';
       ctx.textAlign = 'center';
-      ctx.fillText('[ACOUSTIC SONAR ACTIVE - FLY BY AUDIO]', viewportW / 2, 48);
+      ctx.fillText('[TOTAL BLACKOUT — LAND BY ACOUSTIC SONAR TONE]', viewportW / 2, 48);
       ctx.textAlign = 'left';
-    }
+    } else if (currentEpoch === 9) {
+      // Stage 5 (Level 9): 75% Optical Failure - Dense static noise fog
+      ctx.save();
+      ctx.fillStyle = 'rgba(3, 7, 18, 0.72)';
+      ctx.fillRect(0, 0, viewportW, viewportH);
 
-    if (epochInfo.hudStyle === 'eighties') {
+      for (let s = 0; s < viewportH; s += 4) {
+        if (Math.random() < 0.28) {
+          ctx.fillStyle = 'rgba(255, 255, 255, 0.04)';
+          ctx.fillRect(0, s, viewportW, 2);
+        }
+      }
+
+      ctx.fillStyle = '#f43f5e';
+      ctx.font = '9px "Press Start 2P", monospace';
+      ctx.textAlign = 'center';
+      ctx.fillText('[VIEWSCREEN 75% BLIND — ACOUSTIC SONAR ACTIVE]', viewportW / 2, 48);
+      ctx.textAlign = 'left';
+      ctx.restore();
+    } else if (currentEpoch === 7 || currentEpoch === 8) {
+      // Stage 4 (Levels 7 & 8): CRT Screen Static Glitches
       const groundY = getTerrainSurfaceY(activeLander.x);
       const padDist = Math.max(0, groundY - activeLander.y);
       if (padDist < 300 && Math.floor(Date.now() / 110) % 2 === 0) {
-        ctx.fillStyle = 'rgba(245, 158, 11, 0.08)';
+        ctx.fillStyle = 'rgba(245, 158, 11, 0.06)';
         ctx.fillRect(0, 0, viewportW, viewportH);
       }
     }
 
     // -----------------------------------------------------------------------
-    // TACTICAL RADAR MINIMAP (Modern & Y2K Epochs) - Enlarged & Detailed
+    // TACTICAL RADAR MINIMAP
+    // Levels 1..4: Continuous High-Refresh Radar
+    // Levels 5..6: 2-Second Strobe Pulse Decay
+    // Levels 7+: PERMANENTLY OFFLINE (Never comes back!)
     // -----------------------------------------------------------------------
-    if (epochInfo.hudStyle === 'modern' || epochInfo.hudStyle === 'y2k') {
+    const showRadar = currentEpoch < 7;
+    if (showRadar) {
+      const isRadarStrobing = currentEpoch === 5 || currentEpoch === 6;
+      let strobeAlpha = 1.0;
+
+      if (isRadarStrobing) {
+        const strobePhase = (Date.now() % 2000) / 2000;
+        if (strobePhase > 0.45) {
+          // Strobe dark phase: show faint degraded frame
+          const radarW = isP2Side ? Math.min(230, Math.floor(viewportW * 0.44)) : Math.min(270, Math.floor(viewportW * 0.36));
+          const radarH = isP2Side ? 80 : 92;
+          const radarX = viewportW - radarW - 16;
+          const radarY = 16;
+
+          ctx.save();
+          ctx.fillStyle = 'rgba(2, 6, 23, 0.5)';
+          ctx.fillRect(radarX, radarY, radarW, radarH);
+          ctx.strokeStyle = 'rgba(16, 185, 129, 0.15)';
+          ctx.lineWidth = 1;
+          ctx.strokeRect(radarX, radarY, radarW, radarH);
+          ctx.fillStyle = 'rgba(148, 163, 184, 0.4)';
+          ctx.font = '6.5px "Press Start 2P", monospace';
+          ctx.fillText('RADAR // STROBING...', radarX + 8, radarY + 12);
+          ctx.restore();
+        } else {
+          strobeAlpha = Math.max(0.15, 1.0 - (strobePhase / 0.45) * 0.85);
+        }
+      }
+
+      if (!isRadarStrobing || ((Date.now() % 2000) / 2000) <= 0.45) {
       const radarW = isP2Side ? Math.min(230, Math.floor(viewportW * 0.44)) : Math.min(270, Math.floor(viewportW * 0.36));
       const radarH = isP2Side ? 80 : 92;
       const radarX = viewportW - radarW - 16;
       const radarY = 16;
 
       ctx.save();
+      ctx.globalAlpha = strobeAlpha;
       // Outer radar backdrop
       ctx.fillStyle = 'rgba(2, 6, 23, 0.94)';
       ctx.fillRect(radarX, radarY, radarW, radarH);
@@ -2669,6 +2752,7 @@ export default function App() {
       ctx.fillText('YOU', rLanderX, rLanderY - 8);
 
       ctx.restore();
+      }
     }
 
     // Scanline & CRT vignette
@@ -2873,9 +2957,19 @@ export default function App() {
                 <span className="text-zinc-500 text-[8px] md:text-[9px] font-bold">
                   {gameMode === 'DUEL' ? 'P1 FUEL:' : gameMode === 'AI_DUEL' ? 'YOU FUEL:' : 'FUEL:'}
                 </span>
-                <span className={`font-bold text-xs md:text-sm ${isLowFuelP1 ? 'text-red-400' : 'text-emerald-400'}`}>
-                  {currentFuelP1}L
-                </span>
+                {gameState.level >= 10 ? (
+                  <span className="font-bold text-[8.5px] text-red-500 font-mono animate-pulse">
+                    [BLACKOUT]
+                  </span>
+                ) : gameState.level >= 8 ? (
+                  <span className="font-bold text-xs text-amber-400 font-mono">
+                    {currentFuelP1}L <span className="text-[7px] text-zinc-500">[ANALOG]</span>
+                  </span>
+                ) : (
+                  <span className={`font-bold text-xs md:text-sm ${isLowFuelP1 ? 'text-red-400' : 'text-emerald-400'}`}>
+                    {currentFuelP1}L
+                  </span>
+                )}
               </div>
               <div className="w-20 md:w-32 h-2.5 bg-zinc-900 border border-zinc-700 overflow-hidden shadow-inner">
                 <div
@@ -2922,22 +3016,38 @@ export default function App() {
           {/* Vertical Speed Readout */}
           <div className="flex items-center gap-1.5">
             <span className="text-zinc-500 text-[8px] md:text-[9px] font-bold">V-SPD:</span>
-            <span
-              className={`font-bold text-xs md:text-sm ${
-                Math.abs(telemetry.vy) > (getConfig('maxSafeLandingVy') as number)
-                  ? 'text-red-400 animate-pulse'
-                  : 'text-cyan-300'
-              }`}>
-              {telemetry.vy} <span className="text-[7.5px] text-zinc-500">PX/S</span>
-            </span>
+            {gameState.level >= 10 ? (
+              <span className="font-bold text-[8.5px] text-red-500 animate-pulse tracking-wider">
+                [OFFLINE]
+              </span>
+            ) : gameState.level >= 8 ? (
+              <span className="font-bold text-[8px] text-amber-400 font-mono">
+                [ANALOG ONLY]
+              </span>
+            ) : (
+              <span
+                className={`font-bold text-xs md:text-sm ${
+                  Math.abs(telemetry.vy) > (getConfig('maxSafeLandingVy') as number)
+                    ? 'text-red-400 animate-pulse'
+                    : 'text-cyan-300'
+                }`}>
+                {telemetry.vy} <span className="text-[7.5px] text-zinc-500">PX/S</span>
+              </span>
+            )}
           </div>
 
           {/* Target Navigation Beacon */}
           <div className="hidden sm:flex items-center gap-1.5 text-emerald-300 text-[9px] md:text-xs">
-            <Compass size={14} className="text-emerald-400 shrink-0" />
-            <span className="font-bold truncate max-w-[190px]">
-              {telemetry.nearestPadName} [{telemetry.nearestPadMult}x] {telemetry.nearestPadDir === 'aligned' ? '▼ ALIGNED' : telemetry.nearestPadDir === 'left' ? `◄ ${telemetry.nearestPadDist}m` : `${telemetry.nearestPadDist}m ►`}
-            </span>
+            <Compass size={14} className={gameState.level >= 7 ? "text-zinc-600" : "text-emerald-400 shrink-0"} />
+            {gameState.level >= 7 ? (
+              <span className="font-mono text-zinc-600 text-[8px] uppercase">
+                [BEACON: RADAR OFFLINE]
+              </span>
+            ) : (
+              <span className="font-bold truncate max-w-[190px]">
+                {telemetry.nearestPadName} [{telemetry.nearestPadMult}x] {telemetry.nearestPadDir === 'aligned' ? '▼ ALIGNED' : telemetry.nearestPadDir === 'left' ? `◄ ${telemetry.nearestPadDist}m` : `${telemetry.nearestPadDist}m ►`}
+              </span>
+            )}
           </div>
         </div>
 
