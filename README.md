@@ -27,6 +27,18 @@
     * **Voyager-X** (`#f59e0b` Gold): Aggressive deep-space probe, high-speed long-range pad hunter targeting Charlie and Omega.
   * 👥 **2-Player Split Screen Duel**: Side-by-side local PvP racing on shared physical terrain to claim high-multiplier platforms first.
 
+* **Progressive Level Unlock & Campaign Lockout**:
+  * **Strict Progression Rule**: Level 1 is unlocked by default on each celestial world. Pilots must successfully touch down on Level $N-1$ to unlock Level $N$. Higher levels are strictly locked (`🔒 LOCKED`), preventing sequence-skipping.
+  * **Independent Celestial Tracking**: Moon, Mars, and Venus each maintain independent progression saved in `localStorage` (`retrograde_descent_unlocked_levels_v1`).
+
+* **Post-Touchdown Observation Window**:
+  * Upon landing within safety limits, a **2.2-second physical stabilization period** displays the craft parked on the landing pad with suspension compression active, accompanied by victory fanfare and a live telemetry stabilization banner before opening debriefing.
+
+* **Full-Screen 2-Half Touchdown Debrief UI**:
+  * **Left Half (Mission Telemetry & Score Breakdown)**: Displays exact points earned (base sector value + fuel conservation bonus + soft landing precision bonus × pad distance multiplier), cumulative campaign score, and verified flight telemetry ($V_y, V_x$, impact tilt).
+  * **Right Half (Avionics Degradation Protocol)**: Details upcoming sector specifications (wind shear, starting fuel, hazards), explicit decommissioned avionics list for the next level, remaining operational systems, and pilot flight advisory warnings.
+  * **Full-Width Action Controls**: Direct launch into the next unlocked sector, high scoreboard archive, sector map browser, or title screen return.
+
 * **Forgiving & Responsive Landing Envelope**:
   * Safe Touchdown Limits: Vertical Velocity $V_y \le 75\text{ px/s}$, Horizontal Velocity $V_x \le 45\text{ px/s}$, Attitude Tilt $\le 18^\circ$.
   * Landing gear equipped with hydraulic dampening spring suspension to prevent premature rebound bounces.

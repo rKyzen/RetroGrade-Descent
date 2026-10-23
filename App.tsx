@@ -56,6 +56,9 @@ import {
   PLANETS,
   getPlanet,
   RETROGRESSION_STEPS,
+  PlanetProgression,
+  getUnlockedLevels,
+  unlockNextLevel,
 } from './levels';
 import {computeAiPilotInputs, AI_PERSONAS, AiPersona} from './aiPilot';
 import {
@@ -264,6 +267,13 @@ export default function App() {
 
   // Selected Starting Level for Retrogression (1..10)
   const [selectedStartingEpoch, setSelectedStartingEpoch] = useState<number>(1);
+
+  // Campaign Unlocked Progression per Planet (Level N requires completing Level N - 1)
+  const [unlockedLevels, setUnlockedLevels] = useState<PlanetProgression>(() => getUnlockedLevels());
+
+  // Post-Touchdown Stabilizing Delay State (shows parked craft on pad before opening Level Complete screen)
+  const [isTouchdownStabilizing, setIsTouchdownStabilizing] = useState<boolean>(false);
+  const touchdownTimerRef = useRef<number | null>(null);
 
   const initGameRef = useRef<() => void>();
 
@@ -736,6 +746,12 @@ export default function App() {
   // RESET LANDER & REFUEL (Supports Extra Fuel in Level 1 + Duel & AI Spawns)
   // =========================================================================
   const resetLander = useCallback((epoch: number) => {
+    if (touchdownTimerRef.current !== null) {
+      window.clearTimeout(touchdownTimerRef.current);
+      touchdownTimerRef.current = null;
+    }
+    setIsTouchdownStabilizing(false);
+
     generateTerrain(epoch);
     const startX = 260 + Math.random() * 80;
     const initialVx = 12 + epoch * 1.5;
@@ -1438,35 +1454,53 @@ export default function App() {
 
     setLeaderboardList(getLeaderboard());
 
-    if (!isDuel) {
-      const newScore = gameStateRef.current.score + totalPoints;
-      const newEpoch = currentEpoch + 1;
+    // Unlock next level progression for this planet
+    const updatedProgression = unlockNextLevel(selectedPlanetRef.current, currentEpoch);
+    setUnlockedLevels(updatedProgression);
 
-      if (currentEpoch >= 10) {
-        setGameState((prev) => ({
-          ...prev,
-          score: newScore,
-          status: 'VICTORY',
-        }));
+    // Stop thrusters and trigger brief post-touchdown stabilizing observation
+    gameAudio.stopThruster();
+    gameAudio.playVictoryFanfare();
+    setIsTouchdownStabilizing(true);
+
+    if (touchdownTimerRef.current !== null) {
+      window.clearTimeout(touchdownTimerRef.current);
+    }
+
+    touchdownTimerRef.current = window.setTimeout(() => {
+      setIsTouchdownStabilizing(false);
+      touchdownTimerRef.current = null;
+
+      if (!isDuel) {
+        const newScore = gameStateRef.current.score + totalPoints;
+        const newEpoch = currentEpoch + 1;
+
+        if (currentEpoch >= 10) {
+          setGameState((prev) => ({
+            ...prev,
+            score: newScore,
+            status: 'VICTORY',
+          }));
+        } else {
+          setGameState((prev) => ({
+            ...prev,
+            score: newScore,
+            level: newEpoch,
+            status: 'LEVEL_COMPLETE',
+          }));
+          gameAudio.playDistortionGlitch();
+          gameAudio.playLevelUpStinger();
+        }
       } else {
+        // In Duel / AI Duel mode: Declare Round / Match Winner
         setGameState((prev) => ({
           ...prev,
-          score: newScore,
-          level: newEpoch,
+          score: lander.score,
           status: 'LEVEL_COMPLETE',
         }));
-        gameAudio.playDistortionGlitch();
-        gameAudio.playLevelUpStinger();
+        gameAudio.playVictoryFanfare();
       }
-    } else {
-      // In Duel / AI Duel mode: Declare Round / Match Winner
-      setGameState((prev) => ({
-        ...prev,
-        score: lander.score,
-        status: 'LEVEL_COMPLETE',
-      }));
-      gameAudio.playVictoryFanfare();
-    }
+    }, 2200);
   };
 
   const handleCrash = (lander: LanderState, reason: string) => {
@@ -1744,6 +1778,12 @@ export default function App() {
   }, [gameMode, gameState.level, resetLander]);
 
   const handleAbortToTitle = useCallback(() => {
+    if (touchdownTimerRef.current !== null) {
+      window.clearTimeout(touchdownTimerRef.current);
+      touchdownTimerRef.current = null;
+    }
+    setIsTouchdownStabilizing(false);
+
     gameAudio.stopThruster();
     setGameState((prev) => ({...prev, status: 'START'}));
     setMainMenuScreen('TITLE');
@@ -2975,6 +3015,24 @@ export default function App() {
             className="h-auto max-w-full max-h-full cursor-crosshair rounded-none"
           />
         )}
+
+        {/* Post-Touchdown Stabilizing Observation Banner */}
+        {isTouchdownStabilizing && lastTouchdownStats && (
+          <div className="absolute inset-x-0 top-16 z-30 flex flex-col items-center pointer-events-none px-4 animate-in fade-in zoom-in-95 duration-200">
+            <div className="bg-black/90 border-4 border-emerald-400 p-3 sm:p-4 shadow-[0_0_35px_rgba(16,185,129,0.7)] text-center font-mono max-w-lg">
+              <div className="flex items-center justify-center gap-2 text-emerald-400 font-black text-xs sm:text-base uppercase tracking-wider mb-1">
+                <Award size={20} className="animate-bounce" />
+                <span>TOUCHDOWN CONFIRMED // VESSEL STABILIZED</span>
+              </div>
+              <div className="text-[8px] sm:text-[9.5px] text-zinc-300 uppercase tracking-widest font-bold">
+                [ {lastTouchdownStats.padName} PAD • {lastTouchdownStats.padMultiplier}X MULTIPLIER ]
+              </div>
+              <div className="mt-2 pt-1.5 border-t border-zinc-800 text-[7px] sm:text-[8px] text-emerald-300 font-bold animate-pulse">
+                DOWNLINKING FLIGHT TELEMETRY & RETROGRESSION PROTOCOLS...
+              </div>
+            </div>
+          </div>
+        )}
       </main>
 
       {/* MOBILE CONTROLS (Ergonomic for Solo and 2-Player Split Screen) */}
@@ -3105,6 +3163,7 @@ export default function App() {
           setPreviousScreen={setPreviousScreen}
           selectedPlanet={selectedPlanet}
           setSelectedPlanet={setSelectedPlanet}
+          unlockedLevels={unlockedLevels}
           gameMode={gameMode}
           setGameMode={setGameMode}
           pilotName={pilotName}

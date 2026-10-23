@@ -24,6 +24,7 @@ import {
   Gauge,
   HelpCircle,
   Keyboard,
+  Lock,
   Maximize2,
   Menu,
   Minimize2,
@@ -54,6 +55,7 @@ import {
   getPlanet,
   RETROGRESSION_STEPS,
   RetrogressionStep,
+  PlanetProgression,
 } from './levels';
 import {AI_PERSONAS, AiPersona} from './aiPilot';
 import {
@@ -97,6 +99,7 @@ interface MenuScreensProps {
   setPreviousScreen: (screen: 'TITLE' | 'PAUSE') => void;
   selectedPlanet: PlanetId;
   setSelectedPlanet: (planet: PlanetId) => void;
+  unlockedLevels: PlanetProgression;
   gameMode: 'SOLO' | 'AI_DUEL' | 'DUEL';
   setGameMode: (mode: 'SOLO' | 'AI_DUEL' | 'DUEL') => void;
   pilotName: string;
@@ -159,6 +162,7 @@ export default function MenuScreens({
   setPreviousScreen,
   selectedPlanet,
   setSelectedPlanet,
+  unlockedLevels,
   gameMode,
   setGameMode,
   pilotName,
@@ -198,6 +202,7 @@ export default function MenuScreens({
   presetPilotNames,
 }: MenuScreensProps) {
   const [leaderboardFilter, setLeaderboardFilter] = useState<'ALL' | 'SOLO' | 'AI_DUEL' | 'DUEL'>('ALL');
+  const [lockedNotice, setLockedNotice] = useState<string | null>(null);
 
   const currentPlanetDef = getPlanet(selectedPlanet);
   const selectedLevelConfig = getLevel(selectedPlanet, selectedStartingEpoch);
@@ -1138,18 +1143,21 @@ export default function MenuScreens({
 
   // =========================================================================
   // 5. START FLOW - STEP 4: MAP & RETROGRESSION SELECTION (10 Progressive Maps)
-  // Clean Map Selector + Interactive 10-Step Retrogression Flow Map
+  // Clean Map Selector + Interactive 10-Step Retrogression Flow Map + Level Locks
   // =========================================================================
   if (gameState.status === 'START' && mainMenuScreen === 'FLOW_LEVEL') {
     const planetLevels = LEVELS_BY_PLANET[selectedPlanet] || LEVELS_BY_PLANET.moon;
-    const currentRetrogressionStep = RETROGRESSION_STEPS[selectedStartingEpoch - 1] || RETROGRESSION_STEPS[0];
+    const maxUnlocked = unlockedLevels[selectedPlanet] || 1;
+    const effectiveStartingEpoch = Math.min(selectedStartingEpoch, maxUnlocked);
+    const currentRetrogressionStep = RETROGRESSION_STEPS[effectiveStartingEpoch - 1] || RETROGRESSION_STEPS[0];
+    const effectiveLevelConfig = getLevel(selectedPlanet, effectiveStartingEpoch);
 
     return (
       <MenuOverlay tone="neutral" zIndex={40} fullScreen maxWidthClass="w-full max-w-6xl">
         <div className="w-full bg-[#08080c]/95 backdrop-blur-md border-4 border-emerald-500 p-4 md:p-6 shadow-[12px_12px_0px_0px_#064e3b] flex flex-col text-emerald-400 rounded-none relative">
           
           {/* Header with Step Indicator & Quick Planet Selector */}
-          <div className="flex flex-wrap items-center justify-between gap-2.5 pb-3 mb-3 border-b-2 border-emerald-800/80">
+          <div className="flex flex-wrap items-center justify-between gap-2.5 pb-3 mb-2.5 border-b-2 border-emerald-800/80">
             <div className="flex items-center gap-2.5">
               <Compass size={22} className="text-emerald-400 animate-pulse" />
               <div>
@@ -1160,9 +1168,12 @@ export default function MenuScreens({
                   <span className="text-[8px] font-mono font-bold px-1.5 py-0.5 border uppercase" style={{ borderColor: currentPlanetDef.accentColor, color: currentPlanetDef.accentColor }}>
                     {currentPlanetDef.gravity} PX/S²
                   </span>
+                  <span className="text-[7.5px] font-mono font-bold px-1.5 py-0.5 bg-zinc-900 border border-zinc-700 text-zinc-300 uppercase">
+                    CAMPAIGN UNLOCKED: {maxUnlocked}/10
+                  </span>
                 </div>
                 <span className="text-[7.5px] font-mono text-zinc-400 uppercase tracking-widest block mt-0.5">
-                  START FLOW // STEP 4 OF 4 • {currentPlanetDef.subname} • 10 MAPS WITH PROGRESSIVE AVIONICS RETROGRESSION
+                  START FLOW // STEP 4 OF 4 • {currentPlanetDef.subname} • COMPLETE EACH LEVEL TO UNLOCK SUBSEQUENT SECTORS
                 </span>
               </div>
             </div>
@@ -1171,12 +1182,16 @@ export default function MenuScreens({
             <div className="flex items-center gap-1.5 font-mono text-[7.5px]">
               {PLANETS.map((p) => {
                 const isCurrent = selectedPlanet === p.id;
+                const planetMax = unlockedLevels[p.id] || 1;
                 return (
                   <button
                     key={p.id}
                     type="button"
                     onClick={() => {
                       setSelectedPlanet(p.id);
+                      if (selectedStartingEpoch > planetMax) {
+                        setSelectedStartingEpoch(planetMax);
+                      }
                       gameAudio.playCrispClick();
                     }}
                     className={`px-2 py-1 border transition flex items-center gap-1 font-bold uppercase ${
@@ -1190,6 +1205,7 @@ export default function MenuScreens({
                     }}>
                     <span>{p.icon}</span>
                     <span>{p.name.replace('THE ', '')}</span>
+                    <span className="text-[6.5px] opacity-75">({planetMax}/10)</span>
                   </button>
                 );
               })}
@@ -1207,6 +1223,14 @@ export default function MenuScreens({
             </div>
           </div>
 
+          {/* Locked Notice Banner */}
+          {lockedNotice && (
+            <div className="bg-amber-950/90 border-2 border-amber-500 p-2 text-center text-amber-300 font-bold text-[8px] uppercase tracking-wider mb-2.5 animate-pulse flex items-center justify-center gap-2">
+              <Lock size={13} className="shrink-0 text-amber-400" />
+              <span>{lockedNotice}</span>
+            </div>
+          )}
+
           {/* INTERACTIVE 10-STEP RETROGRESSION FLOW MAP */}
           <div className="bg-black/90 border-2 border-emerald-800/80 p-2.5 mb-3 rounded-none font-mono">
             <div className="flex flex-wrap items-center justify-between gap-1.5 mb-2 pb-1.5 border-b border-zinc-800/80">
@@ -1217,26 +1241,36 @@ export default function MenuScreens({
                 </span>
               </div>
               <span className="text-[6.5px] text-zinc-400 uppercase">
-                CLICK ANY STEP TO SET STARTING LEVEL • AVIONICS DEGRADE EACH LEVEL
+                COMPLETE PRIOR LEVELS TO ADVANCE RETROGRESSION PIPELINE
               </span>
             </div>
 
             {/* 10 Pipeline Nodes Matching Levels 1..10 */}
             <div className="grid grid-cols-2 sm:grid-cols-5 md:grid-cols-10 gap-1.5 mb-2">
               {RETROGRESSION_STEPS.map((step) => {
-                const isSelected = selectedStartingEpoch === step.level;
+                const isStepUnlocked = step.level <= maxUnlocked;
+                const isSelected = effectiveStartingEpoch === step.level;
+
                 return (
                   <button
                     key={step.level}
                     type="button"
                     onClick={() => {
+                      if (!isStepUnlocked) {
+                        gameAudio.playRcsPuff();
+                        setLockedNotice(`LEVEL ${step.level} IS LOCKED! Complete Level ${step.level - 1} on ${currentPlanetDef.name} first.`);
+                        setTimeout(() => setLockedNotice(null), 3500);
+                        return;
+                      }
                       setSelectedStartingEpoch(step.level);
                       gameAudio.playCrispClick();
                     }}
-                    className={`p-1.5 border text-left flex flex-col justify-between transition cursor-pointer rounded-none relative ${
-                      isSelected
-                        ? 'bg-zinc-900 border-2 shadow-[2px_2px_0_0_#10b981]'
-                        : 'bg-black/85 border-zinc-800 hover:border-zinc-700'
+                    className={`p-1.5 border text-left flex flex-col justify-between transition rounded-none relative ${
+                      !isStepUnlocked
+                        ? 'bg-zinc-950/70 border-zinc-900 opacity-40 cursor-not-allowed'
+                        : isSelected
+                        ? 'bg-zinc-900 border-2 shadow-[2px_2px_0_0_#10b981] cursor-pointer'
+                        : 'bg-black/85 border-zinc-800 hover:border-zinc-700 cursor-pointer'
                     }`}
                     style={{
                       borderColor: isSelected ? step.color : undefined,
@@ -1244,13 +1278,17 @@ export default function MenuScreens({
                     }}>
                     <div>
                       <div className="flex items-center justify-between mb-0.5">
-                        <span className="text-[7.5px] font-black" style={{ color: step.color }}>
+                        <span className="text-[7.5px] font-black" style={{ color: isStepUnlocked ? step.color : '#52525b' }}>
                           L{step.level.toString().padStart(2, '0')}
                         </span>
-                        <span className="text-[8.5px]">{step.icon}</span>
+                        {isStepUnlocked ? (
+                          <span className="text-[8.5px]">{step.icon}</span>
+                        ) : (
+                          <Lock size={9} className="text-zinc-600" />
+                        )}
                       </div>
                       <span className="text-[6.5px] font-bold text-zinc-200 block truncate leading-tight uppercase">
-                        {step.shortBadge}
+                        {isStepUnlocked ? step.shortBadge : 'LOCKED'}
                       </span>
                     </div>
 
@@ -1258,6 +1296,8 @@ export default function MenuScreens({
                       <span>{step.fuelCapacity}L</span>
                       {isSelected ? (
                         <span className="font-bold text-[6px]" style={{ color: step.color }}>ACTIVE</span>
+                      ) : !isStepUnlocked ? (
+                        <span className="text-zinc-600 text-[6px]">LOCK</span>
                       ) : (
                         <span className="text-zinc-500 text-[6px]">{step.windSpeed}w</span>
                       )}
@@ -1298,19 +1338,29 @@ export default function MenuScreens({
           {/* 10 Map Cards Grid (5x2) */}
           <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 mb-3">
             {planetLevels.map((level) => {
-              const isSelected = selectedStartingEpoch === level.id;
+              const isUnlocked = level.id <= maxUnlocked;
+              const isSelected = effectiveStartingEpoch === level.id;
+
               return (
                 <button
                   key={level.id}
                   type="button"
                   onClick={() => {
+                    if (!isUnlocked) {
+                      gameAudio.playRcsPuff();
+                      setLockedNotice(`MAP ${level.id} (${level.name}) IS LOCKED! Complete Map ${level.id - 1} on ${currentPlanetDef.name} first.`);
+                      setTimeout(() => setLockedNotice(null), 3500);
+                      return;
+                    }
                     setSelectedStartingEpoch(level.id);
                     gameAudio.playCrispClick();
                   }}
                   className={`p-2 text-left border-2 transition rounded-none relative flex flex-col justify-between ${
-                    isSelected
-                      ? 'bg-zinc-900 border-emerald-400 shadow-[3px_3px_0_0_#10b981]'
-                      : 'bg-black/80 border-zinc-800 hover:border-zinc-600'
+                    !isUnlocked
+                      ? 'bg-zinc-950/70 border-zinc-900 opacity-45 cursor-not-allowed grayscale'
+                      : isSelected
+                      ? 'bg-zinc-900 border-emerald-400 shadow-[3px_3px_0_0_#10b981] cursor-pointer'
+                      : 'bg-black/80 border-zinc-800 hover:border-zinc-600 cursor-pointer'
                   }`}
                   style={{
                     borderColor: isSelected ? level.themeColor : undefined,
@@ -1318,10 +1368,15 @@ export default function MenuScreens({
                   }}>
                   <div>
                     <div className="flex items-center justify-between mb-1">
-                      <span className="text-[8.5px] font-black uppercase" style={{ color: level.themeColor }}>
+                      <span className="text-[8.5px] font-black uppercase" style={{ color: isUnlocked ? level.themeColor : '#71717a' }}>
                         MAP {level.id.toString().padStart(2, '0')}
                       </span>
-                      {isSelected ? (
+                      {!isUnlocked ? (
+                        <span className="text-[6px] font-mono px-1 py-0.2 bg-zinc-900 border border-zinc-800 text-zinc-500 flex items-center gap-0.5">
+                          <Lock size={7} />
+                          <span>LOCKED</span>
+                        </span>
+                      ) : isSelected ? (
                         <Check size={12} style={{ color: level.themeColor }} />
                       ) : (
                         <span className="text-[6px] font-mono px-1 py-0.2 bg-zinc-950 border border-zinc-800 text-zinc-400">
@@ -1330,7 +1385,7 @@ export default function MenuScreens({
                       )}
                     </div>
                     <span className="text-[7.5px] font-bold text-zinc-200 block truncate uppercase leading-tight">
-                      {level.name}
+                      {isUnlocked ? level.name : `[LOCKED] ${level.name}`}
                     </span>
                     <span className="text-[6px] font-mono text-zinc-400 block truncate mt-0.5">
                       {level.mapType}
@@ -1339,7 +1394,9 @@ export default function MenuScreens({
 
                   <div className="mt-2 pt-1 border-t border-zinc-800/80 text-[6px] font-mono flex items-center justify-between text-zinc-400">
                     <span>FUEL: {level.fuelCapacity}L</span>
-                    <span style={{ color: level.themeColor }}>{level.retrogressionShort}</span>
+                    <span style={{ color: isUnlocked ? level.themeColor : '#71717a' }}>
+                      {isUnlocked ? level.retrogressionShort : 'LOCKED'}
+                    </span>
                   </div>
                 </button>
               );
@@ -1351,30 +1408,30 @@ export default function MenuScreens({
             {/* Left: Map Title, Terrain & Retrogression Status */}
             <div className="md:col-span-7 space-y-1.5">
               <div className="flex items-center gap-2">
-                <span className="text-xs sm:text-sm font-black uppercase text-emerald-400" style={{ color: selectedLevelConfig.themeColor }}>
-                  MAP {selectedLevelConfig.id}: {selectedLevelConfig.name}
+                <span className="text-xs sm:text-sm font-black uppercase text-emerald-400" style={{ color: effectiveLevelConfig.themeColor }}>
+                  MAP {effectiveLevelConfig.id}: {effectiveLevelConfig.name}
                 </span>
                 <span className="text-[7px] px-1.5 py-0.5 bg-zinc-900 border border-zinc-700 text-zinc-300">
-                  {selectedLevelConfig.mapType}
+                  {effectiveLevelConfig.mapType}
                 </span>
               </div>
 
               <p className="text-[7.5px] text-zinc-300 leading-relaxed">
-                {selectedLevelConfig.description}
+                {effectiveLevelConfig.description}
               </p>
 
               {/* Retrogression Status Banner */}
               <div
                 className="p-1.5 border text-[7px] flex flex-col gap-0.5 rounded-none"
                 style={{
-                  backgroundColor: `${selectedLevelConfig.themeColor}15`,
-                  borderColor: `${selectedLevelConfig.themeColor}80`,
+                  backgroundColor: `${effectiveLevelConfig.themeColor}15`,
+                  borderColor: `${effectiveLevelConfig.themeColor}80`,
                 }}>
-                <span className="font-bold uppercase tracking-wider" style={{ color: selectedLevelConfig.themeColor }}>
-                  RETROGRESSION STATUS: {selectedLevelConfig.era}
+                <span className="font-bold uppercase tracking-wider" style={{ color: effectiveLevelConfig.themeColor }}>
+                  RETROGRESSION STATUS: {effectiveLevelConfig.era}
                 </span>
                 <div className="flex flex-wrap gap-1.5 text-zinc-300 text-[6.5px]">
-                  {selectedLevelConfig.degradedAvionics.map((item, i) => (
+                  {effectiveLevelConfig.degradedAvionics.map((item, i) => (
                     <span key={i} className="text-zinc-200">
                       • {item}
                     </span>
@@ -1386,9 +1443,9 @@ export default function MenuScreens({
             {/* Right: Flight Conditions & Target Platforms */}
             <div className="md:col-span-5 space-y-1.5 border-t md:border-t-0 md:border-l border-zinc-800 md:pl-3 pt-2 md:pt-0">
               <div className="flex items-center justify-between text-[7px] text-zinc-400">
-                <span>START FUEL: <strong className="text-emerald-400">{selectedLevelConfig.fuelCapacity}L</strong></span>
-                <span>WIND: <strong className="text-cyan-300">{selectedLevelConfig.windSpeed} PX/S</strong></span>
-                <span>HAZARDS: <strong className="text-amber-400">{selectedLevelConfig.hazardCount}</strong></span>
+                <span>START FUEL: <strong className="text-emerald-400">{effectiveLevelConfig.fuelCapacity}L</strong></span>
+                <span>WIND: <strong className="text-cyan-300">{effectiveLevelConfig.windSpeed} PX/S</strong></span>
+                <span>HAZARDS: <strong className="text-amber-400">{effectiveLevelConfig.hazardCount}</strong></span>
               </div>
 
               <div>
@@ -1396,7 +1453,7 @@ export default function MenuScreens({
                   LANDING PADS ON THIS MAP:
                 </span>
                 <div className="grid grid-cols-2 gap-1">
-                  {selectedLevelConfig.pads.map((pad) => (
+                  {effectiveLevelConfig.pads.map((pad) => (
                     <div key={pad.code} className="bg-zinc-950 border border-zinc-800 p-1 flex items-center justify-between">
                       <span className="text-[7px] font-bold" style={{ color: pad.color }}>
                         {pad.code} [{pad.multiplier}x]
@@ -1444,10 +1501,10 @@ export default function MenuScreens({
               <Play size={16} fill="currentColor" />
               <span>
                 {gameMode === 'AI_DUEL'
-                  ? `LAUNCH AI DUEL ON ${currentPlanetDef.name} // MAP ${selectedStartingEpoch}`
+                  ? `LAUNCH AI DUEL ON ${currentPlanetDef.name} // MAP ${effectiveStartingEpoch}`
                   : gameMode === 'DUEL'
-                  ? `LAUNCH 2P DUEL ON ${currentPlanetDef.name} // MAP ${selectedStartingEpoch}`
-                  : `LAUNCH DESCENT ON ${currentPlanetDef.name} // MAP ${selectedStartingEpoch}`}
+                  ? `LAUNCH 2P DUEL ON ${currentPlanetDef.name} // MAP ${effectiveStartingEpoch}`
+                  : `LAUNCH DESCENT ON ${currentPlanetDef.name} // MAP ${effectiveStartingEpoch}`}
               </span>
             </button>
           </div>
@@ -2154,7 +2211,10 @@ export default function MenuScreens({
 
   // =========================================================================
   // 9. LEVEL COMPLETE (Touchdown Confirmed) OVERLAY
-  // Displays Level Score Breakdown + Explicit Avionics Degradation Report
+  // Full-Screen 2-Half Layout:
+  // - Left Half: Mission Telemetry, Score Breakdown & Cushion Verification
+  // - Right Half: Next Sector Specs, Explicit Avionics Degradation & Pilot Advisory
+  // - Bottom Bar: Full-Width Action Controls (Commence, Leaderboard, Map Select, Title)
   // =========================================================================
   if (gameState.status === 'LEVEL_COMPLETE' && lastTouchdownStats) {
     const nextLevelNum = gameState.level;
@@ -2162,172 +2222,349 @@ export default function MenuScreens({
     const completedLevelConfig = getLevel(selectedPlanet, completedLevelNum);
     const nextLevelConfig = getLevel(selectedPlanet, nextLevelNum);
     const nextRetrogression = RETROGRESSION_STEPS[nextLevelNum - 1] || RETROGRESSION_STEPS[0];
+    const isMaxCampaign = completedLevelNum >= 10;
 
     return (
-      <MenuOverlay tone="victory" zIndex={40} fullScreen maxWidthClass="w-full max-w-2xl">
-        <div className="w-full bg-[#08080c]/95 border-4 border-emerald-500 p-4 sm:p-6 shadow-[10px_10px_0px_0px_#064e3b] flex flex-col items-center text-emerald-400 rounded-none max-h-[92vh] overflow-y-auto">
-          <Award className="text-emerald-400 mb-1.5 animate-bounce shrink-0" size={38} />
+      <MenuOverlay tone="victory" zIndex={40} fullScreen maxWidthClass="w-full max-w-7xl">
+        <div className="w-full bg-[#07090e]/98 backdrop-blur-xl border-4 border-emerald-500 p-4 sm:p-6 md:p-7 shadow-[14px_14px_0px_0px_#064e3b] flex flex-col justify-between text-emerald-400 rounded-none max-h-[94vh] overflow-y-auto">
           
-          <h2 className="text-base sm:text-2xl font-black text-center uppercase tracking-wide leading-tight">
-            {gameMode === 'AI_DUEL'
-              ? lastTouchdownStats.isWinner
-                ? 'VICTORY OVER AI BOT!'
-                : `${lastTouchdownStats.pilotName} WINS DUEL!`
-              : gameMode === 'DUEL'
-              ? `${lastTouchdownStats.pilotName} WINS ROUND!`
-              : `MAP ${completedLevelNum} TOUCHDOWN CONFIRMED`}
-          </h2>
-          
-          <div className="text-[8.5px] font-mono text-zinc-400 mb-3 uppercase font-bold tracking-wider text-center">
-            [ SECTOR: {completedLevelConfig.name} • {currentPlanetDef.name} • {lastTouchdownStats.padName} PAD ({lastTouchdownStats.padMultiplier}X) ]
-          </div>
-
-          {/* 1. LEVEL SCORE DISPLAY & BREAKDOWN */}
-          <div className="w-full bg-black/90 border-2 border-emerald-500/80 p-3 mb-3 text-left font-mono rounded-none">
-            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-zinc-800 pb-2 mb-2">
+          {/* Header Bar */}
+          <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b-2 border-emerald-800/80">
+            <div className="flex items-center gap-3">
+              <Award className="text-emerald-400 animate-bounce shrink-0" size={36} />
               <div>
-                <span className="text-[7.5px] text-zinc-400 uppercase font-bold tracking-widest block">
-                  LEVEL {completedLevelNum} SCORE AWARDED
-                </span>
-                <span className="text-2xl sm:text-3xl font-black text-emerald-400 drop-shadow-[0_0_12px_rgba(16,185,129,0.5)]">
-                  +{lastTouchdownStats.pointsAwarded.toLocaleString()} PTS
-                </span>
-              </div>
-              <div className="text-right">
-                <span className="text-[7px] text-zinc-500 uppercase font-bold block">
-                  CAMPAIGN TOTAL SCORE
-                </span>
-                <span className="text-base sm:text-lg font-black text-yellow-400">
-                  {(lastTouchdownStats.totalCumulativeScore ?? gameState.score).toLocaleString()} PTS
-                </span>
+                <h2 className="text-base sm:text-2xl font-black uppercase tracking-wider leading-tight text-white flex items-center gap-2">
+                  <span>
+                    {gameMode === 'AI_DUEL'
+                      ? lastTouchdownStats.isWinner
+                        ? 'VICTORY OVER AI BOT'
+                        : `${lastTouchdownStats.pilotName} WINS DUEL`
+                      : gameMode === 'DUEL'
+                      ? `${lastTouchdownStats.pilotName} WINS ROUND`
+                      : `TOUCHDOWN CONFIRMED // MAP ${completedLevelNum.toString().padStart(2, '0')}: ${completedLevelConfig.name}`}
+                  </span>
+                </h2>
+                <div className="text-[8px] sm:text-[9px] font-mono text-emerald-300 font-bold uppercase tracking-wider">
+                  [ CELESTIAL TARGET: {currentPlanetDef.name} • {lastTouchdownStats.padName} PAD ({lastTouchdownStats.padMultiplier}X MULTIPLIER) • STRUT CONTACT NOMINAL ]
+                </div>
               </div>
             </div>
 
-            {/* Score Breakdown Grid */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-[7.5px] bg-zinc-950/80 p-2.5 border border-zinc-800">
-              <div>
-                <span className="text-zinc-500 block">BASE SECTOR:</span>
-                <strong className="text-zinc-200 font-bold block">
-                  +{(lastTouchdownStats.basePoints ?? completedLevelNum * 1000).toLocaleString()}
-                </strong>
-              </div>
-              <div>
-                <span className="text-zinc-500 block">FUEL BONUS ({lastTouchdownStats.fuelRemaining}L):</span>
-                <strong className="text-cyan-400 font-bold block">
-                  +{(lastTouchdownStats.fuelBonus ?? 0).toLocaleString()}
-                </strong>
-              </div>
-              <div>
-                <span className="text-zinc-500 block">SOFT TOUCHDOWN:</span>
-                <strong className="text-emerald-400 font-bold block">
-                  +{(lastTouchdownStats.precisionBonus ?? 0).toLocaleString()}
-                </strong>
-              </div>
-              <div>
-                <span className="text-zinc-500 block">PAD MULTIPLIER:</span>
-                <strong className="text-amber-400 font-bold block">
-                  {lastTouchdownStats.padMultiplier}x ({lastTouchdownStats.padName})
-                </strong>
-              </div>
-            </div>
-
-            {/* Flight Telemetry Metrics */}
-            <div className="flex flex-wrap items-center justify-between gap-2 text-[7px] text-zinc-400 mt-2 pt-1.5 border-t border-zinc-900">
-              <span>VERTICAL SPEED: <strong className="text-emerald-300">{Math.round(lastTouchdownStats.vy)} PX/S</strong> (THRESHOLD: ≤75)</span>
-              <span>LATERAL DRIFT: <strong className="text-cyan-300">{Math.round(Math.abs(lastTouchdownStats.vx))} PX/S</strong></span>
-              <span>TILT: <strong className="text-amber-300">{Math.round(Math.abs(lastTouchdownStats.tilt))}°</strong></span>
+            <div className="flex items-center gap-2 font-mono text-[8px]">
+              <span className="px-2.5 py-1 bg-emerald-950 border border-emerald-500/80 text-emerald-300 font-bold uppercase">
+                {currentPlanetDef.icon} {currentPlanetDef.name}
+              </span>
+              <span className="px-2.5 py-1 bg-black border border-zinc-700 text-zinc-300 font-bold uppercase">
+                CAMPAIGN: {Math.min(completedLevelNum, 10)}/10
+              </span>
             </div>
           </div>
 
-          {/* 2. AVIONICS DEGRADATION PROTOCOL (FOR NEXT LEVEL) */}
-          {gameMode === 'SOLO' && nextLevelNum <= 10 && (
-            <div className="w-full bg-red-950/30 border-2 border-red-500/80 p-3 mb-3 text-left font-mono rounded-none">
-              {/* Header */}
-              <div className="flex flex-wrap items-center justify-between gap-2 border-b border-red-900/80 pb-1.5 mb-2">
-                <div className="flex items-center gap-2">
-                  <AlertTriangle size={15} className="text-red-400 animate-pulse shrink-0" />
-                  <span className="text-[8.5px] font-black uppercase text-red-400 tracking-wider">
-                    AVIONICS DEGRADATION PROTOCOL // ADVANCING TO LEVEL {nextLevelNum}
+          {/* TWO-HALF SPLIT CONTAINER */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 my-4 flex-1">
+            
+            {/* ============================================================= */}
+            {/* LEFT HALF: LEVEL SCORE BREAKDOWN & LANDING TELEMETRY          */}
+            {/* ============================================================= */}
+            <div className="flex flex-col gap-3 bg-black/80 border-2 border-emerald-500/80 p-3.5 sm:p-4 font-mono">
+              <div className="flex items-center justify-between border-b border-emerald-900 pb-2">
+                <span className="text-[9px] font-black uppercase text-emerald-400 tracking-wider flex items-center gap-2">
+                  <Gauge size={14} className="text-emerald-400" />
+                  <span>LEFT HALF: MISSION TELEMETRY & SCORE BREAKDOWN</span>
+                </span>
+                <span className="text-[7.5px] px-2 py-0.5 bg-emerald-950 text-emerald-300 border border-emerald-700 font-bold uppercase">
+                  VERIFIED TOUCHDOWN
+                </span>
+              </div>
+
+              {/* Points Summary Header */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 bg-zinc-950/90 border border-emerald-900/60 p-3">
+                <div>
+                  <span className="text-[7.5px] text-zinc-400 uppercase font-bold tracking-widest block mb-0.5">
+                    LEVEL {completedLevelNum} SCORE AWARDED
+                  </span>
+                  <span className="text-2xl sm:text-3xl font-black text-emerald-400 drop-shadow-[0_0_12px_rgba(16,185,129,0.5)]">
+                    +{lastTouchdownStats.pointsAwarded.toLocaleString()} <span className="text-xs">PTS</span>
                   </span>
                 </div>
-                <span
-                  className="text-[7px] font-bold px-2 py-0.5 uppercase border"
-                  style={{
-                    borderColor: nextRetrogression.color,
-                    color: nextRetrogression.color,
-                    backgroundColor: `${nextRetrogression.color}18`,
-                  }}>
-                  {nextRetrogression.shortBadge}
-                </span>
-              </div>
-
-              {/* Next Map Info & Retrogression Stage */}
-              <div className="flex flex-wrap items-center justify-between gap-2 text-[7.5px] mb-2 bg-black/60 p-1.5 border border-red-900/40">
-                <span className="text-zinc-300">
-                  NEXT TARGET: <strong className="text-white uppercase">{nextLevelConfig.name}</strong> ({nextLevelConfig.mapType})
-                </span>
-                <span className="text-amber-400 font-bold uppercase">
-                  {nextRetrogression.stageName}
-                </span>
-              </div>
-
-              {/* Explicit Decommissioned Avionics List */}
-              <div className="mb-2">
-                <span className="text-[7px] text-red-400 uppercase font-black block mb-1 tracking-wider">
-                  ⚠️ AVIONICS DECOMMISSIONED ON THIS UPCOMING LEVEL:
-                </span>
-                <div className="space-y-1">
-                  {nextRetrogression.decommissioned.map((degraded, i) => (
-                    <div key={i} className="flex items-start gap-2 bg-black/80 border border-red-900/80 p-1.5 text-[7.5px]">
-                      <span className="text-red-400 font-black text-[6.5px] px-1 py-0.2 bg-red-950 border border-red-700 shrink-0 uppercase">
-                        DECOMMISSIONED
-                      </span>
-                      <span className="text-yellow-200 font-bold leading-tight">
-                        {degraded}
-                      </span>
-                    </div>
-                  ))}
+                <div className="sm:text-right border-t sm:border-t-0 sm:border-l border-zinc-800 pt-2 sm:pt-0 sm:pl-3">
+                  <span className="text-[7.5px] text-zinc-500 uppercase font-bold tracking-widest block mb-0.5">
+                    CAMPAIGN TOTAL SCORE
+                  </span>
+                  <span className="text-xl sm:text-2xl font-black text-yellow-400 drop-shadow-[0_0_10px_rgba(250,204,21,0.4)]">
+                    {(lastTouchdownStats.totalCumulativeScore ?? gameState.score).toLocaleString()} <span className="text-xs">PTS</span>
+                  </span>
                 </div>
               </div>
 
-              {/* Remaining Operational Systems */}
-              <div className="mb-2 pt-1.5 border-t border-red-950">
-                <span className="text-[6.5px] text-zinc-400 uppercase font-bold block mb-1">
-                  OPERATIONAL FLIGHT SYSTEMS REMAINING ONLINE:
-                </span>
-                <div className="flex flex-wrap gap-1">
-                  {nextRetrogression.activeFeatures.map((feat, i) => (
-                    <span key={i} className="text-[6.5px] px-1.5 py-0.5 bg-emerald-950/60 border border-emerald-800/80 text-emerald-300 font-mono">
-                      ✓ {feat}
-                    </span>
-                  ))}
+              {/* 4 Score Multipliers Cards */}
+              <div className="grid grid-cols-2 gap-2 text-[8px]">
+                <div className="bg-zinc-950 p-2.5 border border-zinc-800">
+                  <span className="text-zinc-500 block text-[7px] uppercase font-bold">BASE SECTOR VALUE:</span>
+                  <strong className="text-white font-black text-sm block">
+                    +{(lastTouchdownStats.basePoints ?? completedLevelNum * 1000).toLocaleString()}
+                  </strong>
+                  <span className="text-[6.5px] text-zinc-400">Map {completedLevelNum} difficulty rating</span>
+                </div>
+
+                <div className="bg-zinc-950 p-2.5 border border-zinc-800">
+                  <span className="text-zinc-500 block text-[7px] uppercase font-bold">FUEL CONSERVED:</span>
+                  <strong className="text-cyan-400 font-black text-sm block">
+                    +{(lastTouchdownStats.fuelBonus ?? 0).toLocaleString()}
+                  </strong>
+                  <span className="text-[6.5px] text-zinc-400">{lastTouchdownStats.fuelRemaining}L remaining @ 15 pts/L</span>
+                </div>
+
+                <div className="bg-zinc-950 p-2.5 border border-zinc-800">
+                  <span className="text-zinc-500 block text-[7px] uppercase font-bold">SOFT LANDING BONUS:</span>
+                  <strong className="text-emerald-400 font-black text-sm block">
+                    +{(lastTouchdownStats.precisionBonus ?? 0).toLocaleString()}
+                  </strong>
+                  <span className="text-[6.5px] text-zinc-400">Low impact cushion precision</span>
+                </div>
+
+                <div className="bg-zinc-950 p-2.5 border border-zinc-800">
+                  <span className="text-zinc-500 block text-[7px] uppercase font-bold">DISTANCE MULTIPLIER:</span>
+                  <strong className="text-amber-400 font-black text-sm block">
+                    {lastTouchdownStats.padMultiplier}x
+                  </strong>
+                  <span className="text-[6.5px] text-zinc-400">{lastTouchdownStats.padName} landing pad</span>
                 </div>
               </div>
 
-              {/* Pilot Warning */}
-              <div className="bg-black/80 border border-zinc-800 p-2 text-[7px] text-zinc-300 italic flex items-center gap-1.5">
-                <span className="text-amber-400 font-bold not-italic shrink-0">[PILOT ADVISORY]</span>
-                <span>"{nextRetrogression.pilotWarning}"</span>
+              {/* Real Flight Dynamics Telemetry Box */}
+              <div className="bg-zinc-950 p-3 border border-zinc-800/80 space-y-2 mt-auto">
+                <span className="text-[7.5px] font-bold uppercase text-zinc-400 block tracking-wider">
+                  FLIGHT TOUCHDOWN DYNAMICS // HYDRAULIC SUSPENSION CUSHION
+                </span>
+
+                <div className="grid grid-cols-3 gap-2 text-center text-[7.5px]">
+                  <div className="bg-black p-2 border border-emerald-900/60">
+                    <span className="text-zinc-500 block text-[6.5px]">DESCENT SPEED</span>
+                    <strong className="text-emerald-300 font-bold text-xs block">
+                      {Math.round(lastTouchdownStats.vy)} <span className="text-[7px]">PX/S</span>
+                    </strong>
+                    <span className="text-[6px] text-zinc-500">LIMIT: ≤75 PX/S</span>
+                  </div>
+
+                  <div className="bg-black p-2 border border-cyan-900/60">
+                    <span className="text-zinc-500 block text-[6.5px]">LATERAL DRIFT</span>
+                    <strong className="text-cyan-300 font-bold text-xs block">
+                      {Math.round(Math.abs(lastTouchdownStats.vx))} <span className="text-[7px]">PX/S</span>
+                    </strong>
+                    <span className="text-[6px] text-zinc-500">LIMIT: ≤45 PX/S</span>
+                  </div>
+
+                  <div className="bg-black p-2 border border-amber-900/60">
+                    <span className="text-zinc-500 block text-[6.5px]">ATTITUDE TILT</span>
+                    <strong className="text-amber-300 font-bold text-xs block">
+                      {Math.round(Math.abs(lastTouchdownStats.tilt))}°
+                    </strong>
+                    <span className="text-[6px] text-zinc-500">LIMIT: ≤16°</span>
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between text-[7px] text-zinc-400 pt-1 border-t border-zinc-900">
+                  <span className="text-emerald-400 font-bold flex items-center gap-1">
+                    <Check size={11} /> STRUT ABSORPTION: 100% NOMINAL
+                  </span>
+                  <span>PILOT: <strong className="text-white">{lastTouchdownStats.pilotName || pilotName}</strong></span>
+                </div>
               </div>
             </div>
-          )}
 
-          {/* Action Buttons */}
-          <div className="w-full space-y-2">
+            {/* ============================================================= */}
+            {/* RIGHT HALF: AVIONICS DEGRADATION PROTOCOL FOR NEXT LEVEL     */}
+            {/* ============================================================= */}
+            {gameMode === 'SOLO' && !isMaxCampaign ? (
+              <div className="flex flex-col gap-3 bg-red-950/25 border-2 border-red-500/80 p-3.5 sm:p-4 font-mono">
+                {/* Header */}
+                <div className="flex items-center justify-between border-b border-red-900 pb-2">
+                  <div className="flex items-center gap-2">
+                    <AlertTriangle size={15} className="text-red-400 animate-pulse shrink-0" />
+                    <span className="text-[9px] font-black uppercase text-red-400 tracking-wider">
+                      RIGHT HALF: AVIONICS DEGRADATION PROTOCOL // ADVANCING TO LEVEL {nextLevelNum}
+                    </span>
+                  </div>
+                  <span
+                    className="text-[7px] font-bold px-2 py-0.5 uppercase border shrink-0"
+                    style={{
+                      borderColor: nextRetrogression.color,
+                      color: nextRetrogression.color,
+                      backgroundColor: `${nextRetrogression.color}18`,
+                    }}>
+                    {nextRetrogression.shortBadge}
+                  </span>
+                </div>
+
+                {/* Upcoming Level Specs */}
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-[7.5px] bg-black/70 p-2.5 border border-red-900/50">
+                  <div>
+                    <span className="text-zinc-500 block text-[6.5px]">SECTOR NAME:</span>
+                    <strong className="text-white uppercase font-bold block truncate">
+                      {nextLevelConfig.name}
+                    </strong>
+                  </div>
+                  <div>
+                    <span className="text-zinc-500 block text-[6.5px]">TOPOLOGY:</span>
+                    <strong className="text-yellow-300 uppercase font-bold block truncate">
+                      {nextLevelConfig.mapType}
+                    </strong>
+                  </div>
+                  <div>
+                    <span className="text-zinc-500 block text-[6.5px]">ATMOSPHERIC WIND:</span>
+                    <strong className="text-cyan-300 uppercase font-bold block truncate">
+                      {nextLevelConfig.windMax > 0 ? `±${nextLevelConfig.windMax} PX/S` : 'VACUUM (0)'}
+                    </strong>
+                  </div>
+                  <div>
+                    <span className="text-zinc-500 block text-[6.5px]">STARTING FUEL:</span>
+                    <strong className="text-amber-400 uppercase font-bold block truncate">
+                      {nextLevelConfig.fuelCapacity}L
+                    </strong>
+                  </div>
+                </div>
+
+                {/* Era & Stage Description */}
+                <div className="bg-black/80 border border-zinc-800 p-2.5">
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-[8px] font-bold uppercase" style={{ color: nextRetrogression.color }}>
+                      RETROGRESSION STAGE: {nextRetrogression.stageName}
+                    </span>
+                    <span className="text-[7px] text-zinc-400">{nextRetrogression.title}</span>
+                  </div>
+                  <p className="text-[7.5px] text-zinc-300 leading-relaxed">
+                    Advancing to Level {nextLevelNum} forces ship technology backward in time. Digital fly-by-wire
+                    and radar sensors are progressively decommissioned.
+                  </p>
+                </div>
+
+                {/* Explicit Decommissioned Avionics List */}
+                <div>
+                  <span className="text-[7.5px] text-red-400 uppercase font-black block mb-1.5 tracking-wider flex items-center gap-1.5">
+                    <span>⚠️</span>
+                    <span>AVIONICS DECOMMISSIONED ON LEVEL {nextLevelNum}:</span>
+                  </span>
+                  <div className="space-y-1.5 max-h-[140px] overflow-y-auto">
+                    {nextRetrogression.decommissioned.map((degraded, i) => (
+                      <div key={i} className="flex items-start gap-2 bg-black/90 border border-red-900/90 p-2 text-[7.5px]">
+                        <span className="text-red-400 font-black text-[6.5px] px-1.5 py-0.5 bg-red-950 border border-red-700 shrink-0 uppercase">
+                          OFFLINE
+                        </span>
+                        <span className="text-yellow-200 font-bold leading-tight">
+                          {degraded}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Operational Flight Systems Remaining */}
+                <div>
+                  <span className="text-[7px] text-zinc-400 uppercase font-bold block mb-1">
+                    OPERATIONAL FLIGHT SYSTEMS REMAINING ONLINE:
+                  </span>
+                  <div className="flex flex-wrap gap-1">
+                    {nextRetrogression.activeFeatures.map((feat, i) => (
+                      <span key={i} className="text-[7px] px-2 py-0.5 bg-emerald-950/70 border border-emerald-800 text-emerald-300 font-mono">
+                        ✓ {feat}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Pilot Warning Advisory */}
+                <div className="bg-black/90 border border-amber-900/70 p-2.5 text-[7.5px] text-zinc-200 italic flex items-center gap-2 mt-auto">
+                  <span className="text-amber-400 font-bold not-italic shrink-0">[PILOT ADVISORY]</span>
+                  <span>"{nextRetrogression.pilotWarning}"</span>
+                </div>
+              </div>
+            ) : gameMode === 'SOLO' && isMaxCampaign ? (
+              <div className="flex flex-col gap-3 bg-yellow-950/30 border-2 border-yellow-500/80 p-4 font-mono justify-center items-center text-center">
+                <Award size={48} className="text-yellow-400 animate-bounce" />
+                <h3 className="text-lg font-black text-yellow-400 uppercase">
+                  ALL 10 LEVELS CLEARED ON {currentPlanetDef.name}!
+                </h3>
+                <p className="text-[8.5px] text-zinc-300 max-w-md leading-relaxed">
+                  You have conquered all 10 escalating maps and adapted through every tier of retrogression.
+                  Level {completedLevelNum} was the ultimate trial!
+                </p>
+                <div className="bg-black/90 border border-yellow-600/80 p-3 w-full max-w-md text-left">
+                  <div className="text-[8px] text-yellow-300 font-bold uppercase mb-1">
+                    CELESTIAL CAMPAIGN ARCHIVE STATUS:
+                  </div>
+                  <div className="text-[7.5px] text-zinc-300 space-y-1">
+                    <div>✓ 10/10 Planetary sectors unlocked</div>
+                    <div>✓ Avionics degradation survived</div>
+                    <div>✓ High score saved to planetary archive</div>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              /* Duel / AI Duel Mode Right Half */
+              <div className="flex flex-col gap-3 bg-cyan-950/30 border-2 border-cyan-500/80 p-4 font-mono justify-between">
+                <div>
+                  <div className="flex items-center justify-between border-b border-cyan-900 pb-2 mb-3">
+                    <span className="text-[9px] font-black uppercase text-cyan-400 tracking-wider flex items-center gap-2">
+                      <Rocket size={14} />
+                      <span>RIGHT HALF: HEAD-TO-HEAD DUEL RESULTS</span>
+                    </span>
+                    <span className="text-[7.5px] px-2 py-0.5 bg-cyan-950 text-cyan-300 border border-cyan-700 font-bold uppercase">
+                      {gameMode === 'AI_DUEL' ? 'AI BOT DUEL' : '2-PLAYER DUEL'}
+                    </span>
+                  </div>
+
+                  <div className="bg-black/80 border border-cyan-800 p-3 space-y-2 mb-3">
+                    <div className="flex items-center justify-between">
+                      <span className="text-zinc-400 text-[8px] uppercase">ROUND WINNER:</span>
+                      <strong className="text-cyan-300 text-sm font-black uppercase">
+                        {lastTouchdownStats.pilotName}
+                      </strong>
+                    </div>
+                    <div className="flex items-center justify-between text-[8px]">
+                      <span className="text-zinc-400 uppercase">POINTS AWARDED:</span>
+                      <span className="text-yellow-400 font-bold">+{lastTouchdownStats.pointsAwarded.toLocaleString()} PTS</span>
+                    </div>
+                    <div className="flex items-center justify-between text-[8px]">
+                      <span className="text-zinc-400 uppercase">TOUCHDOWN ZONE:</span>
+                      <span className="text-emerald-400 font-bold">{lastTouchdownStats.padName} ({lastTouchdownStats.padMultiplier}X)</span>
+                    </div>
+                  </div>
+
+                  <p className="text-[8px] text-zinc-300 leading-relaxed">
+                    Prepare for the next round! Both landers will be refueled and reset onto high orbital approach.
+                  </p>
+                </div>
+
+                <div className="p-2.5 bg-black/90 border border-cyan-900 text-[7.5px] text-zinc-400 flex items-center gap-2">
+                  <Shield size={13} className="text-cyan-400 shrink-0" />
+                  <span>Next round continues on current planetary crater with opposing craft positions!</span>
+                </div>
+              </div>
+            )}
+
+          </div>
+
+          {/* =============================================================== */}
+          {/* BOTTOM FULL-WIDTH ACTION CONTROLS                               */}
+          {/* =============================================================== */}
+          <div className="w-full space-y-2 pt-2 border-t-2 border-emerald-800/80">
             <button
               autoFocus
               type="button"
               onClick={onAdvanceLevel}
-              className="w-full bg-emerald-400 hover:bg-emerald-300 text-black border-4 border-emerald-200 font-black py-3 px-6 shadow-[0_0_20px_rgba(16,185,129,0.5)] active:translate-x-0.5 active:translate-y-0.5 transition flex items-center justify-center gap-2 uppercase rounded-none text-xs sm:text-sm cursor-pointer">
+              className="w-full bg-emerald-400 hover:bg-emerald-300 text-black border-4 border-emerald-200 font-black py-3 sm:py-3.5 px-6 shadow-[0_0_24px_rgba(16,185,129,0.55)] active:translate-x-0.5 active:translate-y-0.5 transition flex items-center justify-center gap-2 uppercase rounded-none text-xs sm:text-sm cursor-pointer">
               <Play size={18} fill="currentColor" />
               <span>
                 {gameMode === 'SOLO'
-                  ? `COMMENCE LEVEL ${nextLevelNum}: ${nextLevelConfig.name}`
+                  ? isMaxCampaign
+                    ? 'REPLAY FINAL SECTOR 10'
+                    : `COMMENCE LEVEL ${nextLevelNum}: ${nextLevelConfig.name}`
                   : 'COMMENCE NEXT DUEL ROUND'}
               </span>
             </button>
 
-            <div className="w-full flex gap-2">
+            <div className="w-full grid grid-cols-1 sm:grid-cols-3 gap-2">
               <button
                 type="button"
                 onClick={() => {
@@ -2335,20 +2572,33 @@ export default function MenuScreens({
                   setMainMenuScreen('LEADERBOARD');
                   gameAudio.playCrispClick();
                 }}
-                className="flex-1 bg-black hover:bg-yellow-400 text-yellow-400 hover:text-black border-2 border-yellow-500 py-2 text-[9px] font-bold uppercase transition flex items-center justify-center gap-1.5">
+                className="bg-black hover:bg-yellow-400 text-yellow-400 hover:text-black border-2 border-yellow-500 py-2 text-[9px] font-bold uppercase transition flex items-center justify-center gap-1.5 cursor-pointer">
                 <Trophy size={13} />
                 <span>VIEW SCOREBOARD</span>
               </button>
 
               <button
                 type="button"
+                onClick={() => {
+                  setMainMenuScreen('FLOW_LEVEL');
+                  onAbortToTitle();
+                  gameAudio.playCrispClick();
+                }}
+                className="bg-black hover:bg-emerald-500 text-emerald-400 hover:text-black border-2 border-emerald-600 py-2 text-[9px] font-bold uppercase transition flex items-center justify-center gap-1.5 cursor-pointer">
+                <Compass size={13} />
+                <span>SECTOR ARCHIVE / MAP SELECT</span>
+              </button>
+
+              <button
+                type="button"
                 onClick={onAbortToTitle}
-                className="px-4 bg-black hover:bg-zinc-800 border-2 border-zinc-700 text-zinc-400 hover:text-white py-2 text-[9px] font-bold uppercase transition flex items-center justify-center gap-1">
+                className="bg-black hover:bg-zinc-800 border-2 border-zinc-700 text-zinc-400 hover:text-white py-2 text-[9px] font-bold uppercase transition flex items-center justify-center gap-1 cursor-pointer">
                 <ChevronLeft size={13} />
-                <span>TITLE</span>
+                <span>TITLE SCREEN</span>
               </button>
             </div>
           </div>
+
         </div>
       </MenuOverlay>
     );

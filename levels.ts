@@ -1203,3 +1203,63 @@ export function getLevel(planetOrId: PlanetId | number, maybeLevelId?: number): 
   const index = Math.max(0, Math.min(planetLevels.length - 1, levelId - 1));
   return planetLevels[index];
 }
+
+export type PlanetProgression = Record<PlanetId, number>;
+
+const PROGRESSION_STORAGE_KEY = 'retrograde_descent_unlocked_levels_v1';
+
+export const DEFAULT_PROGRESSION: PlanetProgression = {
+  moon: 1,
+  mars: 1,
+  venus: 1,
+};
+
+/**
+ * Loads unlocked levels per planet from localStorage.
+ * Defaults to Level 1 unlocked for all planets.
+ */
+export function getUnlockedLevels(): PlanetProgression {
+  try {
+    const raw = localStorage.getItem(PROGRESSION_STORAGE_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      return {
+        moon: Math.max(1, Math.min(10, Number(parsed.moon) || 1)),
+        mars: Math.max(1, Math.min(10, Number(parsed.mars) || 1)),
+        venus: Math.max(1, Math.min(10, Number(parsed.venus) || 1)),
+      };
+    }
+  } catch {
+    // fallback
+  }
+  return {...DEFAULT_PROGRESSION};
+}
+
+/**
+ * Unlocks the next level upon successful touchdown on completedLevel.
+ */
+export function unlockNextLevel(planetId: PlanetId, completedLevel: number): PlanetProgression {
+  const current = getUnlockedLevels();
+  const nextLevel = Math.min(10, completedLevel + 1);
+  if (nextLevel > current[planetId]) {
+    current[planetId] = nextLevel;
+    try {
+      localStorage.setItem(PROGRESSION_STORAGE_KEY, JSON.stringify(current));
+    } catch {
+      // ignore
+    }
+  }
+  return current;
+}
+
+/**
+ * Resets campaign progression to Level 1 for all planets.
+ */
+export function resetProgression(): PlanetProgression {
+  try {
+    localStorage.removeItem(PROGRESSION_STORAGE_KEY);
+  } catch {
+    // ignore
+  }
+  return {...DEFAULT_PROGRESSION};
+}
