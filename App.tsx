@@ -444,6 +444,11 @@ export default function App() {
     tilt: number;
     fuelRemaining: number;
     pointsAwarded: number;
+    basePoints?: number;
+    fuelBonus?: number;
+    precisionBonus?: number;
+    totalCumulativeScore?: number;
+    completedLevelNum?: number;
     padName: string;
     padMultiplier: number;
     reason?: string;
@@ -1394,13 +1399,20 @@ export default function App() {
     lander.score += totalPoints;
     lander.roundsWon += 1;
 
+    const newCumulativeScore = gameStateRef.current.score + totalPoints;
+
     setLastTouchdownStats({
       pilotName: lander.name,
       vy: lander.vy,
       vx: lander.vx,
       tilt: (lander.angle * 180) / Math.PI,
-      fuelRemaining: lander.fuel,
+      fuelRemaining: Math.round(lander.fuel),
       pointsAwarded: totalPoints,
+      basePoints: epochBonus,
+      fuelBonus,
+      precisionBonus,
+      totalCumulativeScore: newCumulativeScore,
+      completedLevelNum: currentEpoch,
       padName: pad.name,
       padMultiplier: pad.multiplier,
       isWinner: true,
@@ -1465,8 +1477,13 @@ export default function App() {
       vy: lander.vy,
       vx: lander.vx,
       tilt: (lander.angle * 180) / Math.PI,
-      fuelRemaining: lander.fuel,
+      fuelRemaining: Math.round(lander.fuel),
       pointsAwarded: 0,
+      basePoints: 0,
+      fuelBonus: 0,
+      precisionBonus: 0,
+      totalCumulativeScore: gameStateRef.current.score,
+      completedLevelNum: gameStateRef.current.level,
       padName: 'NONE',
       padMultiplier: 1.0,
       reason,
