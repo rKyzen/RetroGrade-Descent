@@ -4,13 +4,16 @@ import {
   Activity,
   AlertTriangle,
   Award,
+  Bot,
   Check,
+  ChevronLeft,
   ChevronRight,
   Compass,
   Crosshair,
   Flame,
   Gauge,
   HelpCircle,
+  Keyboard,
   Maximize2,
   Menu,
   Minimize2,
@@ -18,7 +21,10 @@ import {
   Radio,
   Rocket,
   RotateCw,
+  Settings,
   Shield,
+  Sliders,
+  SlidersHorizontal,
   Sparkles,
   Trophy,
   User,
@@ -40,6 +46,18 @@ import {
   setStoredP2Name,
   setStoredPilotName,
 } from './leaderboard';
+import {LEVELS, getLevel, LevelConfig, LandingPadDef} from './levels';
+import {computeAiPilotInputs, AI_PERSONAS, AiPersona} from './aiPilot';
+import {
+  KeyBindings,
+  DEFAULT_KEYBINDINGS,
+  getKeybindings,
+  saveKeybindings,
+  resetKeybindings,
+  formatKeyDisplay,
+} from './keybindings';
+import LivePreviewCanvas from './LivePreviewCanvas';
+import MenuScreens, {MainMenuScreen} from './MenuScreens';
 import BackgroundMusic from './utils/BackgroundMusic';
 import {
   createFixedStepper,
@@ -69,76 +87,9 @@ const ASSETS_MANIFEST: Record<string, string> = {
   crag: 'assets/images/lunar_crag.png',
 };
 
-// Epoch Descriptions & Degradation Parameters
-export interface EpochInfo {
-  id: number;
-  name: string;
-  era: string;
-  themeColor: string;
-  hudStyle: 'modern' | 'y2k' | 'eighties' | 'apollo' | 'blackout';
-  description: string;
-  degradedAvionics: string[];
-  worldWidth: number;
-  worldHeight: number;
-}
-
-const EPOCHS: EpochInfo[] = [
-  {
-    id: 1,
-    name: 'MODERN',
-    era: '2026 GLASS COCKPIT',
-    themeColor: '#10b981',
-    hudStyle: 'modern',
-    description: 'Full digital telemetry, velocity vector pip, tactical terrain radar, multiple landing pads with distance score multipliers. Auxiliary high-capacity fuel tanks equipped (+80% fuel).',
-    degradedAvionics: ['All systems nominal — Full Glass Cockpit active', 'High-Capacity Auxiliary Tanks Online'],
-    worldWidth: 3400,
-    worldHeight: 1400,
-  },
-  {
-    id: 2,
-    name: 'Y2K',
-    era: '2000 INDUSTRIAL SCADA',
-    themeColor: '#22c55e',
-    hudStyle: 'y2k',
-    description: 'Landing reticle & autopilot assists stripped. Manual trajectory flight across rugged terrain.',
-    degradedAvionics: ['Landing Guidance Reticle OFFLINE', 'Trajectory Predictor OFFLINE'],
-    worldWidth: 3600,
-    worldHeight: 1400,
-  },
-  {
-    id: 3,
-    name: 'EIGHTIES',
-    era: '1984 AMBER CRT',
-    themeColor: '#f59e0b',
-    hudStyle: 'eighties',
-    description: 'Digital altimeter stripped. Amber strobe beacon and audio radar chirps only.',
-    degradedAvionics: ['Digital Altimeter OFFLINE', 'Tactical Radar Degraded to Strobe'],
-    worldWidth: 3800,
-    worldHeight: 1450,
-  },
-  {
-    id: 4,
-    name: 'APOLLO',
-    era: '1969 ANALOG CONSOLE',
-    themeColor: '#94a3b8',
-    hudStyle: 'apollo',
-    description: 'Digital speed display dead. Fuel gauge replaced with laggy damped needle (~300ms).',
-    degradedAvionics: ['Digital Speedometers OFFLINE', 'Mechanical Damped Needle ACTIVE'],
-    worldWidth: 4000,
-    worldHeight: 1500,
-  },
-  {
-    id: 5,
-    name: 'BLACKOUT',
-    era: 'FINAL SENSORY REGRESSION',
-    themeColor: '#ef4444',
-    hudStyle: 'blackout',
-    description: 'Total optical darkness. Pilot blind using acoustic sonar ping frequency (200Hz - 1200Hz). Reach distant pads for legendary multipliers.',
-    degradedAvionics: ['ALL GLASS INSTRUMENTS OFFLINE', 'Optical Sensors: 95% BLIND', 'Acoustic Sonar ACTIVE'],
-    worldWidth: 4200,
-    worldHeight: 1500,
-  },
-];
+// Re-export LevelConfig as EpochInfo for full backwards compatibility across the game
+export type EpochInfo = LevelConfig;
+export const EPOCHS: LevelConfig[] = LEVELS;
 
 export interface LandingPad {
   id: string;
@@ -214,6 +165,7 @@ export interface LanderState {
   height: number;
   crashed: boolean;
   landed: boolean;
+  thrusting?: boolean;
   landedPad: LandingPad | null;
   score: number;
   roundsWon: number;
@@ -266,10 +218,26 @@ export default function App() {
     stepperRef.current = createFixedStepper(stepMs, maxSubSteps);
   }
 
-  // Game Mode: Solo Campaign vs 2-Player Split Screen Duel
-  const [gameMode, setGameMode] = useState<'SOLO' | 'DUEL'>('SOLO');
-  const gameModeRef = useRef<'SOLO' | 'DUEL'>('SOLO');
+  // Game Mode: Solo Campaign vs AI Opponent Duel vs 2-Player Split Screen Duel
+  const [gameMode, setGameMode] = useState<'SOLO' | 'AI_DUEL' | 'DUEL'>('SOLO');
+  const gameModeRef = useRef<'SOLO' | 'AI_DUEL' | 'DUEL'>('SOLO');
   gameModeRef.current = gameMode;
+
+  // Selected AI Opponent Persona for Play Against AI mode
+  const [selectedAiPersona, setSelectedAiPersona] = useState<AiPersona>(AI_PERSONAS[0]);
+
+  // Main UI Screen state
+  const [mainMenuScreen, setMainMenuScreen] = useState<
+    'TITLE' | 'FLOW_MODE' | 'FLOW_CUSTOMIZE' | 'FLOW_LEVEL' | 'SETTINGS' | 'LEADERBOARD' | 'HOW_TO_PLAY'
+  >('TITLE');
+  const [previousScreen, setPreviousScreen] = useState<'TITLE' | 'PAUSE'>('TITLE');
+
+  // Keybindings state & Active rebinding
+  const [keyBindings, setKeyBindings] = useState<KeyBindings>(() => getKeybindings());
+  const [rebindingAction, setRebindingAction] = useState<keyof KeyBindings | null>(null);
+
+  // Leaderboard filter
+  const [leaderboardFilter, setLeaderboardFilter] = useState<'ALL' | 'SOLO' | 'AI_DUEL' | 'DUEL'>('ALL');
 
   // Session Pilot Names
   const [pilotName, setPilotName] = useState<string>(() => getStoredPilotName('PILOT ALPHA'));
@@ -279,7 +247,7 @@ export default function App() {
   const [p1Theme, setP1Theme] = useState<ShipTheme>(SHIP_THEMES[0]);
   const [p2Theme, setP2Theme] = useState<ShipTheme>(SHIP_THEMES[2]);
 
-  // Selected Starting Epoch for Retrogression Exploration
+  // Selected Starting Level for Retrogression (1..10)
   const [selectedStartingEpoch, setSelectedStartingEpoch] = useState<number>(1);
 
   const initGameRef = useRef<() => void>();
@@ -288,7 +256,7 @@ export default function App() {
   const [gameState, setGameState] = useState<GameState>({
     status: 'START',
     score: 0,
-    level: 1, // Epoch 1..5
+    level: 1, // 1..10
     lives: getConfig('startingLives') as number,
   });
 
@@ -374,15 +342,54 @@ export default function App() {
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      // Key Rebinding Mode Capture
+      if (rebindingAction) {
+        e.preventDefault();
+        e.stopPropagation();
+        const capturedKey = e.code || e.key;
+        const newBindings = {
+          ...keyBindings,
+          [rebindingAction]: capturedKey,
+        };
+        setKeyBindings(newBindings);
+        saveKeybindings(newBindings);
+        setRebindingAction(null);
+        gameAudio.playConfirmSelect();
+        return;
+      }
+
       keysPressedRef.current[e.key.toLowerCase()] = true;
       keysPressedRef.current[e.code] = true;
+
+      // Escape key toggles in-game pause menu
+      if (e.key === 'Escape') {
+        if (gameStateRef.current.status === 'PLAYING') {
+          setIsMenuOpen((prev) => !prev);
+          gameAudio.playCrispClick();
+        }
+      }
+
+      // Quick Reset key
+      const p1ResetBinding = keyBindings.p1Reset;
+      if (
+        (e.code === p1ResetBinding || e.key.toLowerCase() === p1ResetBinding.toLowerCase()) &&
+        gameStateRef.current.status === 'PLAYING'
+      ) {
+        resetLander(gameStateRef.current.level);
+        gameAudio.playConfirmSelect();
+      }
 
       // Instant Launch from Title Screen with Enter or Space
       const isInput = (e.target as HTMLElement)?.tagName === 'INPUT';
       if (!isInput && gameStateRef.current.status === 'START') {
         if (e.key === 'Enter' || e.code === 'Space') {
           e.preventDefault();
-          initGameRef.current?.();
+          if (mainMenuScreen === 'TITLE') {
+            setMainMenuScreen('FLOW_MODE');
+            gameAudio.playCrispClick();
+          } else if (mainMenuScreen === 'FLOW_LEVEL') {
+            initGameRef.current?.();
+          }
           return;
         }
       }
@@ -406,7 +413,7 @@ export default function App() {
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);
     };
-  }, []);
+  }, [keyBindings, mainMenuScreen, rebindingAction]);
 
   // Standard hardware input hook for menu actions
   const inputRef = useInput(canvasRef, true, {
@@ -441,14 +448,9 @@ export default function App() {
   const cameraRef = useRef({x: 0, y: 0});
   const cameraP2Ref = useRef({x: 0, y: 0});
 
-  // Function to compute fuel capacity by level (Level 1 has significantly more fuel!)
+  // Function to compute fuel capacity by level
   const getMaxFuel = useCallback((epoch: number) => {
-    if (epoch === 1) {
-      // User request: "add more fuel in first level" -> 180 capacity (80% bonus!)
-      return (getConfig('level1FuelCapacity') as number) || 180;
-    }
-    if (epoch === 2) return 140;
-    return 100;
+    return getLevel(epoch).fuelCapacity;
   }, []);
 
   // Lander Vessels State (stored in Refs for zero-jitter 60fps physics)
@@ -513,87 +515,46 @@ export default function App() {
   const touchDebounceRef = useRef(0);
 
   // =========================================================================
-  // MULTI-PAD PROCEDURAL LUNAR TERRAIN GENERATOR
+  // MULTI-PAD PROCEDURAL LUNAR TERRAIN GENERATOR (10 Unique Map Profiles)
   // Generates 4 distinct landing pads at increasing distances with multipliers
   // 1.0x (ALPHA), 2.0x (BRAVO), 3.5x (CHARLIE), 5.0x (OMEGA)
   // Perfectly level plateau for each landing pad with Hermite smoothstep transition
   // =========================================================================
   const generateTerrain = useCallback((epoch: number) => {
-    const epochConfig = EPOCHS[epoch - 1] || EPOCHS[0];
-    const wWidth = epochConfig.worldWidth;
-    const wHeight = epochConfig.worldHeight;
+    const levelConfig = getLevel(epoch);
+    const wWidth = levelConfig.worldWidth;
+    const wHeight = levelConfig.worldHeight;
     worldDimensionsRef.current = {width: wWidth, height: wHeight};
 
     const padHeight = 28;
     const padY = Math.round(wHeight * 0.76);
 
     // Distribution of 4 distinct landing zones across the lunar continent
-    // Distance increases progressively with higher risk and higher score multipliers
-    const padsConfig: LandingPad[] = [
-      {
-        id: 'pad-1',
-        name: 'ALPHA BASE',
-        code: 'ALPHA',
-        x: Math.round(wWidth * 0.22),
-        y: padY,
-        w: 160,
-        h: padHeight,
-        multiplier: 1.0,
-        color: '#10b981', // Emerald
-        glowColor: 'rgba(16, 185, 129, 0.4)',
-        distanceTier: 'NEAR',
-      },
-      {
-        id: 'pad-2',
-        name: 'BRAVO OUTPOST',
-        code: 'BRAVO',
-        x: Math.round(wWidth * 0.46),
-        y: padY - 14,
-        w: 135,
-        h: padHeight,
-        multiplier: 2.0,
-        color: '#38bdf8', // Sky Blue
-        glowColor: 'rgba(56, 189, 248, 0.4)',
-        distanceTier: 'MID',
-      },
-      {
-        id: 'pad-3',
-        name: 'CHARLIE CREST',
-        code: 'CHARLIE',
-        x: Math.round(wWidth * 0.70),
-        y: padY + 10,
-        w: 115,
-        h: padHeight,
-        multiplier: 3.5,
-        color: '#f59e0b', // Amber
-        glowColor: 'rgba(245, 158, 11, 0.4)',
-        distanceTier: 'FAR',
-      },
-      {
-        id: 'pad-4',
-        name: 'OMEGA SANCTUARY',
-        code: 'OMEGA',
-        x: Math.round(wWidth * 0.90),
-        y: padY - 24,
-        w: 95,
-        h: padHeight,
-        multiplier: 5.0,
-        color: '#ec4899', // Pink / Cosmic Magenta
-        glowColor: 'rgba(236, 72, 153, 0.45)',
-        distanceTier: 'EXTREME',
-      },
-    ];
+    const padsConfig: LandingPad[] = levelConfig.pads.map((p, idx) => ({
+      id: `pad-${idx + 1}`,
+      name: p.name,
+      code: p.code,
+      x: Math.round(wWidth * p.xPercent),
+      y: padY + p.yOffset,
+      w: p.w,
+      h: padHeight,
+      multiplier: p.multiplier,
+      color: p.color,
+      glowColor: p.glowColor,
+      distanceTier: p.distanceTier,
+    }));
 
     platformsRef.current = padsConfig;
 
-    // Multi-octave natural lunar height function
+    // Multi-octave natural lunar height function with levelConfig topography
     const getNaturalHeight = (x: number) => {
       const normX = (((x % wWidth) + wWidth) % wWidth) / wWidth;
       const baseline = wHeight * 0.74;
+      const oct = levelConfig.terrainOctaves;
 
-      const wave1 = Math.sin(normX * Math.PI * 2 * 2 + epoch * 0.7) * 70;
-      const wave2 = Math.sin(normX * Math.PI * 2 * 5 + 1.2 + epoch * 1.1) * 36;
-      const wave3 = Math.cos(normX * Math.PI * 2 * 9 + 2.5 + epoch * 0.4) * 18;
+      const wave1 = Math.sin(normX * Math.PI * 2 * oct.w1Freq + epoch * 0.7) * oct.w1Amp;
+      const wave2 = Math.sin(normX * Math.PI * 2 * oct.w2Freq + 1.2 + epoch * 1.1) * oct.w2Amp;
+      const wave3 = Math.cos(normX * Math.PI * 2 * oct.w3Freq + 2.5 + epoch * 0.4) * oct.w3Amp;
 
       return baseline + wave1 + wave2 + wave3;
     };
@@ -661,18 +622,11 @@ export default function App() {
 
     terrainRef.current = points;
 
-    // Basalt crag spires situated in intermediate valleys between pads
+    // Basalt crag spires situated according to level configuration
     const crags: CragObstacle[] = [];
     const cragW = getConfig('assetLunarCragWidth') as number;
     const cragH = getConfig('assetLunarCragHeight') as number;
-    const cragPositions = [
-      Math.round(wWidth * 0.34),
-      Math.round(wWidth * 0.40),
-      Math.round(wWidth * 0.58),
-      Math.round(wWidth * 0.64),
-      Math.round(wWidth * 0.81),
-      Math.round(wWidth * 0.86),
-    ];
+    const cragPositions = levelConfig.cragPositions.map((pos) => Math.round(wWidth * pos));
 
     for (let i = 0; i < cragPositions.length; i++) {
       const cx = cragPositions[i];
@@ -689,16 +643,16 @@ export default function App() {
 
     // Drifting Orbital Micrometeorites / Debris Hazards (Scaled by Level)
     const hazards: OrbitalHazard[] = [];
-    const hazardCount = 4 + epoch * 2;
+    const hazardCount = levelConfig.hazardCount;
     for (let i = 0; i < hazardCount; i++) {
-      const hx = Math.round(wWidth * 0.26 + (i * (wWidth * 0.68)) / hazardCount + (Math.sin(i * 3.7 + epoch) * 90));
+      const hx = Math.round(wWidth * 0.25 + (i * (wWidth * 0.70)) / hazardCount + Math.sin(i * 3.7 + epoch) * 90);
       const hy = Math.round(180 + ((i * 137) % (padY - 260)));
       hazards.push({
         id: i,
         x: ((hx % wWidth) + wWidth) % wWidth,
         y: hy,
-        vx: (i % 2 === 0 ? 1 : -1) * (14 + (i * 3.5) % 18 + epoch * 3),
-        vy: Math.sin(i * 2.1) * (6 + epoch * 2),
+        vx: (i % 2 === 0 ? 1 : -1) * (14 + (i * 3.5) % 18 + levelConfig.windSpeed * 0.35),
+        vy: Math.sin(i * 2.1) * (6 + epoch * 1.1),
         radius: 11 + (i % 4) * 3,
         rotation: i * 0.8,
         rotSpeed: (i % 2 === 0 ? 1 : -1) * (0.8 + (i % 3) * 0.4),
@@ -759,12 +713,12 @@ export default function App() {
   }, [getTerrainSurfaceY]);
 
   // =========================================================================
-  // RESET LANDER & REFUEL (Supports Extra Fuel in Level 1 + Duel Spawns)
+  // RESET LANDER & REFUEL (Supports Extra Fuel in Level 1 + Duel & AI Spawns)
   // =========================================================================
   const resetLander = useCallback((epoch: number) => {
     generateTerrain(epoch);
     const startX = 260 + Math.random() * 80;
-    const initialVx = 12 + epoch * 2;
+    const initialVx = 12 + epoch * 1.5;
     const fuelCapacity = getMaxFuel(epoch);
 
     // Player 1 initialization
@@ -775,7 +729,7 @@ export default function App() {
       x: startX,
       y: 120,
       vx: initialVx,
-      vy: 8 + epoch * 2,
+      vy: 8 + epoch * 1.5,
       angle: 0,
       angularVelocity: 0,
       fuel: fuelCapacity,
@@ -785,20 +739,25 @@ export default function App() {
       height: getConfig('assetLanderVesselHeight') as number,
       crashed: false,
       landed: false,
+      thrusting: false,
       landedPad: null,
       score: landerRef.current.score,
       roundsWon: landerRef.current.roundsWon,
     };
 
-    // Player 2 initialization (Staggered spawn for 2-Player Duel)
+    const isDuelOrAi = gameModeRef.current === 'DUEL' || gameModeRef.current === 'AI_DUEL';
+    const p2DisplayName = gameModeRef.current === 'AI_DUEL' ? selectedAiPersona.callsign : p2Name;
+    const p2DisplayColor = gameModeRef.current === 'AI_DUEL' ? selectedAiPersona.hullColor : p2Theme.color;
+
+    // Player 2 / AI Opponent initialization
     landerP2Ref.current = {
       id: 'p2',
-      name: p2Name,
-      themeColor: p2Theme.color,
+      name: p2DisplayName,
+      themeColor: p2DisplayColor,
       x: startX + 90,
       y: 120,
       vx: initialVx,
-      vy: 8 + epoch * 2,
+      vy: 8 + epoch * 1.5,
       angle: 0,
       angularVelocity: 0,
       fuel: fuelCapacity,
@@ -808,12 +767,13 @@ export default function App() {
       height: getConfig('assetLanderVesselHeight') as number,
       crashed: false,
       landed: false,
+      thrusting: false,
       landedPad: null,
       score: landerP2Ref.current.score,
       roundsWon: landerP2Ref.current.roundsWon,
     };
 
-    const halfW = gameModeRef.current === 'DUEL' ? canvasWidth / 2 : canvasWidth;
+    const halfW = isDuelOrAi ? canvasWidth / 2 : canvasWidth;
     cameraRef.current = {
       x: startX - halfW / 2,
       y: 0,
@@ -858,7 +818,7 @@ export default function App() {
     sonarWavesRef.current = [];
     touchDebounceRef.current = 0;
     gameAudio.stopThruster();
-  }, [canvasWidth, generateTerrain, getMaxFuel, p2Name, p2Theme.color, pilotName, p1Theme.color]);
+  }, [canvasWidth, generateTerrain, getMaxFuel, p2Name, p2Theme.color, pilotName, p1Theme.color, selectedAiPersona]);
 
   // Start / Init Game
   const initGame = useCallback(() => {
@@ -866,6 +826,7 @@ export default function App() {
     setIsMenuOpen(false);
     setIsHowToPlayOpen(false);
     setIsLeaderboardOpen(false);
+    setMainMenuScreen('TITLE');
     lastInteractionTimeRef.current = Date.now();
 
     // Persist pilot callsigns
@@ -1219,6 +1180,8 @@ export default function App() {
     const groundY = getTerrainSurfaceY(lander.x);
     const altAboveGround = groundY - lander.y;
 
+    lander.thrusting = Boolean(thrusting && lander.fuel > 0);
+
     if (thrusting && lander.fuel > 0) {
       const epochFuelRate = fuelRate * (1 + (currentEpoch - 1) * 0.08);
       lander.fuel = Math.max(0, lander.fuel - epochFuelRate * dt);
@@ -1423,7 +1386,12 @@ export default function App() {
       isWinner: true,
     });
 
-    const isDuel = gameModeRef.current === 'DUEL';
+    const isAiDuel = gameModeRef.current === 'AI_DUEL';
+    const isDuel = gameModeRef.current === 'DUEL' || isAiDuel;
+
+    let scoreMode: 'SOLO' | 'AI_DUEL' | 'DUEL' = 'SOLO';
+    if (isAiDuel) scoreMode = 'AI_DUEL';
+    else if (isDuel) scoreMode = 'DUEL';
 
     // Auto-save session score to Real Data Leaderboard
     const savedEntry = saveScore({
@@ -1432,7 +1400,7 @@ export default function App() {
       epoch: currentEpoch,
       padName: `${pad.code} (${pad.multiplier}x)`,
       padMultiplier: pad.multiplier,
-      mode: isDuel ? 'DUEL' : 'SOLO',
+      mode: scoreMode,
       precisionRating,
     });
 
@@ -1442,7 +1410,7 @@ export default function App() {
       const newScore = gameStateRef.current.score + totalPoints;
       const newEpoch = currentEpoch + 1;
 
-      if (currentEpoch >= 5) {
+      if (currentEpoch >= 10) {
         setGameState((prev) => ({
           ...prev,
           score: newScore,
@@ -1459,7 +1427,7 @@ export default function App() {
         gameAudio.playLevelUpStinger();
       }
     } else {
-      // In Duel mode: Declare Round / Match Winner
+      // In Duel / AI Duel mode: Declare Round / Match Winner
       setGameState((prev) => ({
         ...prev,
         score: lander.score,
@@ -1485,7 +1453,7 @@ export default function App() {
       isWinner: false,
     });
 
-    if (gameModeRef.current === 'DUEL') {
+    if (gameModeRef.current === 'DUEL' || gameModeRef.current === 'AI_DUEL') {
       const opponent = lander.id === 'p1' ? landerP2Ref.current : landerRef.current;
       // If opponent already landed or also crashed
       if (opponent.landed) {
@@ -1555,12 +1523,12 @@ export default function App() {
 
     const lander = landerRef.current;
     const landerP2 = landerP2Ref.current;
-    const isDuel = gameModeRef.current === 'DUEL';
+    const isDuel = gameModeRef.current === 'DUEL' || gameModeRef.current === 'AI_DUEL';
 
     if (isDemo && (lander.crashed || lander.landed)) {
       touchDebounceRef.current += dt;
       if (touchDebounceRef.current > 3.5) {
-        resetLander((gameStateRef.current.level % 5) + 1);
+        resetLander((gameStateRef.current.level % 10) + 1);
       }
       return;
     }
@@ -1569,31 +1537,44 @@ export default function App() {
     const touch = touchInputsRef.current;
     const currentEpoch = gameStateRef.current.level;
 
-    // Controls mapping:
-    // Solo mode: either WASD or Arrow Keys pilot P1
-    // Duel mode: Player 1 uses WASD; Player 2 uses Arrow Keys
-    let p1Thrust = false;
-    let p1Left = false;
-    let p1Right = false;
+    const isKeyPressed = (binding: string) => {
+      if (!binding) return false;
+      return Boolean(
+        keys[binding] ||
+        keys[binding.toLowerCase()] ||
+        (binding.startsWith('Key') && keys[binding.substring(3).toLowerCase()])
+      );
+    };
+
+    let p1Thrust = isKeyPressed(keyBindings.p1Thrust) || touch.p1Thrust;
+    let p1Left = isKeyPressed(keyBindings.p1Left) || touch.p1Left;
+    let p1Right = isKeyPressed(keyBindings.p1Right) || touch.p1Right;
+
+    if (gameModeRef.current === 'SOLO') {
+      if (keys['arrowup'] || keys['w']) p1Thrust = true;
+      if (keys['arrowleft'] || keys['a']) p1Left = true;
+      if (keys['arrowright'] || keys['d']) p1Right = true;
+    }
 
     let p2Thrust = false;
     let p2Left = false;
     let p2Right = false;
 
-    if (!isDuel) {
-      p1Thrust = Boolean(keys['arrowup'] || keys['w'] || touch.p1Thrust);
-      p1Left = Boolean(keys['arrowleft'] || keys['a'] || touch.p1Left);
-      p1Right = Boolean(keys['arrowright'] || keys['d'] || touch.p1Right);
-    } else {
-      // P1: W, A, D
-      p1Thrust = Boolean(keys['w'] || touch.p1Thrust);
-      p1Left = Boolean(keys['a'] || touch.p1Left);
-      p1Right = Boolean(keys['d'] || touch.p1Right);
-
-      // P2: Arrow Keys
-      p2Thrust = Boolean(keys['arrowup'] || touch.p2Thrust);
-      p2Left = Boolean(keys['arrowleft'] || touch.p2Left);
-      p2Right = Boolean(keys['arrowright'] || touch.p2Right);
+    if (gameModeRef.current === 'AI_DUEL') {
+      const aiDecision = computeAiPilotInputs(
+        landerP2,
+        platformsRef.current,
+        worldDimensionsRef.current.width,
+        getTerrainSurfaceY,
+        selectedAiPersona,
+      );
+      p2Thrust = aiDecision.thrust;
+      p2Left = aiDecision.left;
+      p2Right = aiDecision.right;
+    } else if (gameModeRef.current === 'DUEL') {
+      p2Thrust = isKeyPressed(keyBindings.p2Thrust) || touch.p2Thrust || Boolean(keys['arrowup']);
+      p2Left = isKeyPressed(keyBindings.p2Left) || touch.p2Left || Boolean(keys['arrowleft']);
+      p2Right = isKeyPressed(keyBindings.p2Right) || touch.p2Right || Boolean(keys['arrowright']);
     }
 
     simulateLander(lander, {thrust: p1Thrust, left: p1Left, right: p1Right}, dt, currentEpoch, isDemo);
@@ -1708,6 +1689,29 @@ export default function App() {
     setGameState((prev) => ({...prev, status: 'PLAYING'}));
     gameAudio.playConfirmSelect();
   };
+
+  const handleRestartLevel = useCallback(() => {
+    resetLander(gameState.level);
+    setGameState((prev) => ({...prev, status: 'PLAYING'}));
+    gameAudio.playConfirmSelect();
+  }, [gameState.level, resetLander]);
+
+  const handleAdvanceLevel = useCallback(() => {
+    if (gameMode === 'DUEL' || gameMode === 'AI_DUEL') {
+      resetLander(gameState.level);
+      setGameState((prev) => ({...prev, status: 'PLAYING'}));
+      gameAudio.playConfirmSelect();
+    } else {
+      proceedToNextEpoch();
+    }
+  }, [gameMode, gameState.level, resetLander]);
+
+  const handleAbortToTitle = useCallback(() => {
+    gameAudio.stopThruster();
+    setGameState((prev) => ({...prev, status: 'START'}));
+    setMainMenuScreen('TITLE');
+    gameAudio.playCrispClick();
+  }, []);
 
   // =========================================================================
   // VIEWPORT WORLD RENDERER (Shared for Solo and Both Split-Screen Sides)
@@ -2039,27 +2043,27 @@ export default function App() {
         const holoPulse = 0.75 + 0.25 * Math.sin(Date.now() * 0.005);
         ctx.globalAlpha = holoPulse;
 
-        // Multiplier Pill Badge
-        const badgeY = pad.y - 36;
-        ctx.fillStyle = 'rgba(2, 6, 23, 0.88)';
-        ctx.fillRect(currentPadX + pad.w / 2 - 44, badgeY, 88, 16);
+        // Multiplier Pill Badge (Enlarged)
+        const badgeY = pad.y - 42;
+        ctx.fillStyle = 'rgba(2, 6, 23, 0.92)';
+        ctx.fillRect(currentPadX + pad.w / 2 - 54, badgeY, 108, 22);
         ctx.strokeStyle = pad.color;
-        ctx.lineWidth = 1.5;
-        ctx.strokeRect(currentPadX + pad.w / 2 - 44, badgeY, 88, 16);
+        ctx.lineWidth = 2;
+        ctx.strokeRect(currentPadX + pad.w / 2 - 54, badgeY, 108, 22);
 
         ctx.fillStyle = pad.color;
-        ctx.font = 'bold 8px "Press Start 2P", monospace';
+        ctx.font = 'bold 9.5px "Press Start 2P", monospace';
         ctx.textAlign = 'center';
-        ctx.fillText(`${pad.code} [${pad.multiplier}x]`, currentPadX + pad.w / 2, badgeY + 11);
+        ctx.fillText(`${pad.code} [${pad.multiplier}x]`, currentPadX + pad.w / 2, badgeY + 15);
 
         ctx.restore();
 
-        // Runway chevrons
+        // Runway chevrons (Enlarged)
         ctx.fillStyle = pad.color;
-        ctx.font = '8px monospace';
+        ctx.font = 'bold 10px monospace';
         ctx.textAlign = 'center';
         const chevronText = runwayStep % 2 === 0 ? '>>> LAND HERE <<<' : '>> MULTIPLIER <<';
-        ctx.fillText(chevronText, currentPadX + pad.w / 2, pad.y + 18);
+        ctx.fillText(chevronText, currentPadX + pad.w / 2, pad.y + 20);
         ctx.textAlign = 'left';
       }
     }
@@ -2085,30 +2089,74 @@ export default function App() {
     }
     ctx.globalAlpha = 1.0;
 
-    // 10. Draw Other Player Lander (if in Duel mode)
+    // 10. Draw Other Player Lander (Duel & AI Duel Modes - Uses exact same spacecraft model)
     if (otherLander && !otherLander.crashed) {
-      ctx.save();
-      ctx.translate(otherLander.x, otherLander.y);
-      ctx.rotate(otherLander.angle);
-
       const landerImg = assets['lander'];
       const lw = otherLander.width;
       const lh = otherLander.height;
+      const wrappedOtherX = ((otherLander.x % worldW) + worldW) % worldW;
 
-      // Draw tinted hull for opponent
-      drawAsset(ctx, landerImg, -lw / 2, -lh / 2, lw, lh, (fallbackCtx) => {
-        fallbackCtx.fillStyle = otherLander.themeColor;
-        fallbackCtx.fillRect(-lw / 2, -lh / 2, lw, lh);
-      });
+      for (let k = startChunk; k <= endChunk; k++) {
+        const renderOx = wrappedOtherX + k * worldW;
+        if (renderOx + lw < camX - 80 || renderOx - lw > camX + viewportW + 80) continue;
 
-      // Name tag above other player
-      ctx.restore();
-      ctx.save();
-      ctx.fillStyle = otherLander.themeColor;
-      ctx.font = '7px "Press Start 2P", monospace';
-      ctx.textAlign = 'center';
-      ctx.fillText(otherLander.name, otherLander.x, otherLander.y - 24);
-      ctx.restore();
+        ctx.save();
+        ctx.translate(renderOx, otherLander.y);
+        ctx.rotate(otherLander.angle);
+
+        // Spacecraft hull glow tinted by Livery / Persona color
+        ctx.shadowColor = otherLander.themeColor;
+        ctx.shadowBlur = 10;
+
+        // Draw identical spacecraft model asset
+        drawAsset(ctx, landerImg, -lw / 2, -lh / 2, lw, lh, (fallbackCtx) => {
+          fallbackCtx.fillStyle = otherLander.themeColor;
+          fallbackCtx.fillRect(-lw / 2, -lh / 2, lw, lh);
+        });
+        ctx.shadowBlur = 0;
+
+        // Thruster flame cone if opponent is thrusting
+        if (otherLander.thrusting) {
+          ctx.fillStyle = '#f59e0b';
+          ctx.beginPath();
+          ctx.moveTo(-6, lh / 2 - 2);
+          ctx.lineTo(6, lh / 2 - 2);
+          ctx.lineTo(0, lh / 2 + 16 + Math.random() * 8);
+          ctx.closePath();
+          ctx.fill();
+
+          ctx.fillStyle = '#60a5fa';
+          ctx.beginPath();
+          ctx.moveTo(-3, lh / 2 - 2);
+          ctx.lineTo(3, lh / 2 - 2);
+          ctx.lineTo(0, lh / 2 + 9 + Math.random() * 4);
+          ctx.closePath();
+          ctx.fill();
+        }
+
+        ctx.restore();
+
+        // High-contrast callsign badge above opponent
+        ctx.save();
+        const opponentBadgeText = otherLander.id === 'p2' && gameModeRef.current === 'AI_DUEL'
+          ? `[AI] ${otherLander.name}`
+          : otherLander.name;
+        ctx.font = 'bold 8.5px "Press Start 2P", monospace';
+        const opponentBadgeW = ctx.measureText(opponentBadgeText).width + 14;
+        const opponentBadgeH = 17;
+        const badgeY = otherLander.y - 28;
+
+        ctx.fillStyle = 'rgba(2, 6, 23, 0.92)';
+        ctx.fillRect(renderOx - opponentBadgeW / 2, badgeY - 11, opponentBadgeW, opponentBadgeH);
+        ctx.strokeStyle = otherLander.themeColor;
+        ctx.lineWidth = 1.5;
+        ctx.strokeRect(renderOx - opponentBadgeW / 2, badgeY - 11, opponentBadgeW, opponentBadgeH);
+
+        ctx.fillStyle = otherLander.themeColor;
+        ctx.textAlign = 'center';
+        ctx.fillText(opponentBadgeText, renderOx, badgeY + 1);
+        ctx.restore();
+      }
     }
 
     // 11. Draw Active Player Lander Vessel
@@ -2121,14 +2169,37 @@ export default function App() {
       const lw = activeLander.width;
       const lh = activeLander.height;
 
+      ctx.shadowColor = activeLander.themeColor;
+      ctx.shadowBlur = 12;
       drawAsset(ctx, landerImg, -lw / 2, -lh / 2, lw, lh, (fallbackCtx) => {
         fallbackCtx.fillStyle = activeLander.themeColor;
         fallbackCtx.fillRect(-lw / 2, -lh / 2, lw, lh);
       });
+      ctx.shadowBlur = 0;
+
+      // Thruster flame cone if active lander is thrusting
+      if (activeLander.thrusting) {
+        ctx.fillStyle = '#f59e0b';
+        ctx.beginPath();
+        ctx.moveTo(-6, lh / 2 - 2);
+        ctx.lineTo(6, lh / 2 - 2);
+        ctx.lineTo(0, lh / 2 + 16 + Math.random() * 8);
+        ctx.closePath();
+        ctx.fill();
+
+        ctx.fillStyle = '#60a5fa';
+        ctx.beginPath();
+        ctx.moveTo(-3, lh / 2 - 2);
+        ctx.lineTo(3, lh / 2 - 2);
+        ctx.lineTo(0, lh / 2 + 9 + Math.random() * 5);
+        ctx.closePath();
+        ctx.fill();
+      }
+
+      ctx.restore();
 
       // Dynamic engine spotlight illuminating the ground below
-      if (activeLander.y < worldH) {
-        ctx.restore();
+      if (activeLander.thrusting && activeLander.y < worldH) {
         ctx.save();
         const flameGlow = ctx.createRadialGradient(
           activeLander.x,
@@ -2136,44 +2207,178 @@ export default function App() {
           5,
           activeLander.x,
           activeLander.y + 36,
-          48,
+          52,
         );
-        flameGlow.addColorStop(0, 'rgba(255, 176, 0, 0.28)');
+        flameGlow.addColorStop(0, 'rgba(255, 176, 0, 0.35)');
         flameGlow.addColorStop(1, 'rgba(0, 0, 0, 0)');
         ctx.fillStyle = flameGlow;
         ctx.beginPath();
-        ctx.arc(activeLander.x, activeLander.y + 24, 48, 0, Math.PI * 2);
+        ctx.arc(activeLander.x, activeLander.y + 24, 52, 0, Math.PI * 2);
         ctx.fill();
         ctx.restore();
-        ctx.save();
       }
 
-      ctx.restore();
-
-      // Pilot Name Tag above lander
+      // Pilot Name Tag above lander with high-contrast pill
       ctx.save();
+      const activeBadgeText = activeLander.id === 'p2' && gameModeRef.current === 'AI_DUEL'
+        ? `[AI] ${activeLander.name}`
+        : activeLander.name;
+      ctx.font = 'bold 8.5px "Press Start 2P", monospace';
+      const badgeW = ctx.measureText(activeBadgeText).width + 14;
+      const badgeH = 17;
+      const badgeY = activeLander.y - 28;
+
+      ctx.fillStyle = 'rgba(2, 6, 23, 0.92)';
+      ctx.fillRect(activeLander.x - badgeW / 2, badgeY - 11, badgeW, badgeH);
+      ctx.strokeStyle = activeLander.themeColor;
+      ctx.lineWidth = 1.5;
+      ctx.strokeRect(activeLander.x - badgeW / 2, badgeY - 11, badgeW, badgeH);
+
       ctx.fillStyle = activeLander.themeColor;
-      ctx.font = '7px "Press Start 2P", monospace';
       ctx.textAlign = 'center';
-      ctx.fillText(activeLander.name, activeLander.x, activeLander.y - 24);
+      ctx.fillText(activeBadgeText, activeLander.x, badgeY + 1);
       ctx.restore();
     }
 
-    // Modern Guidance Trajectory Pip
+    // -----------------------------------------------------------------------
+    // LIVE TRAJECTORY PREDICTOR (Level 1 & Modern Avionics)
+    // Real-time dotted trajectory path projection & touchdown impact reticle
+    // -----------------------------------------------------------------------
+    const showTrajectoryPredictor = currentEpoch === 1 || epochInfo.hudStyle === 'modern';
+    if (showTrajectoryPredictor && !activeLander.crashed && !activeLander.landed) {
+      ctx.save();
+      const gravityVal = getConfig('gravity') as number;
+      const mainThrustVal = getConfig('mainThrust') as number;
+      const maxSafeVy = getConfig('maxSafeLandingVy') as number;
+
+      let simX = activeLander.x;
+      let simY = activeLander.y;
+      let simVx = activeLander.vx;
+      let simVy = activeLander.vy;
+      const isThrusting = Boolean(activeLander.thrusting);
+      const thrustAx = isThrusting ? Math.sin(activeLander.angle) * mainThrustVal : 0;
+      const thrustAy = isThrusting ? -Math.cos(activeLander.angle) * mainThrustVal : 0;
+      const simDt = 0.05;
+
+      const trajPoints: {x: number; y: number}[] = [{x: simX, y: simY}];
+      let impactInfo: {x: number; y: number; vy: number; vx: number; pad: LandingPad | null} | null = null;
+
+      for (let s = 1; s <= 75; s++) {
+        simVy += (gravityVal + thrustAy) * simDt;
+        simVx += thrustAx * simDt;
+        simX += simVx * simDt;
+        simY += simVy * simDt;
+        trajPoints.push({x: simX, y: simY});
+
+        const surfY = getTerrainSurfaceY(simX);
+        if (simY >= surfY) {
+          const targetPad = platformsRef.current.find(
+            (p) => simX >= p.x - 8 && simX <= p.x + p.w + 8 && Math.abs(surfY - p.y) < 18,
+          ) || null;
+          impactInfo = {
+            x: simX,
+            y: surfY,
+            vy: simVy,
+            vx: simVx,
+            pad: targetPad,
+          };
+          break;
+        }
+      }
+
+      // Draw flowing dotted trajectory line
+      ctx.setLineDash([5, 5]);
+      ctx.lineDashOffset = -Date.now() * 0.025;
+      ctx.lineWidth = 2.5;
+      ctx.strokeStyle = activeLander.themeColor;
+      ctx.shadowColor = activeLander.themeColor;
+      ctx.shadowBlur = 8;
+
+      ctx.beginPath();
+      ctx.moveTo(trajPoints[0].x, trajPoints[0].y);
+      for (let i = 1; i < trajPoints.length; i++) {
+        ctx.lineTo(trajPoints[i].x, trajPoints[i].y);
+      }
+      ctx.stroke();
+
+      // Trajectory breadcrumb pips
+      ctx.setLineDash([]);
+      ctx.shadowBlur = 0;
+      for (let i = 6; i < trajPoints.length; i += 6) {
+        ctx.fillStyle = activeLander.themeColor;
+        ctx.beginPath();
+        ctx.arc(trajPoints[i].x, trajPoints[i].y, 2.5, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      // Draw Predicted Impact Reticle & Status Badge
+      if (impactInfo) {
+        const isSafeLanding = impactInfo.pad && Math.abs(impactInfo.vy) <= maxSafeVy && Math.abs(impactInfo.vx) <= 25;
+        const reticleColor = isSafeLanding ? '#10b981' : impactInfo.pad ? '#f59e0b' : '#38bdf8';
+
+        ctx.strokeStyle = reticleColor;
+        ctx.fillStyle = reticleColor;
+        ctx.lineWidth = 2;
+
+        // Outer pulsing target reticle
+        const reticlePulse = 8 + 3 * Math.sin(Date.now() * 0.008);
+        ctx.beginPath();
+        ctx.arc(impactInfo.x, impactInfo.y, reticlePulse, 0, Math.PI * 2);
+        ctx.stroke();
+
+        // Crosshairs
+        ctx.beginPath();
+        ctx.moveTo(impactInfo.x - 14, impactInfo.y);
+        ctx.lineTo(impactInfo.x + 14, impactInfo.y);
+        ctx.moveTo(impactInfo.x, impactInfo.y - 14);
+        ctx.lineTo(impactInfo.x, impactInfo.y + 14);
+        ctx.stroke();
+
+        // Impact badge
+        const badgeText = isSafeLanding
+          ? `SAFE TOUCHDOWN [${Math.round(impactInfo.vy)} PX/S]`
+          : impactInfo.pad
+          ? `SPEED WARNING [${Math.round(impactInfo.vy)} PX/S]`
+          : `SURFACE INTERCEPT [${Math.round(impactInfo.vy)} PX/S]`;
+
+        ctx.font = 'bold 8px "Press Start 2P", monospace';
+        const txtW = ctx.measureText(badgeText).width + 12;
+        const bY = impactInfo.y - 18;
+
+        ctx.fillStyle = 'rgba(2, 6, 23, 0.92)';
+        ctx.fillRect(impactInfo.x - txtW / 2, bY - 10, txtW, 16);
+        ctx.strokeStyle = reticleColor;
+        ctx.lineWidth = 1.5;
+        ctx.strokeRect(impactInfo.x - txtW / 2, bY - 10, txtW, 16);
+
+        ctx.fillStyle = reticleColor;
+        ctx.textAlign = 'center';
+        ctx.fillText(badgeText, impactInfo.x, bY + 2);
+      }
+
+      ctx.restore();
+    }
+
+    // Modern Guidance Velocity Vector Pip
     if (epochInfo.hudStyle === 'modern') {
       ctx.save();
       ctx.strokeStyle = activeLander.themeColor;
-      ctx.lineWidth = 1.5;
+      ctx.lineWidth = 2;
 
       const pipX = activeLander.x + activeLander.vx * 1.8;
       const pipY = activeLander.y + activeLander.vy * 1.8;
       ctx.beginPath();
-      ctx.arc(pipX, pipY, 6, 0, Math.PI * 2);
-      ctx.moveTo(pipX - 10, pipY);
-      ctx.lineTo(pipX + 10, pipY);
-      ctx.moveTo(pipX, pipY - 10);
-      ctx.lineTo(pipX, pipY + 10);
+      ctx.arc(pipX, pipY, 8, 0, Math.PI * 2);
+      ctx.moveTo(pipX - 14, pipY);
+      ctx.lineTo(pipX + 14, pipY);
+      ctx.moveTo(pipX, pipY - 14);
+      ctx.lineTo(pipX, pipY + 14);
       ctx.stroke();
+
+      ctx.fillStyle = activeLander.themeColor;
+      ctx.font = '7px "Press Start 2P", monospace';
+      ctx.textAlign = 'center';
+      ctx.fillText(`${Math.round(Math.hypot(activeLander.vx, activeLander.vy))} PX/S`, pipX, pipY - 12);
       ctx.restore();
     }
 
@@ -2205,9 +2410,9 @@ export default function App() {
       ctx.fillRect(0, 0, viewportW, viewportH);
 
       ctx.fillStyle = '#ef4444';
-      ctx.font = '9px "Press Start 2P", monospace';
+      ctx.font = '11px "Press Start 2P", monospace';
       ctx.textAlign = 'center';
-      ctx.fillText('[ACOUSTIC SONAR ACTIVE - FLY BY AUDIO]', viewportW / 2, 44);
+      ctx.fillText('[ACOUSTIC SONAR ACTIVE - FLY BY AUDIO]', viewportW / 2, 48);
       ctx.textAlign = 'left';
     }
 
@@ -2221,55 +2426,170 @@ export default function App() {
     }
 
     // -----------------------------------------------------------------------
-    // TACTICAL RADAR MINIMAP (Modern & Y2K Epochs)
+    // TACTICAL RADAR MINIMAP (Modern & Y2K Epochs) - Enlarged & Detailed
     // -----------------------------------------------------------------------
     if (epochInfo.hudStyle === 'modern' || epochInfo.hudStyle === 'y2k') {
-      const radarW = 140;
-      const radarH = 50;
-      const radarX = viewportW - radarW - 14;
-      const radarY = 14;
+      const radarW = isP2Side ? Math.min(230, Math.floor(viewportW * 0.44)) : Math.min(270, Math.floor(viewportW * 0.36));
+      const radarH = isP2Side ? 80 : 92;
+      const radarX = viewportW - radarW - 16;
+      const radarY = 16;
 
       ctx.save();
-      ctx.fillStyle = 'rgba(2, 6, 23, 0.92)';
+      // Outer radar backdrop
+      ctx.fillStyle = 'rgba(2, 6, 23, 0.94)';
       ctx.fillRect(radarX, radarY, radarW, radarH);
       ctx.strokeStyle = activeLander.themeColor;
-      ctx.lineWidth = 1.5;
+      ctx.lineWidth = 2;
       ctx.strokeRect(radarX, radarY, radarW, radarH);
 
-      ctx.strokeStyle = 'rgba(16, 185, 129, 0.45)';
-      ctx.lineWidth = 1;
-      const scaleX = radarW / worldW;
-      const scaleY = radarH / worldH;
+      // Corner high-tech brackets
+      ctx.fillStyle = activeLander.themeColor;
+      ctx.fillRect(radarX - 1, radarY - 1, 6, 2);
+      ctx.fillRect(radarX - 1, radarY - 1, 2, 6);
+      ctx.fillRect(radarX + radarW - 5, radarY - 1, 6, 2);
+      ctx.fillRect(radarX + radarW - 1, radarY - 1, 2, 6);
+      ctx.fillRect(radarX - 1, radarY + radarH - 1, 6, 2);
+      ctx.fillRect(radarX - 1, radarY + radarH - 5, 2, 6);
+      ctx.fillRect(radarX + radarW - 5, radarY + radarH - 1, 6, 2);
+      ctx.fillRect(radarX + radarW - 1, radarY + radarH - 5, 2, 6);
 
-      // Draw all 4 pads on radar with their respective multiplier colors
+      // Header strip
+      ctx.fillStyle = 'rgba(16, 185, 129, 0.15)';
+      ctx.fillRect(radarX + 1, radarY + 1, radarW - 2, 16);
+      ctx.fillStyle = activeLander.themeColor;
+      ctx.font = 'bold 8px "Press Start 2P", monospace';
+      ctx.fillText('RADAR // TACTICAL SCAN', radarX + 8, radarY + 12);
+
+      // Subtle tactical grid
+      ctx.strokeStyle = 'rgba(16, 185, 129, 0.18)';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      // Horizontal mid grid
+      ctx.moveTo(radarX, radarY + radarH * 0.55);
+      ctx.lineTo(radarX + radarW, radarY + radarH * 0.55);
+      // Vertical quadrant grids
+      for (let g = 1; g < 4; g++) {
+        const gx = radarX + (radarW / 4) * g;
+        ctx.moveTo(gx, radarY + 16);
+        ctx.lineTo(gx, radarY + radarH);
+      }
+      ctx.stroke();
+
+      const scaleX = radarW / worldW;
+      const scaleY = (radarH - 18) / worldH;
+      const radarFloorY = radarY + 18;
+
+      // Lunar terrain wireframe profile trace on radar
+      const pts = terrainRef.current;
+      if (pts.length > 0) {
+        ctx.beginPath();
+        ctx.moveTo(radarX, radarY + radarH);
+        ctx.lineTo(radarX, radarFloorY + pts[0].y * scaleY);
+        for (let i = 0; i < pts.length; i += 4) {
+          ctx.lineTo(radarX + pts[i].x * scaleX, radarFloorY + pts[i].y * scaleY);
+        }
+        ctx.lineTo(radarX + radarW, radarFloorY + pts[pts.length - 1].y * scaleY);
+        ctx.lineTo(radarX + radarW, radarY + radarH);
+        ctx.closePath();
+        ctx.fillStyle = 'rgba(15, 23, 42, 0.55)';
+        ctx.fill();
+        ctx.strokeStyle = 'rgba(100, 116, 139, 0.5)';
+        ctx.lineWidth = 1;
+        ctx.stroke();
+      }
+
+      // Camera FOV indicator box on radar
+      const camFovX = radarX + (((camX % worldW) + worldW) % worldW) * scaleX;
+      const camFovW = Math.max(12, viewportW * scaleX);
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.25)';
+      ctx.lineWidth = 1;
+      ctx.setLineDash([2, 3]);
+      ctx.strokeRect(camFovX, radarFloorY, camFovW, radarH - 20);
+      ctx.setLineDash([]);
+
+      // Draw all 4 landing pads on radar with multiplier pill
       for (const pad of platformsRef.current) {
         const rPadX = radarX + pad.x * scaleX;
-        const rPadW = Math.max(4, pad.w * scaleX);
-        const rPadY = radarY + pad.y * scaleY;
+        const rPadW = Math.max(8, pad.w * scaleX);
+        const rPadY = radarFloorY + pad.y * scaleY;
         ctx.fillStyle = pad.color;
-        ctx.fillRect(rPadX, rPadY - 1, rPadW, 3);
+        ctx.fillRect(rPadX, rPadY - 2, rPadW, 4);
+        ctx.strokeStyle = pad.glowColor;
+        ctx.lineWidth = 1;
+        ctx.strokeRect(rPadX, rPadY - 2, rPadW, 4);
+
+        ctx.fillStyle = pad.color;
+        ctx.font = '6px "Press Start 2P", monospace';
+        ctx.textAlign = 'center';
+        ctx.fillText(`${pad.multiplier}x`, rPadX + rPadW / 2, rPadY - 4);
       }
 
       // Draw drifting hazards on radar in amber
       for (const h of hazardsRef.current) {
         const rHazX = radarX + h.x * scaleX;
-        const rHazY = radarY + h.y * scaleY;
+        const rHazY = radarFloorY + h.y * scaleY;
         ctx.fillStyle = '#f59e0b';
-        ctx.fillRect(rHazX - 1, rHazY - 1, 2, 2);
+        ctx.beginPath();
+        ctx.arc(rHazX, rHazY, 3, 0, Math.PI * 2);
+        ctx.fill();
       }
 
-      // Draw active lander pip
+      // Draw other player / AI bot lander pip if present
+      if (otherLander && !otherLander.crashed) {
+        const wrappedOtherX = ((otherLander.x % worldW) + worldW) % worldW;
+        const rOtherX = radarX + wrappedOtherX * scaleX;
+        const rOtherY = radarFloorY + otherLander.y * scaleY;
+
+        ctx.fillStyle = otherLander.themeColor || '#f43f5e';
+        ctx.beginPath();
+        ctx.arc(rOtherX, rOtherY, 4, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.strokeStyle = otherLander.themeColor;
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.arc(rOtherX, rOtherY, 6, 0, Math.PI * 2);
+        ctx.stroke();
+
+        ctx.fillStyle = otherLander.themeColor;
+        ctx.font = '6px "Press Start 2P", monospace';
+        ctx.textAlign = 'center';
+        const otherLabel = otherLander.id === 'p2' && gameModeRef.current === 'AI_DUEL' ? 'BOT' : 'P2';
+        ctx.fillText(otherLabel, rOtherX, rOtherY - 7);
+      }
+
+      // Draw active player lander pip
       const wrappedLanderX = ((activeLander.x % worldW) + worldW) % worldW;
       const rLanderX = radarX + wrappedLanderX * scaleX;
-      const rLanderY = radarY + activeLander.y * scaleY;
+      const rLanderY = radarFloorY + activeLander.y * scaleY;
+
+      // Pulsing radar sweep ring
+      const sweepPulse = 6 + 3 * Math.sin(Date.now() * 0.009);
+      ctx.strokeStyle = activeLander.themeColor;
+      ctx.lineWidth = 1.2;
+      ctx.beginPath();
+      ctx.arc(rLanderX, rLanderY, sweepPulse, 0, Math.PI * 2);
+      ctx.stroke();
+
+      // Lander core dot
       ctx.fillStyle = '#ffffff';
       ctx.beginPath();
-      ctx.arc(rLanderX, rLanderY, 2.5, 0, Math.PI * 2);
+      ctx.arc(rLanderX, rLanderY, 4, 0, Math.PI * 2);
       ctx.fill();
 
-      ctx.fillStyle = activeLander.themeColor;
+      // Heading vector line on radar
+      ctx.strokeStyle = '#ffffff';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.moveTo(rLanderX, rLanderY);
+      ctx.lineTo(rLanderX + activeLander.vx * 0.4, rLanderY + activeLander.vy * 0.4);
+      ctx.stroke();
+
+      ctx.fillStyle = '#ffffff';
       ctx.font = '6px "Press Start 2P", monospace';
-      ctx.fillText('RADAR', radarX + 5, radarY + 11);
+      ctx.textAlign = 'center';
+      ctx.fillText('YOU', rLanderX, rLanderY - 8);
+
       ctx.restore();
     }
 
@@ -2294,7 +2614,7 @@ export default function App() {
   const draw = (ctx: CanvasRenderingContext2D) => {
     prepareCanvas(ctx, canvasWidth, canvasHeight);
 
-    const isDuel = gameModeRef.current === 'DUEL';
+    const isDuel = gameModeRef.current === 'DUEL' || gameModeRef.current === 'AI_DUEL';
     const lander = landerRef.current;
     const landerP2 = landerP2Ref.current;
 
@@ -2316,7 +2636,7 @@ export default function App() {
         false,
       );
     } else {
-      // 2-PLAYER SPLIT SCREEN: Left (P1) and Right (P2)
+      // 2-PLAYER / PLAY-AGAINST-AI SPLIT SCREEN: Left (P1) and Right (P2 / AI Bot)
       const halfW = canvasWidth / 2 - 2;
 
       // Viewport 1 (Player 1)
@@ -2336,7 +2656,7 @@ export default function App() {
       );
       ctx.restore();
 
-      // Viewport 2 (Player 2)
+      // Viewport 2 (Player 2 or AI Opponent)
       ctx.save();
       ctx.translate(canvasWidth / 2 + 2, 0);
       ctx.beginPath();
@@ -2359,21 +2679,21 @@ export default function App() {
       const pulse = 0.7 + 0.3 * Math.sin(Date.now() * 0.008);
       ctx.fillStyle = '#0f172a';
       ctx.fillRect(divX, 0, 4, canvasHeight);
-      ctx.fillStyle = `rgba(56, 189, 248, ${pulse})`;
+      ctx.fillStyle = gameModeRef.current === 'AI_DUEL' ? `rgba(34, 211, 238, ${pulse})` : `rgba(56, 189, 248, ${pulse})`;
       ctx.fillRect(divX + 1, 0, 2, canvasHeight);
 
       // VS Badge in center
       const vsY = canvasHeight / 2 - 16;
       ctx.fillStyle = '#020617';
-      ctx.fillRect(divX - 22, vsY, 48, 32);
-      ctx.strokeStyle = '#38bdf8';
+      ctx.fillRect(divX - 26, vsY, 56, 32);
+      ctx.strokeStyle = gameModeRef.current === 'AI_DUEL' ? '#22d3ee' : '#38bdf8';
       ctx.lineWidth = 2;
-      ctx.strokeRect(divX - 22, vsY, 48, 32);
+      ctx.strokeRect(divX - 26, vsY, 56, 32);
 
-      ctx.fillStyle = '#f59e0b';
-      ctx.font = 'bold 9px "Press Start 2P", monospace';
+      ctx.fillStyle = gameModeRef.current === 'AI_DUEL' ? '#22d3ee' : '#f59e0b';
+      ctx.font = 'bold 8.5px "Press Start 2P", monospace';
       ctx.textAlign = 'center';
-      ctx.fillText('VS', divX + 2, vsY + 20);
+      ctx.fillText(gameModeRef.current === 'AI_DUEL' ? 'VS AI' : 'VS', divX + 2, vsY + 20);
       ctx.textAlign = 'left';
     }
 
@@ -2443,43 +2763,45 @@ export default function App() {
         </div>
       )}
 
-      {/* DECLUTTERED SLEEK IN-FLIGHT COCKPIT HUD */}
-      <header className="w-full bg-[#08080c]/85 backdrop-blur-md border-b-2 border-emerald-500/40 px-3 py-1.5 z-20 shrink-0 flex items-center justify-between gap-2.5 shadow-md rounded-none">
+      {/* DECLUTTERED SLEEK IN-FLIGHT COCKPIT HUD - ENLARGED TELEMETRY */}
+      <header className="w-full bg-[#08080c]/90 backdrop-blur-md border-b-2 border-emerald-500/50 px-4 py-2 md:py-3 z-20 shrink-0 flex items-center justify-between gap-3 shadow-lg rounded-none">
         {/* Left: Mission & Epoch Pill */}
-        <div className="flex items-center gap-2 shrink-0">
-          <span className="text-[10px] md:text-xs font-black text-emerald-400 tracking-wider">
+        <div className="flex items-center gap-2.5 shrink-0">
+          <span className="text-xs md:text-sm font-black text-emerald-400 tracking-wider">
             RETROGRADE
           </span>
           <span
-            className="text-[7.5px] font-bold px-1.5 py-0.5 border uppercase"
+            className="text-[9px] md:text-xs font-bold px-2.5 py-1 border uppercase shadow-sm"
             style={{
               color: activeEpoch.themeColor,
-              borderColor: `${activeEpoch.themeColor}80`,
-              backgroundColor: `${activeEpoch.themeColor}15`,
+              borderColor: `${activeEpoch.themeColor}90`,
+              backgroundColor: `${activeEpoch.themeColor}20`,
             }}>
-            EPOCH {gameState.level}: {activeEpoch.name}
+            MAP {gameState.level}: {activeEpoch.name}
           </span>
-          <span className="text-[6.5px] text-zinc-500 font-mono hidden md:inline uppercase">
+          <span className="text-[8px] text-zinc-400 font-mono hidden md:inline uppercase">
             [{activeEpoch.era}]
           </span>
         </div>
 
         {/* Center: Integrated Telemetry Cluster */}
-        <div className="flex items-center gap-3 md:gap-5 text-[8.5px] font-mono">
-          {/* Fuel Bar & Quantity */}
-          <div className="flex items-center gap-1.5">
-            <Zap size={12} className={isLowFuelP1 ? 'text-red-500 animate-bounce' : 'text-emerald-400'} />
+        <div className="flex items-center gap-3 md:gap-6 text-xs font-mono">
+          {/* Fuel Bar & Quantity (Player 1) */}
+          <div className="flex items-center gap-2">
+            <Zap size={15} className={isLowFuelP1 ? 'text-red-500 animate-bounce' : 'text-emerald-400'} />
             <div className="flex flex-col">
-              <div className="flex items-center gap-1 leading-none mb-0.5">
-                <span className="text-zinc-500 text-[6.5px]">{gameMode === 'DUEL' ? 'P1 FUEL:' : 'FUEL:'}</span>
-                <span className={`font-bold ${isLowFuelP1 ? 'text-red-400' : 'text-emerald-400'}`}>
+              <div className="flex items-center gap-1.5 leading-none mb-1">
+                <span className="text-zinc-500 text-[8px] md:text-[9px] font-bold">
+                  {gameMode === 'DUEL' ? 'P1 FUEL:' : gameMode === 'AI_DUEL' ? 'YOU FUEL:' : 'FUEL:'}
+                </span>
+                <span className={`font-bold text-xs md:text-sm ${isLowFuelP1 ? 'text-red-400' : 'text-emerald-400'}`}>
                   {currentFuelP1}L
                 </span>
               </div>
-              <div className="w-14 md:w-20 h-1.5 bg-zinc-900 border border-zinc-700 overflow-hidden">
+              <div className="w-20 md:w-32 h-2.5 bg-zinc-900 border border-zinc-700 overflow-hidden shadow-inner">
                 <div
                   className={`h-full transition-all duration-100 ${
-                    isLowFuelP1 ? 'bg-red-500' : 'bg-emerald-400'
+                    isLowFuelP1 ? 'bg-red-500 shadow-[0_0_8px_#ef4444]' : 'bg-emerald-400 shadow-[0_0_8px_#10b981]'
                   }`}
                   style={{ width: `${Math.max(0, Math.min(100, (currentFuelP1 / telemetry.maxFuel) * 100))}%` }}
                 />
@@ -2487,23 +2809,31 @@ export default function App() {
             </div>
           </div>
 
-          {/* In Duel Mode, display P2 Fuel */}
-          {gameMode === 'DUEL' && (
-            <div className="flex items-center gap-1.5">
-              <Zap size={12} className={isLowFuelP2 ? 'text-red-500 animate-bounce' : 'text-amber-400'} />
+          {/* In Duel & AI Duel Mode, display P2 / AI Bot Fuel */}
+          {(gameMode === 'DUEL' || gameMode === 'AI_DUEL') && (
+            <div className="flex items-center gap-2">
+              <Zap
+                size={15}
+                className={isLowFuelP2 ? 'text-red-500 animate-bounce' : gameMode === 'AI_DUEL' ? 'text-cyan-400' : 'text-amber-400'}
+              />
               <div className="flex flex-col">
-                <div className="flex items-center gap-1 leading-none mb-0.5">
-                  <span className="text-zinc-500 text-[6.5px]">P2 FUEL:</span>
-                  <span className={`font-bold ${isLowFuelP2 ? 'text-red-400' : 'text-amber-400'}`}>
+                <div className="flex items-center gap-1.5 leading-none mb-1">
+                  <span className="text-zinc-500 text-[8px] md:text-[9px] font-bold">
+                    {gameMode === 'AI_DUEL' ? `${selectedAiPersona.callsign} FUEL:` : 'P2 FUEL:'}
+                  </span>
+                  <span
+                    className="font-bold text-xs md:text-sm"
+                    style={{ color: isLowFuelP2 ? '#f87171' : gameMode === 'AI_DUEL' ? selectedAiPersona.hullColor : '#fbbf24' }}>
                     {currentFuelP2}L
                   </span>
                 </div>
-                <div className="w-14 md:w-20 h-1.5 bg-zinc-900 border border-zinc-700 overflow-hidden">
+                <div className="w-20 md:w-32 h-2.5 bg-zinc-900 border border-zinc-700 overflow-hidden shadow-inner">
                   <div
-                    className={`h-full transition-all duration-100 ${
-                      isLowFuelP2 ? 'bg-red-500' : 'bg-amber-400'
-                    }`}
-                    style={{ width: `${Math.max(0, Math.min(100, (currentFuelP2 / telemetryP2.maxFuel) * 100))}%` }}
+                    className="h-full transition-all duration-100"
+                    style={{
+                      width: `${Math.max(0, Math.min(100, (currentFuelP2 / telemetryP2.maxFuel) * 100))}%`,
+                      backgroundColor: isLowFuelP2 ? '#ef4444' : gameMode === 'AI_DUEL' ? selectedAiPersona.hullColor : '#f59e0b',
+                    }}
                   />
                 </div>
               </div>
@@ -2511,39 +2841,39 @@ export default function App() {
           )}
 
           {/* Vertical Speed Readout */}
-          <div className="flex items-center gap-1">
-            <span className="text-zinc-500 text-[6.5px]">V-SPD:</span>
+          <div className="flex items-center gap-1.5">
+            <span className="text-zinc-500 text-[8px] md:text-[9px] font-bold">V-SPD:</span>
             <span
-              className={`font-bold ${
+              className={`font-bold text-xs md:text-sm ${
                 Math.abs(telemetry.vy) > (getConfig('maxSafeLandingVy') as number)
                   ? 'text-red-400 animate-pulse'
                   : 'text-cyan-300'
               }`}>
-              {telemetry.vy} <span className="text-[6px] text-zinc-500">PX/S</span>
+              {telemetry.vy} <span className="text-[7.5px] text-zinc-500">PX/S</span>
             </span>
           </div>
 
           {/* Target Navigation Beacon */}
-          <div className="hidden sm:flex items-center gap-1 text-emerald-300">
-            <Compass size={11} className="text-emerald-400 shrink-0" />
-            <span className="font-bold truncate max-w-[150px]">
+          <div className="hidden sm:flex items-center gap-1.5 text-emerald-300 text-[9px] md:text-xs">
+            <Compass size={14} className="text-emerald-400 shrink-0" />
+            <span className="font-bold truncate max-w-[190px]">
               {telemetry.nearestPadName} [{telemetry.nearestPadMult}x] {telemetry.nearestPadDir === 'aligned' ? '▼ ALIGNED' : telemetry.nearestPadDir === 'left' ? `◄ ${telemetry.nearestPadDist}m` : `${telemetry.nearestPadDist}m ►`}
             </span>
           </div>
         </div>
 
         {/* Right: Score, Reserves & Actions */}
-        <div className="flex items-center gap-1.5 md:gap-2 shrink-0">
+        <div className="flex items-center gap-2 md:gap-3 shrink-0">
           {gameMode === 'SOLO' && (
-            <div className="hidden md:flex items-center gap-1 text-[8px] font-mono text-zinc-400">
-              <span className="text-zinc-500 text-[6.5px]">LIVES:</span>
-              <span className="font-bold text-yellow-400">{gameState.lives}</span>
+            <div className="hidden md:flex items-center gap-1.5 font-mono text-zinc-400">
+              <span className="text-zinc-500 text-[8px] md:text-[9px]">LIVES:</span>
+              <span className="font-bold text-xs md:text-sm text-yellow-400">{gameState.lives}</span>
             </div>
           )}
 
-          <div className="flex items-center gap-1 text-[8.5px] font-mono">
-            <span className="text-zinc-500 text-[6.5px] hidden sm:inline">SCORE:</span>
-            <span className="font-bold text-emerald-400">{gameState.score}</span>
+          <div className="flex items-center gap-1.5 font-mono">
+            <span className="text-zinc-500 text-[8px] md:text-[9px] hidden sm:inline">SCORE:</span>
+            <span className="font-bold text-xs md:text-sm text-emerald-400">{gameState.score}</span>
           </div>
 
           <button
@@ -2553,19 +2883,20 @@ export default function App() {
               gameAudio.playCrispClick();
             }}
             title={isFullscreen ? "Exit Fullscreen" : "Enter Fullscreen"}
-            className="p-1 hover:bg-emerald-400 hover:text-black text-emerald-400 border border-emerald-500/60 transition text-[8px] flex items-center justify-center">
-            {isFullscreen ? <Minimize2 size={13} /> : <Maximize2 size={13} />}
+            className="p-1.5 md:p-2 hover:bg-emerald-400 hover:text-black text-emerald-400 border border-emerald-500/60 transition flex items-center justify-center">
+            {isFullscreen ? <Minimize2 size={16} /> : <Maximize2 size={16} />}
           </button>
 
           <button
             onClick={() => {
               exitAttractMode();
-              setIsLeaderboardOpen(true);
+              setPreviousScreen(gameState.status === 'PLAYING' ? 'PAUSE' : 'TITLE');
+              setMainMenuScreen('LEADERBOARD');
               gameAudio.playCrispClick();
             }}
             title="Scoreboard"
-            className="p-1 hover:bg-yellow-400 hover:text-black text-yellow-400 border border-yellow-500/60 transition text-[8px] flex items-center justify-center">
-            <Trophy size={13} />
+            className="p-1.5 md:p-2 hover:bg-yellow-400 hover:text-black text-yellow-400 border border-yellow-500/60 transition flex items-center justify-center">
+            <Trophy size={16} />
           </button>
 
           <button
@@ -2575,8 +2906,8 @@ export default function App() {
               gameAudio.playCrispClick();
             }}
             aria-label="Toggle Game Menu"
-            className="px-2 py-1 bg-emerald-500/10 hover:bg-emerald-400 hover:text-black text-emerald-400 border border-emerald-500/60 transition text-[8px] font-bold flex items-center gap-1">
-            <Menu size={12} />
+            className="px-2.5 py-1.5 bg-emerald-500/15 hover:bg-emerald-400 hover:text-black text-emerald-400 border border-emerald-500/60 transition text-[9px] md:text-[10px] font-bold flex items-center gap-1.5">
+            <Menu size={14} />
             <span className="hidden sm:inline">MENU</span>
           </button>
         </div>
@@ -2610,7 +2941,7 @@ export default function App() {
       {/* MOBILE CONTROLS (Ergonomic for Solo and 2-Player Split Screen) */}
       {isMobile && (
         <footer className="w-full bg-[#08080c] border-t-4 border-emerald-500 px-3 py-2 z-30 flex items-center justify-between shrink-0 touch-none rounded-none shadow-[0_-4px_0_0_#064e3b]">
-          {gameMode === 'SOLO' ? (
+          {gameMode === 'SOLO' || gameMode === 'AI_DUEL' ? (
             <>
               <div className="flex items-center gap-2">
                 <button
@@ -2715,1006 +3046,62 @@ export default function App() {
         </footer>
       )}
 
-      {/* START SCREEN: FULL-SCREEN UNCLUTTERED COMMAND BRIDGE */}
-      {gameState.status === 'START' && !isAttractMode && (
-        <MenuOverlay tone="neutral" zIndex={40} fullScreen maxWidthClass="w-full max-w-7xl">
-          <div className="w-full bg-[#08080c]/95 backdrop-blur-md border-4 border-emerald-500 p-4 md:p-6 shadow-[12px_12px_0px_0px_#064e3b] flex flex-col text-emerald-400 rounded-none relative">
-            
-            {/* Header: Title, All-Time Record Pill & Fullscreen Toggle */}
-            <div className="flex flex-col sm:flex-row items-center justify-between pb-3 mb-4 border-b-2 border-emerald-800/80 gap-3">
-              <div className="flex items-center gap-2.5">
-                <Radio size={16} className="text-emerald-400 animate-pulse" />
-                <div>
-                  <h1 className="text-xl md:text-2xl font-black tracking-wider text-emerald-400 drop-shadow-[0_0_10px_rgba(16,185,129,0.5)]">
-                    RETROGRADE DESCENT
-                  </h1>
-                  <span className="text-[7.5px] text-zinc-400 font-mono uppercase tracking-widest block">
-                    APOLLO GUIDANCE OS // LUNAR INSERTION TERMINAL
-                  </span>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-2">
-                {leaderboardList && leaderboardList.length > 0 && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setIsLeaderboardOpen(true);
-                      gameAudio.playCrispClick();
-                    }}
-                    className="bg-yellow-950/40 hover:bg-yellow-900/60 border border-yellow-500/70 px-2.5 py-1 text-[8px] flex items-center gap-2 text-yellow-300 font-mono transition">
-                    <Trophy size={12} className="text-yellow-400" />
-                    <span>RECORD: <strong>{leaderboardList[0].pilotName}</strong> ({leaderboardList[0].score.toLocaleString()} PTS)</span>
-                  </button>
-                )}
-                <button
-                  type="button"
-                  onClick={() => {
-                    toggleFullscreen();
-                    gameAudio.playCrispClick();
-                  }}
-                  className="bg-black hover:bg-emerald-400 hover:text-black border border-emerald-500 px-2.5 py-1 text-[8px] flex items-center gap-1.5 font-mono font-bold transition">
-                  {isFullscreen ? <Minimize2 size={12} /> : <Maximize2 size={12} />}
-                  <span>{isFullscreen ? 'EXIT FS' : 'FULLSCREEN'}</span>
-                </button>
-              </div>
-            </div>
-
-            {/* Main Body: 2 Spacious Columns */}
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 mb-4">
-              
-              {/* LEFT COLUMN (5 Cols): PILOT & HANGAR DISPATCH */}
-              <div className="lg:col-span-5 space-y-3 flex flex-col justify-between">
-                {/* Mode Selector Tabs */}
-                <div>
-                  <span className="text-[7.5px] text-zinc-400 font-mono uppercase tracking-wider block mb-1">
-                    MISSION PROFILE:
-                  </span>
-                  <div className="grid grid-cols-2 gap-2">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setGameMode('SOLO');
-                        gameAudio.playCrispClick();
-                      }}
-                      className={`p-2.5 border-2 text-left transition rounded-none ${
-                        gameMode === 'SOLO'
-                          ? 'bg-emerald-950/60 border-emerald-400 text-emerald-300 shadow-[2px_2px_0_0_#064e3b]'
-                          : 'bg-black/60 border-zinc-800 text-zinc-500 hover:border-zinc-600'
-                      }`}>
-                      <div className="flex items-center gap-1.5 font-bold text-[9px] uppercase mb-0.5">
-                        <Rocket size={13} className={gameMode === 'SOLO' ? 'text-emerald-400' : 'text-zinc-500'} />
-                        <span>SOLO FLIGHT</span>
-                      </div>
-                      <span className="text-[6.5px] block font-mono text-zinc-400">
-                        1 Pilot • 5 Degradation Eras
-                      </span>
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setGameMode('DUEL');
-                        gameAudio.playCrispClick();
-                      }}
-                      className={`p-2.5 border-2 text-left transition rounded-none ${
-                        gameMode === 'DUEL'
-                          ? 'bg-yellow-950/60 border-yellow-400 text-yellow-300 shadow-[2px_2px_0_0_#78350f]'
-                          : 'bg-black/60 border-zinc-800 text-zinc-500 hover:border-zinc-600'
-                      }`}>
-                      <div className="flex items-center gap-1.5 font-bold text-[9px] uppercase mb-0.5">
-                        <Users size={13} className={gameMode === 'DUEL' ? 'text-yellow-400' : 'text-zinc-500'} />
-                        <span>2P DUEL SPLIT</span>
-                      </div>
-                      <span className="text-[6.5px] block font-mono text-zinc-400">
-                        Local Head-to-Head Race
-                      </span>
-                    </button>
-                  </div>
-                </div>
-
-                {/* Pilot Callsign & Vessel Hangar */}
-                <div className="bg-black/80 border-2 border-zinc-800 p-3 rounded-none">
-                  <div className="flex items-center justify-between gap-3 mb-2">
-                    <div className="flex-1">
-                      <label className="text-[7.5px] uppercase font-mono text-emerald-400 font-bold block mb-1">
-                        {gameMode === 'DUEL' ? 'PLAYER 1 CALLSIGN (WASD):' : 'PILOT CALLSIGN:'}
-                      </label>
-                      <input
-                        type="text"
-                        maxLength={16}
-                        value={pilotName}
-                        onChange={(e) => {
-                          const val = e.target.value.toUpperCase();
-                          setPilotName(val);
-                          setStoredPilotName(val);
-                        }}
-                        className="w-full bg-zinc-950 border border-emerald-600 px-2.5 py-1 text-emerald-300 text-[9px] font-bold tracking-widest focus:outline-none focus:border-emerald-400 rounded-none mb-1.5"
-                      />
-                      {/* Preset Chips */}
-                      <div className="flex flex-wrap gap-1">
-                        {PRESET_PILOT_NAMES.slice(0, 5).map((name) => (
-                          <button
-                            key={name}
-                            type="button"
-                            onClick={() => {
-                              setPilotName(name);
-                              setStoredPilotName(name);
-                              gameAudio.playCrispClick();
-                            }}
-                            className={`text-[6.5px] px-1.5 py-0.5 border transition ${
-                              pilotName === name
-                                ? 'bg-emerald-500 text-black border-emerald-400 font-bold'
-                                : 'bg-zinc-900 text-zinc-400 border-zinc-700 hover:text-white'
-                            }`}>
-                            {name}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-
-                    {/* Vessel Preview Mini-Bay */}
-                    <div className="flex flex-col items-center justify-center p-2 bg-zinc-950 border border-zinc-800 min-w-[90px]">
-                      <div className="relative w-9 h-7 flex items-center justify-center my-0.5">
-                        <div
-                          className="absolute bottom-0 w-2.5 h-3 rounded-full blur-[2px] animate-pulse"
-                          style={{ backgroundColor: p1Theme.color }}
-                        />
-                        {assets['lander'] ? (
-                          <img
-                            src={assets['lander'].src}
-                            alt="Lander"
-                            className="w-8 h-6 object-contain relative z-10"
-                          />
-                        ) : (
-                          <div className="w-6 h-5 bg-white rounded-sm" />
-                        )}
-                      </div>
-                      <span className="text-[6.5px] font-bold uppercase truncate max-w-[80px]" style={{ color: p1Theme.color }}>
-                        {p1Theme.name}
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* Livery swatches */}
-                  <div className="flex items-center justify-between pt-1 border-t border-zinc-800/80">
-                    <span className="text-[6.5px] text-zinc-400 font-mono">HULL ACCENT:</span>
-                    <div className="flex items-center gap-1">
-                      {SHIP_THEMES.map((theme) => (
-                        <button
-                          key={theme.id}
-                          type="button"
-                          onClick={() => {
-                            setP1Theme(theme);
-                            gameAudio.playCrispClick();
-                          }}
-                          title={theme.name}
-                          className={`w-4 h-4 border transition ${
-                            p1Theme.id === theme.id ? 'border-white scale-110' : 'border-zinc-700 opacity-60 hover:opacity-100'
-                          }`}
-                          style={{ backgroundColor: theme.color }}
-                        />
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* Player 2 in Duel Mode */}
-                  {gameMode === 'DUEL' && (
-                    <div className="mt-2.5 pt-2 border-t border-zinc-800">
-                      <label className="text-[7.5px] uppercase font-mono text-amber-400 font-bold block mb-1">
-                        PLAYER 2 CALLSIGN (ARROWS):
-                      </label>
-                      <input
-                        type="text"
-                        maxLength={16}
-                        value={p2Name}
-                        onChange={(e) => {
-                          const val = e.target.value.toUpperCase();
-                          setP2Name(val);
-                          setStoredP2Name(val);
-                        }}
-                        className="w-full bg-zinc-950 border border-amber-600 px-2.5 py-1 text-amber-300 text-[9px] font-bold tracking-widest focus:outline-none focus:border-amber-400 rounded-none mb-1.5"
-                      />
-                      <div className="flex items-center justify-between">
-                        <span className="text-[6.5px] text-amber-400 font-mono">P2 HULL:</span>
-                        <div className="flex items-center gap-1">
-                          {SHIP_THEMES.map((theme) => (
-                            <button
-                              key={theme.id}
-                              type="button"
-                              onClick={() => {
-                                setP2Theme(theme);
-                                gameAudio.playCrispClick();
-                              }}
-                              className={`w-4 h-4 border transition ${
-                                p2Theme.id === theme.id ? 'border-white scale-110' : 'border-zinc-700 opacity-60 hover:opacity-100'
-                              }`}
-                              style={{ backgroundColor: theme.color }}
-                            />
-                          ))}
-                        </div>
-                      </div>
-                    </div>
-                  )}
-                </div>
-
-                {/* Level 1 Extra Fuel Feature Banner */}
-                <div className="bg-emerald-950/30 border border-emerald-600/70 px-2.5 py-1.5 text-[7.5px] flex items-center justify-between font-mono">
-                  <span className="text-emerald-300 font-bold flex items-center gap-1.5">
-                    <Zap size={11} className="text-emerald-400 animate-pulse" />
-                    <span>LEVEL 1 REFUEL: 180L HIGH-CAPACITY TANKS EQUIPPED (+80% FUEL)</span>
-                  </span>
-                </div>
-              </div>
-
-              {/* RIGHT COLUMN (7 Cols): MISSION ENVIRONMENT & RETROGRESSION TIMELINE */}
-              <div className="lg:col-span-7 space-y-3 flex flex-col justify-between">
-                
-                {/* Technology Retrogression Timeline & Starting Era Selector */}
-                <div className="bg-black/80 border-2 border-emerald-700/80 p-3 rounded-none">
-                  <div className="flex items-center justify-between mb-2 pb-1 border-b border-zinc-800">
-                    <span className="text-[7.5px] font-mono text-emerald-400 font-bold flex items-center gap-1.5 uppercase">
-                      <Activity size={12} className="text-emerald-400" />
-                      <span>TECHNOLOGY RETROGRESSION (SELECT STARTING ERA):</span>
-                    </span>
-                    <span className="text-[6.5px] text-zinc-400 font-mono">
-                      [AGE BACKWARD IN TIME]
-                    </span>
-                  </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-5 gap-1.5">
-                    {EPOCHS.map((epoch) => {
-                      const isSelected = selectedStartingEpoch === epoch.id;
-                      return (
-                        <button
-                          key={epoch.id}
-                          type="button"
-                          onClick={() => {
-                            setSelectedStartingEpoch(epoch.id);
-                            gameAudio.playCrispClick();
-                          }}
-                          className={`p-2 text-left border transition relative flex flex-col justify-between rounded-none ${
-                            isSelected
-                              ? 'bg-zinc-900 shadow-[2px_2px_0_0_#fff]'
-                              : 'bg-zinc-950/70 border-zinc-800 hover:border-zinc-600'
-                          }`}
-                          style={{
-                            borderColor: isSelected ? epoch.themeColor : undefined,
-                            boxShadow: isSelected ? `2px 2px 0 0 ${epoch.themeColor}` : undefined,
-                          }}>
-                          <div>
-                            <div className="flex items-center justify-between mb-0.5">
-                              <span className="text-[7.5px] font-bold uppercase truncate" style={{ color: epoch.themeColor }}>
-                                {epoch.id}. {epoch.name}
-                              </span>
-                              {isSelected && <Check size={8} style={{ color: epoch.themeColor }} />}
-                            </div>
-                            <span className="text-[6.5px] text-zinc-400 block font-mono">
-                              {epoch.era}
-                            </span>
-                          </div>
-                          <span className="text-[6px] text-zinc-500 mt-1 block truncate">
-                            {epoch.hudStyle === 'modern' ? 'Glass Cockpit' : epoch.hudStyle === 'y2k' ? 'No-Pip' : epoch.hudStyle === 'eighties' ? 'Amber CRT' : epoch.hudStyle === 'apollo' ? 'Analog Gauge' : '95% Blackout'}
-                          </span>
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                {/* Tactical Landing Targets */}
-                <div className="bg-black/80 border-2 border-zinc-800 p-2.5 rounded-none font-mono">
-                  <span className="text-[7.5px] text-zinc-400 uppercase block mb-1.5 font-bold flex items-center gap-1">
-                    <Crosshair size={11} className="text-cyan-400" />
-                    <span>TACTICAL TOUCHDOWN PLATFORMS & DISTANCE MULTIPLIERS:</span>
-                  </span>
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
-                    <div className="bg-zinc-950 border border-emerald-600/70 p-1.5">
-                      <div className="flex items-center justify-between mb-0.5">
-                        <span className="text-[7.5px] font-bold text-emerald-400">ALPHA</span>
-                        <span className="text-[6.5px] font-bold text-emerald-300">1.0x</span>
-                      </div>
-                      <span className="text-[6px] text-zinc-400 block">~450m • Plateau</span>
-                    </div>
-                    <div className="bg-zinc-950 border border-sky-500/70 p-1.5">
-                      <div className="flex items-center justify-between mb-0.5">
-                        <span className="text-[7.5px] font-bold text-sky-400">BRAVO</span>
-                        <span className="text-[6.5px] font-bold text-sky-300">2.0x</span>
-                      </div>
-                      <span className="text-[6px] text-zinc-400 block">~1200m • Crags</span>
-                    </div>
-                    <div className="bg-zinc-950 border border-amber-500/70 p-1.5">
-                      <div className="flex items-center justify-between mb-0.5">
-                        <span className="text-[7.5px] font-bold text-amber-400">CHARLIE</span>
-                        <span className="text-[6.5px] font-bold text-amber-300">3.5x</span>
-                      </div>
-                      <span className="text-[6px] text-zinc-400 block">~2000m • Ridge</span>
-                    </div>
-                    <div className="bg-zinc-950 border border-pink-500/70 p-1.5">
-                      <div className="flex items-center justify-between mb-0.5">
-                        <span className="text-[7.5px] font-bold text-pink-400">OMEGA</span>
-                        <span className="text-[6.5px] font-bold text-pink-300">5.0x</span>
-                      </div>
-                      <span className="text-[6px] text-zinc-400 block">~2800m • Abyss</span>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Flight Hazards Advisory Banner */}
-                <div className="bg-red-950/20 border border-red-700/60 px-2.5 py-1.5 text-[7px] text-red-300 font-mono flex items-center justify-between">
-                  <span className="flex items-center gap-1.5">
-                    <AlertTriangle size={11} className="text-red-400 shrink-0" />
-                    <span>HAZARDS: Atmospheric turbulence crosswinds & drifting orbital micrometeorites active!</span>
-                  </span>
-                  <span className="text-zinc-500 hidden sm:inline">[THROTTLE CAUTION]</span>
-                </div>
-              </div>
-            </div>
-
-            {/* Bottom Strip: Giant Launch Button & Controls */}
-            <button
-              ref={startBtnRef}
-              onClick={initGame}
-              autoFocus
-              className="w-full bg-emerald-400 hover:bg-emerald-300 text-black border-4 border-emerald-200 font-black text-sm md:text-base py-3 px-6 shadow-[0_0_20px_rgba(16,185,129,0.5)] active:translate-x-0.5 active:translate-y-0.5 transition flex items-center justify-center gap-2 uppercase rounded-none cursor-pointer group mb-2.5">
-              <Play size={18} fill="currentColor" className="group-hover:scale-110 transition-transform" />
-              <span>
-                {gameMode === 'DUEL'
-                  ? 'COMMENCE SPLIT SCREEN DUEL'
-                  : selectedStartingEpoch > 1
-                  ? `ENGAGE DESCENT (EPOCH ${selectedStartingEpoch}: ${EPOCHS[selectedStartingEpoch - 1]?.name})`
-                  : 'ENGAGE DESCENT'}
-              </span>
-              <span className="text-[8px] bg-black/20 px-2 py-0.5 text-black font-mono ml-2 border border-black/30 hidden sm:inline">
-                [ ENTER ]
-              </span>
-            </button>
-
-            {/* Minimal Footer */}
-            <div className="w-full flex items-center justify-between pt-2 border-t border-zinc-800 text-[7.5px] font-mono text-zinc-400">
-              <div className="flex items-center gap-3">
-                <button
-                  type="button"
-                  onClick={() => {
-                    const newMuted = gameAudio.toggleMute();
-                    setIsSfxMuted(newMuted);
-                  }}
-                  className="hover:text-white flex items-center gap-1 transition">
-                  {isSfxMuted ? <VolumeX size={11} className="text-red-400" /> : <Volume2 size={11} className="text-emerald-400" />}
-                  <span>SFX: {isSfxMuted ? 'OFF' : 'ON'}</span>
-                </button>
-                <span>|</span>
-                <button
-                  type="button"
-                  onClick={() => setIsMusicMuted((prev) => !prev)}
-                  className="hover:text-white flex items-center gap-1 transition">
-                  {isMusicMuted ? <VolumeX size={11} className="text-red-400" /> : <Volume2 size={11} className="text-emerald-400" />}
-                  <span>BGM: {isMusicMuted ? 'OFF' : 'ON'}</span>
-                </button>
-              </div>
-
-              <div className="flex items-center gap-4">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setIsHowToPlayOpen(true);
-                    gameAudio.playCrispClick();
-                  }}
-                  className="hover:text-emerald-400 transition flex items-center gap-1 uppercase font-bold">
-                  <HelpCircle size={11} />
-                  <span>[ FLIGHT MANUAL ]</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setIsLeaderboardOpen(true);
-                    gameAudio.playCrispClick();
-                  }}
-                  className="text-yellow-400 hover:text-yellow-300 transition flex items-center gap-1 uppercase font-bold">
-                  <Trophy size={11} />
-                  <span>[ SCOREBOARD ]</span>
-                </button>
-              </div>
-            </div>
+      {/* ATTRACT MODE OVERLAY (Subtle press any key) */}
+      {isAttractMode && (
+        <div
+          onClick={() => setIsAttractMode(false)}
+          className="absolute inset-0 z-30 pointer-events-auto cursor-pointer flex flex-col justify-end items-center pb-12 bg-black/30">
+          <div className="bg-black/80 border border-emerald-500 px-6 py-3 font-mono text-emerald-400 text-xs uppercase animate-pulse flex items-center gap-2">
+            <span>[ PRESS ANY KEY OR CLICK TO ENTER APOLLO COMMAND CONSOLE ]</span>
           </div>
-        </MenuOverlay>
+        </div>
       )}
 
-      {/* TOUCHDOWN SUCCESS / LEVEL COMPLETE */}
-      {gameState.status === 'LEVEL_COMPLETE' && lastTouchdownStats && (
-        <MenuOverlay tone="victory" zIndex={40} fullScreen>
-          <div className="w-full max-w-xl bg-[#08080c] border-4 border-emerald-500 p-5 md:p-6 shadow-[8px_8px_0px_0px_#064e3b] flex flex-col items-center text-emerald-400 rounded-none">
-            <Award className="text-emerald-400 mb-2 animate-bounce" size={36} />
-            <h2 className="text-base md:text-xl font-bold text-center mb-1 uppercase tracking-wide">
-              {gameMode === 'DUEL' ? `${lastTouchdownStats.pilotName} WINS DUEL!` : 'TOUCHDOWN CONFIRMED'}
-            </h2>
-            <div className="text-[9px] text-zinc-400 mb-3 uppercase font-bold tracking-wider">
-              [ LANDED ON {lastTouchdownStats.padName} — {lastTouchdownStats.padMultiplier}X MULTIPLIER ]
-            </div>
-
-            <div className="w-full bg-black border-2 border-emerald-800 p-3 mb-3 text-[9px] space-y-1.5 font-mono rounded-none">
-              <div className="flex justify-between">
-                <span className="text-zinc-500">Pilot Callsign:</span>
-                <span className="font-bold text-emerald-300">{lastTouchdownStats.pilotName}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-zinc-500">Landing Platform:</span>
-                <span className="font-bold text-cyan-300">{lastTouchdownStats.padName}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-zinc-500">Distance Multiplier:</span>
-                <span className="font-bold text-yellow-400">{lastTouchdownStats.padMultiplier}x</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-zinc-500">Vertical Velocity:</span>
-                <span className="font-bold text-emerald-300">
-                  {Math.round(lastTouchdownStats.vy)} PX/S
-                </span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-zinc-500">Attitude Tilt:</span>
-                <span className="font-bold text-emerald-300">
-                  {Math.round(Math.abs(lastTouchdownStats.tilt))}°
-                </span>
-              </div>
-              <div className="flex justify-between border-t border-zinc-800 pt-1.5 text-xs font-bold">
-                <span className="text-yellow-400">Total Points Awarded:</span>
-                <span className="text-yellow-400">+{lastTouchdownStats.pointsAwarded}</span>
-              </div>
-            </div>
-
-            <div className="w-full flex gap-2 mb-3">
-              <button
-                onClick={() => {
-                  setIsLeaderboardOpen(true);
-                  gameAudio.playCrispClick();
-                }}
-                className="flex-1 bg-black hover:bg-yellow-400 text-yellow-400 hover:text-black border-2 border-yellow-500 py-2 text-[9px] font-bold uppercase transition flex items-center justify-center gap-1.5">
-                <Trophy size={13} />
-                <span>VIEW SCOREBOARD</span>
-              </button>
-            </div>
-
-            {/* Technological Retrogression Protocol Warning for Next Epoch */}
-            {gameMode === 'SOLO' && gameState.level <= 5 && (
-              <div className="w-full bg-red-950/40 border-2 border-red-500/80 p-2.5 mb-3 text-left font-mono rounded-none">
-                <div className="flex items-center gap-1.5 text-red-400 font-bold uppercase text-[8px] mb-1">
-                  <AlertTriangle size={13} className="animate-pulse text-red-400 shrink-0" />
-                  <span>
-                    RETROGRESSION PROTOCOL: REVERSING TIME TO EPOCH {gameState.level} ({EPOCHS[gameState.level - 1]?.era})
-                  </span>
-                </div>
-                <p className="text-[7.5px] text-zinc-300 mb-1.5 leading-relaxed">
-                  Guidance avionics are degrading backward into the past. Decommissioned instruments:
-                </p>
-                <div className="space-y-0.5 text-[7px]">
-                  {EPOCHS[gameState.level - 1]?.degradedAvionics.map((degraded, i) => (
-                    <div key={i} className="flex items-center gap-1.5 text-yellow-300">
-                      <span className="text-red-400 font-bold">►</span>
-                      <span>{degraded}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            <button
-              autoFocus
-              onClick={() => {
-                if (gameMode === 'DUEL') {
-                  resetLander(1);
-                  setGameState((prev) => ({...prev, status: 'PLAYING'}));
-                  gameAudio.playConfirmSelect();
-                } else {
-                  proceedToNextEpoch();
-                }
-              }}
-              className="w-full bg-black hover:bg-emerald-400 text-emerald-400 hover:text-black border-4 border-emerald-400 font-bold py-3 px-6 shadow-[4px_4px_0_0_#064e3b] active:translate-x-0.5 active:translate-y-0.5 transition flex items-center justify-center gap-2 uppercase rounded-none text-xs">
-              <Play size={16} fill="currentColor" />
-              <span>{gameMode === 'DUEL' ? 'COMMENCE NEXT DUEL ROUND' : `COMMENCE EPOCH ${gameState.level}`}</span>
-            </button>
-          </div>
-        </MenuOverlay>
-      )}
-
-      {/* GAME OVER SCREEN */}
-      {gameState.status === 'GAME_OVER' && (
-        <MenuOverlay tone="danger" zIndex={40} fullScreen>
-          <div className="w-full max-w-xl bg-[#08080c] border-4 border-red-500 p-5 md:p-6 shadow-[8px_8px_0px_0px_#7f1d1d] flex flex-col items-center text-red-500 rounded-none">
-            <AlertTriangle className="text-red-500 mb-2 animate-pulse" size={36} />
-            <h2 className="text-base md:text-xl font-bold text-center mb-1 uppercase tracking-wide">
-              EXPEDITION TERMINATED
-            </h2>
-            <div className="text-[9px] text-red-400 text-center mb-3 uppercase font-bold tracking-wider">
-              [ {lastTouchdownStats?.reason || 'VESSEL STRUCTURAL FAILURE'} ]
-            </div>
-
-            <div className="w-full bg-black border-2 border-red-900 p-3 mb-4 text-center text-[9px] rounded-none">
-              <span className="text-zinc-500 block mb-1">FINAL PILOT SCORE</span>
-              <span className="text-2xl font-bold text-yellow-400">
-                {gameState.score}
-              </span>
-              <span className="text-[8px] text-zinc-400 block mt-1 uppercase">
-                {pilotName} // Concluded on Epoch {gameState.level} ({activeEpoch.name})
-              </span>
-            </div>
-
-            <div className="w-full flex gap-2 mb-3">
-              <button
-                onClick={() => {
-                  setIsLeaderboardOpen(true);
-                  gameAudio.playCrispClick();
-                }}
-                className="flex-1 bg-black hover:bg-yellow-400 text-yellow-400 hover:text-black border-2 border-yellow-500 py-2 text-[9px] font-bold uppercase transition flex items-center justify-center gap-1.5">
-                <Trophy size={13} />
-                <span>VIEW SCOREBOARD</span>
-              </button>
-            </div>
-
-            <button
-              autoFocus
-              onClick={initGame}
-              className="w-full bg-black hover:bg-red-500 text-red-400 hover:text-black border-4 border-red-500 font-bold py-3 px-6 shadow-[4px_4px_0_0_#7f1d1d] active:translate-x-0.5 active:translate-y-0.5 transition flex items-center justify-center gap-2 uppercase rounded-none text-xs">
-              <RotateCw size={16} />
-              <span>RELAUNCH EXPEDITION</span>
-            </button>
-          </div>
-        </MenuOverlay>
-      )}
-
-      {/* VICTORY OVERLAY */}
-      {gameState.status === 'VICTORY' && (
-        <MenuOverlay tone="victory" zIndex={40} fullScreen>
-          <div className="w-full max-w-xl bg-[#08080c] border-4 border-yellow-400 p-6 shadow-[8px_8px_0px_0px_#78350f] flex flex-col items-center text-center text-yellow-400 rounded-none">
-            <Award className="text-yellow-400 mb-3 animate-bounce" size={44} />
-            <h2 className="text-base md:text-2xl font-bold mb-1 uppercase tracking-wide">
-              MASTER LUNAR PILOT
-            </h2>
-            <div className="text-[9px] text-cyan-400 uppercase tracking-widest font-bold mb-3">
-              [ {pilotName} CONQUERED THE SENSORY BLACKOUT ]
-            </div>
-            <p className="text-[10px] text-zinc-300 leading-relaxed mb-4">
-              You crossed deep lunar canyons, mastered all 4 distant platforms, and conquered
-              the final sensory blackout solely via acoustic sonar frequencies.
-            </p>
-
-            <div className="w-full bg-black border-2 border-yellow-800 p-3 mb-4 text-[9px] rounded-none">
-              <span className="text-zinc-500 block mb-1">EXPEDITION GRAND TOTAL</span>
-              <span className="text-2xl font-bold text-yellow-400">
-                {gameState.score}
-              </span>
-            </div>
-
-            <button
-              onClick={() => {
-                setIsLeaderboardOpen(true);
-                gameAudio.playCrispClick();
-              }}
-              className="w-full bg-black hover:bg-yellow-400 text-yellow-400 hover:text-black border-2 border-yellow-500 py-2 text-[9px] font-bold uppercase transition flex items-center justify-center gap-1.5 mb-2">
-              <Trophy size={13} />
-              <span>VIEW ON SCOREBOARD</span>
-            </button>
-
-            <button
-              autoFocus
-              onClick={initGame}
-              className="w-full bg-black hover:bg-yellow-400 text-yellow-400 hover:text-black border-4 border-yellow-400 font-bold py-3 px-6 shadow-[4px_4px_0_0_#78350f] active:translate-x-0.5 active:translate-y-0.5 transition flex items-center justify-center gap-2 uppercase rounded-none text-xs">
-              <RotateCw size={16} />
-              <span>COMMENCE NEW EXPEDITION</span>
-            </button>
-          </div>
-        </MenuOverlay>
-      )}
-
-      {/* REAL DATA LEADERBOARD / SCOREBOARD MODAL */}
-      {isLeaderboardOpen && (
-        <MenuOverlay tone="neutral" zIndex={60} fullScreen>
-          <div className="w-full max-w-4xl bg-[#08080c]/95 backdrop-blur-md border-4 border-yellow-500 p-5 md:p-7 shadow-[12px_12px_0px_0px_#78350f] flex flex-col text-yellow-400 rounded-none">
-            <div className="flex items-center justify-between w-full mb-3 pb-2 border-b-2 border-zinc-800">
-              <h2 className="text-sm md:text-base font-bold flex items-center gap-2 uppercase">
-                <Trophy size={18} className="text-yellow-400" />
-                <span>FLIGHT LOG & LEADERBOARD</span>
-              </h2>
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={toggleFullscreen}
-                  title="Toggle Fullscreen"
-                  className="p-1 hover:bg-yellow-400 hover:text-black border-2 border-zinc-700 text-zinc-300 rounded-none text-[8px] flex items-center gap-1 font-mono uppercase">
-                  {isFullscreen ? <Minimize2 size={13} /> : <Maximize2 size={13} />}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setIsLeaderboardOpen(false);
-                    gameAudio.playCrispClick();
-                  }}
-                  className="p-1 hover:bg-yellow-400 hover:text-black border-2 border-zinc-700 text-zinc-400 rounded-none">
-                  <X size={16} />
-                </button>
-              </div>
-            </div>
-
-            <div className="w-full text-[8px] text-zinc-400 mb-2 uppercase font-bold flex justify-between">
-              <span>REAL ASTRONAUT & PILOT MISSION ARCHIVE</span>
-              <span>SAVED LOCALLY</span>
-            </div>
-
-            <div className="w-full overflow-y-auto max-h-[50vh] border-2 border-zinc-800 bg-black mb-3">
-              <table className="w-full text-left text-[8px] border-collapse">
-                <thead>
-                  <tr className="bg-zinc-900 text-zinc-400 border-b border-zinc-800">
-                    <th className="p-2">#</th>
-                    <th className="p-2">PILOT</th>
-                    <th className="p-2">SCORE</th>
-                    <th className="p-2">PAD</th>
-                    <th className="p-2">MODE</th>
-                    <th className="p-2">RECORDED</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {leaderboardList.map((entry, idx) => {
-                    const isTop3 = idx < 3;
-                    const isUserCurrent = entry.pilotName === pilotName;
-                    return (
-                      <tr
-                        key={entry.id}
-                        className={`border-b border-zinc-900 ${
-                          isUserCurrent ? 'bg-emerald-950/40 text-emerald-300' : 'text-zinc-300'
-                        }`}>
-                        <td className="p-2 font-bold">
-                          {idx === 0 ? '🥇' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : `${idx + 1}`}
-                        </td>
-                        <td className="p-2 font-bold">
-                          {entry.pilotName}
-                          {isUserCurrent && (
-                            <span className="ml-1 text-[7px] text-emerald-400">[YOU]</span>
-                          )}
-                        </td>
-                        <td className={`p-2 font-bold ${isTop3 ? 'text-yellow-400' : 'text-zinc-200'}`}>
-                          {entry.score.toLocaleString()}
-                        </td>
-                        <td className="p-2">
-                          <span className="px-1 py-0.5 bg-zinc-900 border border-zinc-700 text-[7px]">
-                            {entry.padName}
-                          </span>
-                        </td>
-                        <td className="p-2 text-zinc-400">{entry.mode}</td>
-                        <td className="p-2 text-zinc-500">{entry.dateFormatted}</td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-
-            <div className="w-full flex gap-2">
-              <button
-                onClick={() => {
-                  const restored = resetLeaderboardToSeeds();
-                  setLeaderboardList(restored);
-                  gameAudio.playCrispClick();
-                }}
-                className="flex-1 bg-black hover:bg-zinc-800 border-2 border-zinc-700 text-zinc-400 hover:text-white py-2 text-[8px] font-bold uppercase transition">
-                RESTORE ASTRONAUT ROSTER
-              </button>
-              <button
-                onClick={() => {
-                  setIsLeaderboardOpen(false);
-                  gameAudio.playCrispClick();
-                }}
-                className="flex-1 bg-yellow-400 hover:bg-yellow-300 text-black font-bold py-2 text-[9px] uppercase transition shadow-[2px_2px_0_0_#78350f]">
-                CLOSE SCOREBOARD
-              </button>
-            </div>
-          </div>
-        </MenuOverlay>
-      )}
-
-      {/* FLIGHT MENU MODAL */}
-      {isMenuOpen && (
-        <MenuOverlay tone="neutral" zIndex={50} fullScreen>
-          <div className="w-full max-w-2xl bg-[#08080c]/95 backdrop-blur-md border-4 border-emerald-500 p-6 md:p-8 shadow-[12px_12px_0px_0px_#064e3b] flex flex-col text-emerald-400 rounded-none">
-            <div className="flex items-center justify-between w-full mb-4 pb-3 border-b-2 border-zinc-800">
-              <h2 className="text-base md:text-lg font-bold flex items-center gap-2 uppercase">
-                <Gauge size={20} />
-                <span>FLIGHT COMMAND MENU</span>
-              </h2>
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={toggleFullscreen}
-                  title="Toggle Fullscreen"
-                  className="p-1.5 hover:bg-emerald-400 hover:text-black border-2 border-zinc-700 text-zinc-300 rounded-none text-[8px] flex items-center gap-1 font-mono uppercase">
-                  {isFullscreen ? <Minimize2 size={13} /> : <Maximize2 size={13} />}
-                  <span className="hidden sm:inline">{isFullscreen ? 'EXIT FS' : 'FULLSCREEN'}</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setIsMenuOpen(false);
-                    gameAudio.playCrispClick();
-                  }}
-                  className="p-1.5 hover:bg-emerald-400 hover:text-black border-2 border-zinc-700 text-zinc-400 rounded-none">
-                  <X size={16} />
-                </button>
-              </div>
-            </div>
-
-            {/* In-Flight Telemetry Status Summary */}
-            <div className="w-full bg-black/80 border-2 border-emerald-900/80 p-3 mb-4 grid grid-cols-2 sm:grid-cols-4 gap-2 text-[8px] font-mono">
-              <div className="flex flex-col">
-                <span className="text-zinc-500">PILOT:</span>
-                <span className="font-bold text-emerald-300">{pilotName}</span>
-              </div>
-              <div className="flex flex-col">
-                <span className="text-zinc-500">CURRENT ERA:</span>
-                <span className="font-bold text-yellow-400">EPOCH {gameState.level} ({activeEpoch.name})</span>
-              </div>
-              <div className="flex flex-col">
-                <span className="text-zinc-500">SCORE:</span>
-                <span className="font-bold text-emerald-400">{gameState.score} PTS</span>
-              </div>
-              <div className="flex flex-col">
-                <span className="text-zinc-500">TARGET PAD:</span>
-                <span className="font-bold text-cyan-300">{telemetry.nearestPadName} [{telemetry.nearestPadMult}x]</span>
-              </div>
-            </div>
-
-            <div className="w-full space-y-2.5">
-              <button
-                autoFocus
-                onClick={() => {
-                  setIsMenuOpen(false);
-                  gameAudio.playCrispClick();
-                }}
-                className="w-full bg-emerald-400 hover:bg-emerald-300 text-black border-2 border-emerald-200 font-bold py-3 px-4 shadow-[3px_3px_0_0_#064e3b] active:translate-x-0.5 active:translate-y-0.5 transition flex items-center justify-center gap-2 uppercase rounded-none text-xs">
-                <Play size={16} fill="currentColor" />
-                <span>RESUME DESCENT</span>
-              </button>
-
-              <div className="grid grid-cols-2 gap-2">
-                <button
-                  type="button"
-                  onClick={() => {
-                    const newMuted = gameAudio.toggleMute();
-                    setIsSfxMuted(newMuted);
-                  }}
-                  className={`flex items-center justify-center gap-2 py-2 px-2 border-2 text-[9px] font-bold transition uppercase shadow-[2px_2px_0_0_#000] rounded-none ${
-                    isSfxMuted
-                      ? 'bg-zinc-950 border-zinc-700 text-zinc-500'
-                      : 'bg-black border-emerald-500 text-emerald-400'
-                  }`}>
-                  {isSfxMuted ? <VolumeX size={14} /> : <Volume2 size={14} />}
-                  <span>SFX: {isSfxMuted ? 'MUTED' : 'ON'}</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setIsMusicMuted((prev) => !prev)}
-                  className={`flex items-center justify-center gap-2 py-2 px-2 border-2 text-[9px] font-bold transition uppercase shadow-[2px_2px_0_0_#000] rounded-none ${
-                    isMusicMuted
-                      ? 'bg-zinc-950 border-zinc-700 text-zinc-500'
-                      : 'bg-black border-emerald-500 text-emerald-400'
-                  }`}>
-                  {isMusicMuted ? <VolumeX size={14} /> : <Volume2 size={14} />}
-                  <span>BGM: {isMusicMuted ? 'MUTED' : 'ON'}</span>
-                </button>
-              </div>
-
-              <button
-                type="button"
-                onClick={() => {
-                  setIsMenuOpen(false);
-                  setIsLeaderboardOpen(true);
-                  gameAudio.playCrispClick();
-                }}
-                className="w-full bg-black hover:bg-yellow-400 hover:text-black text-yellow-400 border-2 border-yellow-500 font-bold py-2.5 px-4 shadow-[2px_2px_0_0_#78350f] transition flex items-center justify-center gap-2 uppercase rounded-none text-[9px]">
-                <Trophy size={14} />
-                <span>VIEW LEADERBOARD & FLIGHT LOG</span>
-              </button>
-
-              {/* Quick Jump Era Selector (Retrogression Lab) */}
-              <div className="w-full bg-zinc-950 border-2 border-zinc-800 p-2.5 rounded-none font-mono">
-                <span className="text-[7.5px] text-zinc-400 uppercase font-bold block mb-1.5 flex items-center gap-1.5">
-                  <Activity size={11} className="text-yellow-400" />
-                  <span>JUMP TO ERA (TECHNOLOGY RETROGRESSION LAB):</span>
-                </span>
-                <div className="grid grid-cols-5 gap-1">
-                  {EPOCHS.map((epoch) => (
-                    <button
-                      key={epoch.id}
-                      type="button"
-                      onClick={() => {
-                        resetLander(epoch.id);
-                        setGameState((prev) => ({...prev, level: epoch.id, status: 'PLAYING'}));
-                        setIsMenuOpen(false);
-                        gameAudio.playConfirmSelect();
-                      }}
-                      className={`p-1 text-center border transition ${
-                        gameState.level === epoch.id
-                          ? 'bg-zinc-800 border-white text-white font-bold'
-                          : 'bg-black border-zinc-700 text-zinc-400 hover:text-white'
-                      }`}
-                      style={{
-                        borderColor: gameState.level === epoch.id ? epoch.themeColor : undefined,
-                        color: gameState.level === epoch.id ? epoch.themeColor : undefined,
-                      }}>
-                      <span className="text-[7px] block font-bold">EPOCH {epoch.id}</span>
-                      <span className="text-[5.5px] block truncate">{epoch.name}</span>
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <button
-                type="button"
-                onClick={() => {
-                  setIsMenuOpen(false);
-                  resetLander(gameState.level);
-                  gameAudio.playConfirmSelect();
-                }}
-                className="w-full bg-black hover:bg-zinc-800 border-2 border-zinc-700 text-white font-bold py-2.5 px-4 shadow-[2px_2px_0_0_#000] transition flex items-center justify-center gap-2 uppercase rounded-none text-[9px]">
-                <RotateCw size={14} />
-                <span>RESTART CURRENT RUN</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => {
-                  setIsHowToPlayOpen(true);
-                  gameAudio.playCrispClick();
-                }}
-                className="w-full bg-black hover:bg-zinc-800 border-2 border-zinc-700 text-white font-bold py-2.5 px-4 shadow-[2px_2px_0_0_#000] transition flex items-center justify-center gap-2 uppercase rounded-none text-[9px]">
-                <HelpCircle size={14} />
-                <span>FLIGHT MANUAL & CONTROLS</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => {
-                  setIsMenuOpen(false);
-                  gameAudio.stopThruster();
-                  setGameState((prev) => ({...prev, status: 'START'}));
-                  gameAudio.playCrispClick();
-                }}
-                className="w-full bg-black hover:bg-red-950 border-2 border-red-800 text-red-300 font-bold py-2.5 px-4 shadow-[2px_2px_0_0_#000] transition flex items-center justify-center gap-2 uppercase rounded-none text-[9px]">
-                <X size={14} />
-                <span>ABORT TO TITLE SCREEN</span>
-              </button>
-            </div>
-          </div>
-        </MenuOverlay>
-      )}
-
-      {/* HOW TO PLAY & AVIONICS MANUAL */}
-      {isHowToPlayOpen && (
-        <MenuOverlay tone="neutral" zIndex={60} fullScreen>
-          <div className="w-full max-w-4xl bg-[#08080c] border-4 border-emerald-500 p-5 md:p-6 shadow-[8px_8px_0px_0px_#064e3b] flex flex-col items-center text-emerald-400 rounded-none">
-            <div className="flex items-center justify-between w-full mb-3 pb-2 border-b-2 border-zinc-800">
-              <h2 className="text-sm md:text-base font-bold flex items-center gap-2 uppercase">
-                <HelpCircle size={18} />
-                <span>AVIONICS FLIGHT MANUAL</span>
-              </h2>
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => {
-                    toggleFullscreen();
-                    gameAudio.playCrispClick();
-                  }}
-                  className="px-2 py-1 bg-black hover:bg-emerald-400 hover:text-black border-2 border-emerald-600 text-emerald-400 text-[8px] font-bold uppercase transition flex items-center gap-1">
-                  {isFullscreen ? <Minimize2 size={13} /> : <Maximize2 size={13} />}
-                  <span className="hidden sm:inline">{isFullscreen ? 'EXIT FS' : 'FULLSCREEN'}</span>
-                </button>
-                <button
-                  onClick={() => {
-                    setIsHowToPlayOpen(false);
-                    gameAudio.playCrispClick();
-                  }}
-                  className="p-1 hover:bg-emerald-400 hover:text-black border-2 border-zinc-700 text-zinc-400 rounded-none">
-                  <X size={16} />
-                </button>
-              </div>
-            </div>
-
-            <div className="w-full grid grid-cols-1 md:grid-cols-2 gap-3 text-[9px] text-zinc-300 leading-relaxed overflow-y-auto max-h-[62vh] pr-1">
-              <div className="bg-black p-3 border-2 border-emerald-900 rounded-none">
-                <h3 className="font-bold text-emerald-400 mb-1.5 uppercase flex items-center gap-1">
-                  <Zap size={12} />
-                  <span>Controls & 2-Player Duel</span>
-                </h3>
-                <p className="mb-1">
-                  • <strong>Player 1 (Solo / Duel):</strong> W (Thrust) / A & D (RCS Steer Left & Right).
-                </p>
-                <p className="mb-1">
-                  • <strong>Player 2 (Duel Mode):</strong> Up Arrow (Thrust) / Left & Right Arrows (RCS Steer).
-                </p>
-                <p>
-                  • <strong>Mobile:</strong> Virtual buttons at the bottom edge.
-                </p>
-              </div>
-
-              <div className="bg-black p-3 border-2 border-amber-900 rounded-none">
-                <h3 className="font-bold text-amber-400 mb-1.5 uppercase flex items-center gap-1">
-                  <Award size={12} />
-                  <span>Multiple Pads & Distance Multipliers</span>
-                </h3>
-                <p className="mb-1">
-                  • <strong>PAD ALPHA (1.0x):</strong> Near spawn (~400m). Wide, safe, and easy to reach.
-                </p>
-                <p className="mb-1">
-                  • <strong>PAD BRAVO (2.0x):</strong> Intermediate distance (~1200m). Doubles all touchdown points!
-                </p>
-                <p className="mb-1">
-                  • <strong>PAD CHARLIE (3.5x):</strong> Long trek across basalt crags (~2000m). Huge point boost!
-                </p>
-                <p>
-                  • <strong>PAD OMEGA (5.0x):</strong> Ultra-far expedition (~2800m). High risk/reward 5x score!
-                </p>
-              </div>
-
-              <div className="bg-black p-3 border-2 border-cyan-900 rounded-none md:col-span-2">
-                <h3 className="font-bold text-cyan-400 mb-1.5 uppercase flex items-center gap-1">
-                  <Radio size={12} />
-                  <span>Safe Landing Envelope (Generous Tolerances)</span>
-                </h3>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                  <p>
-                    1. <strong>Vertical Velocity:</strong> Below {getConfig('maxSafeLandingVy')} px/s (Forgiving descent).
-                  </p>
-                  <p>
-                    2. <strong>Lateral Velocity:</strong> Below {getConfig('maxSafeLandingVx')} px/s (Drift tolerance).
-                  </p>
-                  <p>
-                    3. <strong>Attitude Tilt:</strong> Within ±{getConfig('maxSafeAngleDeg')}° of true vertical.
-                  </p>
-                </div>
-              </div>
-
-              {/* Technology Retrogression Explanation Card */}
-              <div className="bg-black p-3 border-2 border-purple-900 rounded-none md:col-span-2">
-                <h3 className="font-bold text-purple-400 mb-1.5 uppercase flex items-center gap-1">
-                  <Activity size={12} />
-                  <span>Technology Retrogression: Why Avionics Age Backward</span>
-                </h3>
-                <p className="mb-2 text-zinc-300">
-                  Every time you touch down safely and advance, the ship’s guidance computers regress backward in time, decommissioning modern flight assists:
-                </p>
-                <div className="grid grid-cols-1 sm:grid-cols-5 gap-1.5 font-mono text-[7.5px]">
-                  <div className="p-1.5 bg-zinc-950 border border-emerald-500/70">
-                    <span className="font-bold text-emerald-400 block">EPOCH 1: 2026</span>
-                    <span className="text-zinc-400 block text-[6.5px]">Glass Cockpit, Trajectory Pip, Radar Map, +80% Fuel</span>
-                  </div>
-                  <div className="p-1.5 bg-zinc-950 border border-green-500/70">
-                    <span className="font-bold text-green-400 block">EPOCH 2: 2000</span>
-                    <span className="text-zinc-400 block text-[6.5px]">Y2K SCADA. Trajectory vector pip DECOMMISSIONED</span>
-                  </div>
-                  <div className="p-1.5 bg-zinc-950 border border-amber-500/70">
-                    <span className="font-bold text-amber-400 block">EPOCH 3: 1984</span>
-                    <span className="text-zinc-400 block text-[6.5px]">Amber CRT. Altimeter dead, proximity strobe only, wind</span>
-                  </div>
-                  <div className="p-1.5 bg-zinc-950 border border-slate-400/70">
-                    <span className="font-bold text-slate-300 block">EPOCH 4: 1969</span>
-                    <span className="text-zinc-400 block text-[6.5px]">Apollo Console. Digital speed dead, laggy analog needle</span>
-                  </div>
-                  <div className="p-1.5 bg-zinc-950 border border-red-500/70">
-                    <span className="font-bold text-red-400 block">EPOCH 5: BLACKOUT</span>
-                    <span className="text-zinc-400 block text-[6.5px]">Total optical blackout. Fly purely by acoustic sonar audio pings!</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <button
-              onClick={() => {
-                setIsHowToPlayOpen(false);
-                gameAudio.playCrispClick();
-              }}
-              className="mt-3 w-full bg-black hover:bg-zinc-800 border-2 border-zinc-700 text-white font-bold py-2 px-4 uppercase rounded-none text-[9px]">
-              CLOSE MANUAL
-            </button>
-          </div>
-        </MenuOverlay>
+      {/* MODULAR MENU SCREENS & OVERLAYS */}
+      {!isAttractMode && (
+        <MenuScreens
+          mainMenuScreen={mainMenuScreen}
+          setMainMenuScreen={setMainMenuScreen}
+          previousScreen={previousScreen}
+          setPreviousScreen={setPreviousScreen}
+          gameMode={gameMode}
+          setGameMode={setGameMode}
+          pilotName={pilotName}
+          setPilotName={setPilotName}
+          p2Name={p2Name}
+          setP2Name={setP2Name}
+          p1Theme={p1Theme}
+          setP1Theme={setP1Theme}
+          p2Theme={p2Theme}
+          setP2Theme={setP2Theme}
+          selectedStartingEpoch={selectedStartingEpoch}
+          setSelectedStartingEpoch={setSelectedStartingEpoch}
+          selectedAiPersona={selectedAiPersona}
+          setSelectedAiPersona={setSelectedAiPersona}
+          keyBindings={keyBindings}
+          setKeyBindings={setKeyBindings}
+          rebindingAction={rebindingAction}
+          setRebindingAction={setRebindingAction}
+          isSfxMuted={isSfxMuted}
+          setIsSfxMuted={setIsSfxMuted}
+          isMusicMuted={isMusicMuted}
+          setIsMusicMuted={setIsMusicMuted}
+          isFullscreen={isFullscreen}
+          toggleFullscreen={toggleFullscreen}
+          leaderboardList={leaderboardList}
+          setLeaderboardList={setLeaderboardList}
+          onStartGame={initGame}
+          onRestartLevel={handleRestartLevel}
+          onAdvanceLevel={handleAdvanceLevel}
+          onAbortToTitle={handleAbortToTitle}
+          gameState={gameState}
+          lastTouchdownStats={lastTouchdownStats}
+          isMenuOpen={isMenuOpen}
+          setIsMenuOpen={setIsMenuOpen}
+          assets={assets}
+          shipThemes={SHIP_THEMES}
+          presetPilotNames={PRESET_PILOT_NAMES}
+        />
       )}
     </div>
   );

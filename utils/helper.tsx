@@ -22,7 +22,7 @@ interface OverlayProps {
   description?: string;
   actionLabel: string;
   onAction: () => void;
-  icon?: React.ReactNode;
+  icon?: any;
   tone?: OverlayTone;
   autoFocus?: boolean;
 }
@@ -99,7 +99,7 @@ export function Overlay({
 }
 
 export interface MenuOverlayProps {
-  children: React.ReactNode;
+  children: any;
   tone?: OverlayTone;
   zIndex?: number;
   fullScreen?: boolean;

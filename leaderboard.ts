@@ -10,7 +10,7 @@ export interface LeaderboardEntry {
   epoch: number;
   padName: string;
   padMultiplier: number;
-  mode: 'SOLO' | 'DUEL';
+  mode: 'SOLO' | 'AI_DUEL' | 'DUEL';
   timestamp: number;
   dateFormatted: string;
   precisionRating: 'PERFECT' | 'EXCELLENT' | 'GOOD' | 'ROUGH';
@@ -148,7 +148,7 @@ export function saveScore(entry: {
   epoch: number;
   padName: string;
   padMultiplier: number;
-  mode: 'SOLO' | 'DUEL';
+  mode: 'SOLO' | 'AI_DUEL' | 'DUEL';
   precisionRating: 'PERFECT' | 'EXCELLENT' | 'GOOD' | 'ROUGH';
 }): LeaderboardEntry {
   const current = getLeaderboard();
