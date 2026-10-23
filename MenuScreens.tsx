@@ -1801,7 +1801,7 @@ export default function MenuScreens({
                 <div className="p-2 bg-black border border-zinc-800">
                   <span className="text-zinc-500 block text-[8px] font-bold uppercase">ENGINE THRUST:</span>
                   <strong className="text-white text-xs block font-mono">
-                    {effectiveStats.thrustMultiplier.toFixed(2)}x
+                    {Number(effectiveStats.thrustMultiplier || 1).toFixed(2)}x
                   </strong>
                   <span className="text-[7.5px] text-emerald-400">
                     Tier {activeUpgrades.engineTier}/5 (+{activeUpgrades.engineTier * 8}%)
@@ -1811,7 +1811,7 @@ export default function MenuScreens({
                 <div className="p-2 bg-black border border-zinc-800">
                   <span className="text-zinc-500 block text-[8px] font-bold uppercase">FUEL CAPACITY:</span>
                   <strong className="text-cyan-400 text-xs block font-mono">
-                    {effectiveStats.effectiveFuelCapacity}L
+                    {effectiveStats.effectiveFuelCapacity || effectiveStats.fuel || 180}L
                   </strong>
                   <span className="text-[7.5px] text-cyan-300">
                     +{activeCraft.baseFuelBonus + activeUpgrades.fuelTier * 15}L Tank
@@ -1821,7 +1821,7 @@ export default function MenuScreens({
                 <div className="p-2 bg-black border border-zinc-800">
                   <span className="text-zinc-500 block text-[8px] font-bold uppercase">RCS TURN RATE:</span>
                   <strong className="text-amber-400 text-xs block font-mono">
-                    {effectiveStats.turnMultiplier.toFixed(2)}x
+                    {Number(effectiveStats.turnMultiplier || 1).toFixed(2)}x
                   </strong>
                   <span className="text-[7.5px] text-amber-300">
                     Tier {activeUpgrades.turnTier}/5 (+{activeUpgrades.turnTier * 10}%)

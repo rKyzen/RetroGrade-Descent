@@ -218,27 +218,33 @@ export function computeEffectiveStats(
   baseLevelFuel = 180,
   baseRotationSpeed = 3.6
 ) {
+  const engineTier = upgradeTier?.engineTier ?? 0;
+  const fuelTier = upgradeTier?.fuelTier ?? 0;
+  const turnTier = upgradeTier?.turnTier ?? 0;
+
   // Engine Thrust: Base planet thrust * craft multiplier * (1 + 0.08 * engineTier)
-  const engineBonusPct = upgradeTier.engineTier * 8;
-  const effectiveThrust =
-    basePlanetThrust * craft.baseThrustMultiplier * (1 + upgradeTier.engineTier * 0.08);
+  const engineBonusPct = engineTier * 8;
+  const thrustMultiplier = Number((craft.baseThrustMultiplier * (1 + engineTier * 0.08)).toFixed(2));
+  const effectiveThrust = Math.round(basePlanetThrust * thrustMultiplier);
 
   // Fuel Capacity: Base level fuel + craft bonus fuel + 15L per fuel tier
-  const fuelBonusLiters = craft.baseFuelBonus + upgradeTier.fuelTier * 15;
+  const fuelBonusLiters = craft.baseFuelBonus + fuelTier * 15;
   const effectiveFuel = baseLevelFuel + fuelBonusLiters;
 
   // Turn Speed (RCS): Base rotation speed * craft turn multiplier * (1 + 0.10 * turnTier)
-  const turnBonusPct = upgradeTier.turnTier * 10;
-  const effectiveTurnSpeed =
-    baseRotationSpeed * craft.baseTurnMultiplier * (1 + upgradeTier.turnTier * 0.1);
+  const turnBonusPct = turnTier * 10;
+  const turnMultiplier = Number((craft.baseTurnMultiplier * (1 + turnTier * 0.10)).toFixed(2));
+  const effectiveTurnSpeed = Number((baseRotationSpeed * turnMultiplier).toFixed(2));
 
   return {
-    thrust: Math.round(effectiveThrust),
-    thrustMultiplier: (craft.baseThrustMultiplier * (1 + upgradeTier.engineTier * 0.08)).toFixed(2),
+    thrust: effectiveThrust,
+    thrustMultiplier,
     engineBonusPct,
     fuel: effectiveFuel,
+    effectiveFuelCapacity: effectiveFuel,
     fuelBonusLiters,
-    turnSpeed: Number(effectiveTurnSpeed.toFixed(2)),
+    turnSpeed: effectiveTurnSpeed,
+    turnMultiplier,
     turnBonusPct,
   };
 }
