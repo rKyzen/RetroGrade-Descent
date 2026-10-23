@@ -108,6 +108,7 @@ export type MainMenuScreen =
   | 'FLOW_MODE'
   | 'FLOW_CUSTOMIZE'
   | 'FLOW_LEVEL'
+  | 'HANGAR'
   | 'SETTINGS'
   | 'LEADERBOARD'
   | 'HOW_TO_PLAY';
@@ -275,6 +276,10 @@ export default function MenuScreens({
           </div>
 
           <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2 px-3 py-1.5 bg-amber-950/60 border border-amber-500/80 text-amber-300 font-mono text-[9px] font-bold shadow-[2px_2px_0_0_#b45309]">
+              <Coins size={14} className="text-amber-400 animate-pulse" />
+              <span>{gradeCoins.toLocaleString()} GC</span>
+            </div>
             {leaderboardList && leaderboardList.length > 0 && (
               <button
                 type="button"
@@ -345,6 +350,36 @@ export default function MenuScreens({
                   </div>
                 </div>
                 <ChevronRight size={24} className="group-hover:translate-x-1.5 transition-transform shrink-0" />
+              </button>
+
+              {/* 2. GARAGE / HANGAR (Directly Below Start) */}
+              <button
+                type="button"
+                onClick={() => {
+                  setPreviousScreen('TITLE');
+                  setMainMenuScreen('HANGAR');
+                  gameAudio.playCrispClick();
+                }}
+                className="w-full bg-black/90 hover:bg-zinc-900 text-zinc-100 border-2 border-amber-500/80 hover:border-amber-400 p-3.5 text-left shadow-[4px_4px_0px_0px_#78350f] active:translate-x-0.5 active:translate-y-0.5 transition flex items-center justify-between group cursor-pointer rounded-none">
+                <div className="flex items-center gap-3.5">
+                  <div className="w-11 h-11 bg-amber-950/70 text-amber-400 flex items-center justify-center border border-amber-500 group-hover:scale-105 transition-transform shrink-0">
+                    <Wrench size={22} />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm sm:text-base font-bold tracking-wider text-amber-400 uppercase block">
+                        GARAGE / HANGAR
+                      </span>
+                      <span className="text-[7px] px-1.5 py-0.5 bg-amber-500/20 text-amber-300 border border-amber-500/60 font-mono font-bold uppercase">
+                        FLEET & UPGRADES
+                      </span>
+                    </div>
+                    <span className="text-[7px] font-mono text-zinc-400 uppercase">
+                      Buy Landers & Upgrade Vessel Specs
+                    </span>
+                  </div>
+                </div>
+                <ChevronRight size={20} className="text-zinc-500 group-hover:text-amber-400 group-hover:translate-x-1 transition-all shrink-0" />
               </button>
 
               {/* 2. SETTINGS & CONTROLS */}
@@ -900,11 +935,11 @@ export default function MenuScreens({
             type="button"
             autoFocus
             onClick={() => {
-              setMainMenuScreen('FLOW_CUSTOMIZE');
+              setMainMenuScreen('FLOW_LEVEL');
               gameAudio.playCrispClick();
             }}
             className="w-full sm:flex-1 max-w-md bg-emerald-400 hover:bg-emerald-300 text-black border-4 border-emerald-200 font-black text-xs sm:text-sm py-3 px-6 shadow-[0_0_20px_rgba(16,185,129,0.5)] active:translate-x-0.5 active:translate-y-0.5 transition flex items-center justify-center gap-2 uppercase rounded-none cursor-pointer">
-            <span>CONTINUE TO CRAFT SPECIFICATIONS</span>
+            <span>CONTINUE TO SECTOR & CRAFT SELECTION</span>
             <ChevronRight size={18} />
           </button>
         </div>
@@ -913,10 +948,10 @@ export default function MenuScreens({
   }
 
   // =========================================================================
-  // 4. START FLOW - STEP 3: CRAFT CUSTOMIZATION & FLEET HANGAR SHOP
-  // Select/Purchase Crafts (3 Models) + Individual Stat Upgrades + Livery/Pilot
+  // GARAGE / HANGAR MENU (Dedicated Fleet Purchasing, Specs & Upgrades)
+  // Accessible directly from Title Screen
   // =========================================================================
-  if (gameState.status === 'START' && mainMenuScreen === 'FLOW_CUSTOMIZE') {
+  if (mainMenuScreen === 'HANGAR' || mainMenuScreen === 'FLOW_CUSTOMIZE') {
     const activeCraft = getCraft(selectedCraftId);
     const activeUpgrades = craftUpgrades[activeCraft.id] || { engineTier: 0, fuelTier: 0, turnTier: 0 };
     const effectiveStats = computeEffectiveStats(
@@ -982,27 +1017,27 @@ export default function MenuScreens({
     return (
       <div className="fixed inset-0 w-full h-full z-40 flex flex-col justify-between overflow-y-auto bg-gradient-to-b from-[#06080d]/96 via-[#06080d]/92 to-[#06080d]/98 backdrop-blur-md text-emerald-400 select-none">
         {/* Full-width Top Header Bar */}
-        <div className="w-full flex items-center justify-between px-6 md:px-12 py-3.5 border-b border-emerald-900/60 bg-[#06080d]/80 backdrop-blur-md shrink-0">
+        <div className="w-full flex items-center justify-between px-6 md:px-12 py-3.5 border-b border-amber-900/60 bg-[#06080d]/80 backdrop-blur-md shrink-0">
           <div className="flex items-center gap-3">
-            <Shield size={24} className="text-emerald-400 animate-pulse" />
+            <Wrench size={24} className="text-amber-400 animate-pulse" />
             <div>
               <div className="flex items-center gap-2.5">
-                <span className="text-xs px-2.5 py-0.5 bg-emerald-950 border border-emerald-500/80 text-emerald-300 font-mono font-bold uppercase tracking-wider">
-                  STEP 3 OF 4
+                <span className="text-xs px-2.5 py-0.5 bg-amber-950 border border-amber-500/80 text-amber-300 font-mono font-bold uppercase tracking-wider">
+                  HANGAR FACILITY
                 </span>
-                <h2 className="text-base sm:text-xl font-black tracking-wider uppercase text-emerald-400">
-                  FLEET HANGAR // CRAFT & PILOT CONFIGURATION
+                <h2 className="text-base sm:text-xl font-black tracking-wider uppercase text-amber-400">
+                  GARAGE // FLEET MANAGEMENT & UPGRADES
                 </h2>
               </div>
               <span className="text-xs font-mono text-zinc-400 uppercase tracking-widest block mt-0.5">
-                TARGET: {currentPlanetDef.name} • SELECT OR PURCHASE LANDERS • UPGRADE PROPULSION, FUEL & RCS
+                PURCHASE NEW LANDER MODELS • UPGRADE ENGINE, FUEL & RCS SPECS • PER-VESSEL PROGRESSION
               </span>
             </div>
           </div>
 
           <div className="flex items-center gap-4">
             {/* GradeCoins Persistent Wallet Badge */}
-            <div className="flex items-center gap-2 px-3 py-1.5 bg-amber-950/40 border-2 border-amber-500/80 text-amber-300 font-mono font-bold text-xs sm:text-sm shadow-[0_0_12px_rgba(245,158,11,0.25)]">
+            <div className="flex items-center gap-2 px-3.5 py-1.5 bg-amber-950/60 border-2 border-amber-500/80 text-amber-300 font-mono font-bold text-xs sm:text-sm shadow-[0_0_12px_rgba(245,158,11,0.35)]">
               <Coins size={16} className="text-amber-400 animate-pulse" />
               <span>{gradeCoins.toLocaleString()} GC</span>
             </div>
@@ -1010,12 +1045,12 @@ export default function MenuScreens({
             <button
               type="button"
               onClick={() => {
-                setMainMenuScreen('FLOW_MODE');
+                setMainMenuScreen('TITLE');
                 gameAudio.playCrispClick();
               }}
-              className="bg-black/80 hover:bg-zinc-800 border-2 border-zinc-700 hover:border-emerald-400 text-zinc-300 hover:text-white px-4 py-2 text-xs font-bold flex items-center gap-1.5 uppercase transition">
+              className="bg-black/80 hover:bg-zinc-800 border-2 border-zinc-700 hover:border-amber-400 text-zinc-300 hover:text-white px-4 py-2 text-xs font-bold flex items-center gap-1.5 uppercase transition">
               <ChevronLeft size={15} />
-              <span>BACK TO MODE</span>
+              <span>RETURN TO TITLE</span>
             </button>
 
             <button
@@ -1033,6 +1068,57 @@ export default function MenuScreens({
 
         {/* Content Area - Utilizing Full Screen & Spreading Panels to Edges */}
         <div className="w-full flex-1 flex flex-col justify-between px-6 sm:px-10 md:px-16 py-4 md:py-6 space-y-6">
+
+          {/* BASELINE PERFORMANCE COMPARISON MATRIX */}
+          <div className="w-full bg-zinc-950/90 border-2 border-amber-600/60 p-4 font-mono">
+            <div className="flex items-center justify-between border-b border-zinc-800 pb-2 mb-3">
+              <span className="text-xs font-bold text-amber-400 uppercase tracking-wider flex items-center gap-2">
+                <Sliders size={15} />
+                <span>BASELINE FLEET SPEC COMPARISON (STOCK CONFIGURATION)</span>
+              </span>
+              <span className="text-[10px] text-zinc-400 uppercase font-bold">
+                NEWER VESSELS FEATURE SUPERIOR BASELINE PERFORMANCE
+              </span>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              {CRAFTS.map((craft) => (
+                <div key={craft.id} className="bg-black/80 border border-zinc-800 p-3 flex flex-col justify-between">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="font-bold text-xs uppercase" style={{ color: craft.accentColor }}>
+                      {craft.name}
+                    </span>
+                    <span className="text-[9px] px-1.5 py-0.5 bg-zinc-900 border border-zinc-700 text-zinc-300 font-bold">
+                      {craft.price === 0 ? 'DEFAULT' : `${craft.price.toLocaleString()} GC`}
+                    </span>
+                  </div>
+
+                  <div className="space-y-1.5 text-[9.5px]">
+                    <div className="flex items-center justify-between">
+                      <span className="text-zinc-500">BASE MAIN THRUST:</span>
+                      <span className="font-bold text-white">
+                        {craft.baseThrustMultiplier.toFixed(2)}x
+                        {craft.baseThrustMultiplier > 1 ? ` (+${Math.round((craft.baseThrustMultiplier - 1) * 100)}%)` : ''}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-zinc-500">BASE FUEL BONUS:</span>
+                      <span className="font-bold text-cyan-400">
+                        +{craft.baseFuelBonus}L Tank ({180 + craft.baseFuelBonus}L Total)
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-zinc-500">BASE RCS TURN:</span>
+                      <span className="font-bold text-amber-300">
+                        {craft.baseTurnMultiplier.toFixed(2)}x
+                        {craft.baseTurnMultiplier > 1 ? ` (+${Math.round((craft.baseTurnMultiplier - 1) * 100)}%)` : ''}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
 
           {/* SECTION 1: 3 PLAYABLE CRAFTS HANGAR (PURCHASE & SELECT) */}
           <div>
@@ -1488,27 +1574,27 @@ export default function MenuScreens({
         </div>
 
         {/* Full-width Bottom Action Bar */}
-        <div className="w-full px-6 py-4 border-t border-emerald-900/60 bg-[#06080d]/80 backdrop-blur-md flex flex-col sm:flex-row items-center justify-between gap-3 shrink-0">
+        <div className="w-full px-6 py-4 border-t border-amber-900/60 bg-[#06080d]/80 backdrop-blur-md flex flex-col sm:flex-row items-center justify-between gap-3 shrink-0">
           <button
             type="button"
             onClick={() => {
-              setMainMenuScreen('FLOW_MODE');
+              setMainMenuScreen('TITLE');
               gameAudio.playCrispClick();
             }}
             className="w-full sm:w-auto px-5 py-2.5 bg-black hover:bg-zinc-800 border-2 border-zinc-700 text-zinc-300 hover:text-white font-bold text-xs uppercase transition flex items-center justify-center gap-1.5">
             <ChevronLeft size={14} />
-            <span>BACK TO MODE SELECT</span>
+            <span>RETURN TO TITLE</span>
           </button>
 
           <button
             type="button"
             autoFocus
             onClick={() => {
-              setMainMenuScreen('FLOW_LEVEL');
+              setMainMenuScreen('FLOW_PLANET');
               gameAudio.playCrispClick();
             }}
-            className="w-full sm:flex-1 max-w-md bg-emerald-400 hover:bg-emerald-300 text-black border-4 border-emerald-200 font-black text-xs sm:text-sm py-3 px-6 shadow-[0_0_20px_rgba(16,185,129,0.5)] active:translate-x-0.5 active:translate-y-0.5 transition flex items-center justify-center gap-2 uppercase rounded-none cursor-pointer">
-            <span>PROCEED TO SECTOR MAP SELECTION</span>
+            className="w-full sm:flex-1 max-w-md bg-amber-400 hover:bg-amber-300 text-black border-4 border-amber-200 font-black text-xs sm:text-sm py-3 px-6 shadow-[0_0_20px_rgba(245,158,11,0.5)] active:translate-x-0.5 active:translate-y-0.5 transition flex items-center justify-center gap-2 uppercase rounded-none cursor-pointer">
+            <span>PROCEED TO FLIGHT LAUNCH (PLAY)</span>
             <ChevronRight size={18} />
           </button>
         </div>
@@ -1517,8 +1603,8 @@ export default function MenuScreens({
   }
 
   // =========================================================================
-  // 5. START FLOW - STEP 4: MAP & RETROGRESSION SELECTION (10 Progressive Maps)
-  // Clean Map Selector + Interactive 10-Step Retrogression Flow Map + Level Locks
+  // 5. START FLOW - STEP 3: MISSION SECTOR & ACTIVE CRAFT SELECTION
+  // Select Map (10 Progressive Maps) + Select Active Craft & View Current Stats
   // =========================================================================
   if (gameState.status === 'START' && mainMenuScreen === 'FLOW_LEVEL') {
     const planetLevels = LEVELS_BY_PLANET[selectedPlanet] || LEVELS_BY_PLANET.moon;
@@ -1527,19 +1613,28 @@ export default function MenuScreens({
     const currentRetrogressionStep = RETROGRESSION_STEPS[effectiveStartingEpoch - 1] || RETROGRESSION_STEPS[0];
     const effectiveLevelConfig = getLevel(selectedPlanet, effectiveStartingEpoch);
 
+    const activeCraft = getCraft(selectedCraftId);
+    const activeUpgrades = craftUpgrades[activeCraft.id] || { engineTier: 0, fuelTier: 0, turnTier: 0 };
+    const effectiveStats = computeEffectiveStats(
+      activeCraft,
+      activeUpgrades,
+      currentPlanetDef.mainThrust,
+      effectiveLevelConfig.fuelCapacity
+    );
+
     return (
       <div className="fixed inset-0 w-full h-full z-40 flex flex-col justify-between overflow-y-auto bg-gradient-to-b from-[#06080d]/96 via-[#06080d]/92 to-[#06080d]/98 backdrop-blur-md text-emerald-400 select-none">
         {/* Full-width Top Header Bar */}
-        <div className="w-full flex items-center justify-between px-6 md:px-12 py-4 border-b border-emerald-900/60 bg-[#06080d]/80 backdrop-blur-md shrink-0">
+        <div className="w-full flex items-center justify-between px-6 md:px-12 py-3.5 border-b border-emerald-900/60 bg-[#06080d]/80 backdrop-blur-md shrink-0">
           <div className="flex items-center gap-3">
             <Compass size={24} className="text-emerald-400 animate-pulse" />
             <div>
               <div className="flex items-center gap-2.5">
                 <span className="text-xs px-2.5 py-0.5 bg-emerald-950 border border-emerald-500/80 text-emerald-300 font-mono font-bold uppercase tracking-wider">
-                  STEP 4 OF 4
+                  MISSION BRIEFING
                 </span>
                 <h2 className="text-base sm:text-xl font-black tracking-wider uppercase text-emerald-400">
-                  SELECT DESCENT SECTOR // {currentPlanetDef.name}
+                  DESCENT SECTOR & CRAFT // {currentPlanetDef.name}
                 </h2>
                 <span className="text-xs font-mono font-bold px-2 py-0.5 border uppercase" style={{ borderColor: currentPlanetDef.accentColor, color: currentPlanetDef.accentColor }}>
                   {currentPlanetDef.gravity} PX/S²
@@ -1548,13 +1643,32 @@ export default function MenuScreens({
                   UNLOCKED: {maxUnlocked}/10
                 </span>
               </div>
-              <span className="text-xs font-mono text-zinc-400 uppercase tracking-widest block mt-1">
+              <span className="text-xs font-mono text-zinc-400 uppercase tracking-widest block mt-0.5">
                 {currentPlanetDef.subname} • 10 MAPS WITH PROGRESSIVE AVIONICS RETROGRESSION
               </span>
             </div>
           </div>
 
           <div className="flex items-center gap-3">
+            {/* GradeCoins Wallet Display */}
+            <div className="flex items-center gap-2 px-3 py-1.5 bg-amber-950/50 border border-amber-500/80 text-amber-300 font-mono font-bold text-xs shadow-[2px_2px_0_0_#b45309]">
+              <Coins size={14} className="text-amber-400 animate-pulse" />
+              <span>{gradeCoins.toLocaleString()} GC</span>
+            </div>
+
+            {/* Quick Hangar Button */}
+            <button
+              type="button"
+              onClick={() => {
+                setPreviousScreen('TITLE');
+                setMainMenuScreen('HANGAR');
+                gameAudio.playCrispClick();
+              }}
+              className="bg-amber-950/60 hover:bg-amber-900/70 border border-amber-500 text-amber-300 px-3 py-1.5 text-xs font-bold flex items-center gap-1.5 uppercase transition font-mono">
+              <Wrench size={13} className="text-amber-400" />
+              <span>HANGAR & UPGRADES</span>
+            </button>
+
             {/* Quick Planet Switcher Pills */}
             <div className="hidden md:flex items-center gap-2 font-mono text-xs mr-2">
               {PLANETS.map((p) => {
@@ -1585,35 +1699,137 @@ export default function MenuScreens({
             <button
               type="button"
               onClick={() => {
-                setMainMenuScreen('FLOW_CUSTOMIZE');
+                setMainMenuScreen('FLOW_MODE');
                 gameAudio.playCrispClick();
               }}
-              className="bg-black/80 hover:bg-zinc-800 border-2 border-zinc-700 hover:border-emerald-400 text-zinc-300 hover:text-white px-4 py-2 text-xs font-bold flex items-center gap-1.5 uppercase transition">
-              <ChevronLeft size={15} />
-              <span>BACK TO CRAFT</span>
+              className="bg-black/80 hover:bg-zinc-800 border-2 border-zinc-700 hover:border-emerald-400 text-zinc-300 hover:text-white px-3.5 py-1.5 text-xs font-bold flex items-center gap-1.5 uppercase transition">
+              <ChevronLeft size={14} />
+              <span>BACK TO MODE</span>
             </button>
+
             <button
               type="button"
               onClick={() => {
                 toggleFullscreen();
                 gameAudio.playCrispClick();
               }}
-              className="bg-black hover:bg-emerald-400 hover:text-black border border-emerald-500 px-4 py-2 text-xs flex items-center gap-1.5 font-mono font-bold transition">
-              {isFullscreen ? <Minimize2 size={15} /> : <Maximize2 size={15} />}
+              className="bg-black hover:bg-emerald-400 hover:text-black border border-emerald-500 px-3 py-1.5 text-xs flex items-center gap-1.5 font-mono font-bold transition">
+              {isFullscreen ? <Minimize2 size={14} /> : <Maximize2 size={14} />}
               <span>{isFullscreen ? 'EXIT FS' : 'FULLSCREEN'}</span>
             </button>
           </div>
         </div>
 
         {/* Content Area - Utilizing Full Screen & Spreading Panels to Edges */}
-        <div className="w-full flex-1 flex flex-col justify-between px-6 sm:px-10 md:px-16 py-4 md:py-6 space-y-5">
+        <div className="w-full flex-1 flex flex-col justify-between px-6 sm:px-10 md:px-16 py-3 md:py-4 space-y-3.5">
           {/* Locked Notice Banner */}
           {lockedNotice && (
-            <div className="bg-amber-950/90 border-2 border-amber-500 p-2.5 text-center text-amber-300 font-bold text-xs uppercase tracking-wider mb-2 animate-pulse flex items-center justify-center gap-2">
+            <div className="bg-amber-950/90 border-2 border-amber-500 p-2 text-center text-amber-300 font-bold text-xs uppercase tracking-wider animate-pulse flex items-center justify-center gap-2">
               <Lock size={15} className="shrink-0 text-amber-400" />
               <span>{lockedNotice}</span>
             </div>
           )}
+
+          {/* ACTIVE CRAFT SELECTION & STATS PREVIEW (DIRECTLY IN PLAY FLOW) */}
+          <div className="bg-black/90 border-2 border-emerald-500/80 p-3 font-mono">
+            <div className="flex items-center justify-between border-b border-zinc-800 pb-1.5 mb-2">
+              <span className="text-xs font-bold text-emerald-400 uppercase tracking-wider flex items-center gap-2">
+                <Rocket size={14} className="text-emerald-400" />
+                <span>SELECT ACTIVE CRAFT FOR LAUNCH & VIEW FLIGHT DYNAMICS</span>
+              </span>
+              <span className="text-[10px] text-zinc-400 uppercase">
+                CLICK AN OWNED CRAFT TO EQUIP FOR THIS RUN
+              </span>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-center">
+              {/* 3 Craft Model Buttons */}
+              <div className="md:col-span-6 grid grid-cols-3 gap-2">
+                {CRAFTS.map((craft) => {
+                  const isOwned = ownedCrafts.includes(craft.id);
+                  const isSelected = selectedCraftId === craft.id;
+                  const craftImg = assets[craft.assetKey] || assets['lander'];
+
+                  return (
+                    <button
+                      key={craft.id}
+                      type="button"
+                      onClick={() => {
+                        if (isOwned) {
+                          setSelectedCraftId(craft.id);
+                          setStoredSelectedCraftId(craft.id);
+                          gameAudio.playCrispClick();
+                        } else {
+                          gameAudio.playRcsPuff();
+                          setMainMenuScreen('HANGAR');
+                        }
+                      }}
+                      className={`p-2 border text-left transition flex flex-col justify-between ${
+                        isSelected
+                          ? 'bg-zinc-900 border-white shadow-[0_0_12px_rgba(255,255,255,0.4)]'
+                          : isOwned
+                          ? 'bg-black/70 border-zinc-800 hover:border-zinc-600'
+                          : 'bg-zinc-950/80 border-dashed border-zinc-800 opacity-60 hover:opacity-100'
+                      }`}>
+                      <div className="w-full h-10 flex items-center justify-center mb-1">
+                        {craftImg && craftImg.complete ? (
+                          <img
+                            src={craft.spriteUrl}
+                            alt={craft.name}
+                            className="max-h-full max-w-full object-contain pixelated"
+                          />
+                        ) : (
+                          <Rocket size={20} style={{ color: craft.accentColor }} />
+                        )}
+                      </div>
+
+                      <div className="truncate">
+                        <span className="text-[9px] font-black uppercase block truncate" style={{ color: craft.accentColor }}>
+                          {craft.name.split(' ')[0]}
+                        </span>
+                        <span className="text-[7.5px] text-zinc-400 uppercase font-bold block truncate">
+                          {isSelected ? '✓ EQUIPPED' : isOwned ? 'CLICK TO SELECT' : `LOCKED (${craft.price} GC)`}
+                        </span>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Chosen Craft Live Effective Stats Display */}
+              <div className="md:col-span-6 grid grid-cols-3 gap-2 bg-zinc-950 p-2 border border-zinc-800 text-[10px]">
+                <div className="p-2 bg-black border border-zinc-800">
+                  <span className="text-zinc-500 block text-[8px] font-bold uppercase">ENGINE THRUST:</span>
+                  <strong className="text-white text-xs block font-mono">
+                    {effectiveStats.thrustMultiplier.toFixed(2)}x
+                  </strong>
+                  <span className="text-[7.5px] text-emerald-400">
+                    Tier {activeUpgrades.engineTier}/5 (+{activeUpgrades.engineTier * 8}%)
+                  </span>
+                </div>
+
+                <div className="p-2 bg-black border border-zinc-800">
+                  <span className="text-zinc-500 block text-[8px] font-bold uppercase">FUEL CAPACITY:</span>
+                  <strong className="text-cyan-400 text-xs block font-mono">
+                    {effectiveStats.effectiveFuelCapacity}L
+                  </strong>
+                  <span className="text-[7.5px] text-cyan-300">
+                    +{activeCraft.baseFuelBonus + activeUpgrades.fuelTier * 15}L Tank
+                  </span>
+                </div>
+
+                <div className="p-2 bg-black border border-zinc-800">
+                  <span className="text-zinc-500 block text-[8px] font-bold uppercase">RCS TURN RATE:</span>
+                  <strong className="text-amber-400 text-xs block font-mono">
+                    {effectiveStats.turnMultiplier.toFixed(2)}x
+                  </strong>
+                  <span className="text-[7.5px] text-amber-300">
+                    Tier {activeUpgrades.turnTier}/5 (+{activeUpgrades.turnTier * 10}%)
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
 
           {/* 10 Map Cards Grid (5x2) - Each Map Has Unique Terrain & Hardcoded Retrogression */}
           <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 mb-2 flex-1">
@@ -1775,12 +1991,12 @@ export default function MenuScreens({
             <button
               type="button"
               onClick={() => {
-                setMainMenuScreen('FLOW_CUSTOMIZE');
+                setMainMenuScreen('FLOW_MODE');
                 gameAudio.playCrispClick();
               }}
               className="flex-1 sm:flex-initial px-4 py-2.5 bg-black hover:bg-zinc-800 border-2 border-zinc-700 text-zinc-300 hover:text-white font-bold text-[8.5px] uppercase transition flex items-center justify-center gap-1.5">
               <ChevronLeft size={13} />
-              <span>BACK TO CRAFT</span>
+              <span>BACK TO MODE</span>
             </button>
 
             <button

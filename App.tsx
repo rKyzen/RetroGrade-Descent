@@ -268,9 +268,7 @@ export default function App() {
   const [selectedAiPersona, setSelectedAiPersona] = useState<AiPersona>(AI_PERSONAS[0]);
 
   // Main UI Screen state
-  const [mainMenuScreen, setMainMenuScreen] = useState<
-    'TITLE' | 'FLOW_MODE' | 'FLOW_CUSTOMIZE' | 'FLOW_LEVEL' | 'SETTINGS' | 'LEADERBOARD' | 'HOW_TO_PLAY'
-  >('TITLE');
+  const [mainMenuScreen, setMainMenuScreen] = useState<MainMenuScreen>('TITLE');
   const [previousScreen, setPreviousScreen] = useState<'TITLE' | 'PAUSE'>('TITLE');
 
   // Keybindings state & Active rebinding
@@ -776,23 +774,33 @@ export default function App() {
   // Exact terrain surface height interpolation
   const getTerrainSurfaceY = useCallback((x: number): number => {
     const pts = terrainRef.current;
-    const wWidth = worldDimensionsRef.current.width;
-    if (!pts || pts.length === 0) return worldDimensionsRef.current.height;
+    const wWidth = Math.max(1000, worldDimensionsRef.current.width || 3400);
+    const wHeight = worldDimensionsRef.current.height || 1400;
+    if (!pts || pts.length < 2) return wHeight;
 
-    const wrappedX = ((x % wWidth) + wWidth) % wWidth;
+    const safeX = isFinite(x) ? x : 0;
+    const wrappedX = ((safeX % wWidth) + wWidth) % wWidth;
     const step = 16;
     let idx = Math.floor(wrappedX / step);
-    if (idx < 0) idx = 0;
+    if (!isFinite(idx) || idx < 0) idx = 0;
     if (idx >= pts.length - 1) idx = pts.length - 2;
 
-    while (idx > 0 && pts[idx].x > wrappedX) idx--;
-    while (idx < pts.length - 2 && pts[idx + 1].x < wrappedX) idx++;
+    let guard = 0;
+    while (idx > 0 && pts[idx]?.x > wrappedX && guard < 60) {
+      idx--;
+      guard++;
+    }
+    guard = 0;
+    while (idx < pts.length - 2 && pts[idx + 1]?.x < wrappedX && guard < 60) {
+      idx++;
+      guard++;
+    }
 
-    const p1 = pts[idx];
-    const p2 = pts[idx + 1];
+    const p1 = pts[idx] || { x: 0, y: wHeight };
+    const p2 = pts[idx + 1] || { x: wWidth, y: wHeight };
     const span = p2.x - p1.x;
     if (span <= 0) return p1.y;
-    const t = (wrappedX - p1.x) / span;
+    const t = Math.max(0, Math.min(1, (wrappedX - p1.x) / span));
     return p1.y + t * (p2.y - p1.y);
   }, []);
 
@@ -1248,8 +1256,9 @@ export default function App() {
     }
 
     lander.angle += lander.angularVelocity * dt;
-    while (lander.angle > Math.PI) lander.angle -= Math.PI * 2;
-    while (lander.angle < -Math.PI) lander.angle += Math.PI * 2;
+    if (!isFinite(lander.angle)) lander.angle = 0;
+    if (!isFinite(lander.angularVelocity)) lander.angularVelocity = 0;
+    lander.angle = ((lander.angle + Math.PI) % (Math.PI * 2) + (Math.PI * 2)) % (Math.PI * 2) - Math.PI;
 
     let ax = 0;
     let ay = gravity;
@@ -2087,8 +2096,11 @@ export default function App() {
     ctx.save();
     ctx.translate(-camX, -camY);
 
-    const startChunk = Math.floor((camX - 100) / worldW);
-    const endChunk = Math.floor((camX + viewportW + 100) / worldW);
+    const safeWorldW = Math.max(1000, worldW || 3400);
+    const rawStartChunk = Math.floor((camX - 100) / safeWorldW);
+    const rawEndChunk = Math.floor((camX + viewportW + 100) / safeWorldW);
+    const startChunk = Math.max(-10, Math.min(10, isFinite(rawStartChunk) ? rawStartChunk : 0));
+    const endChunk = Math.max(startChunk, Math.min(startChunk + 6, isFinite(rawEndChunk) ? rawEndChunk : startChunk + 1));
 
     // 5. Draw Crag Spire Obstacles
     const crags = cragsRef.current;

@@ -42,7 +42,7 @@ export function getUpgradeCost(currentTier: number): number {
   return UPGRADE_COSTS[currentTier + 1] || 150;
 }
 
-// 3 Distinct Playable Craft Models
+// 3 Distinct Playable Craft Models with Clear Tiered Baseline Progression
 export const CRAFTS: CraftDefinition[] = [
   {
     id: 'vanguard',
@@ -55,10 +55,10 @@ export const CRAFTS: CraftDefinition[] = [
     baseThrustMultiplier: 1.0,
     baseFuelBonus: 0,
     baseTurnMultiplier: 1.0,
-    description: 'Battle-proven Apollo-derived lunar excursion module. Dependable and balanced flight characteristics.',
+    description: 'Battle-proven Apollo-derived lunar excursion module. Standard baseline dynamics with titanium landing gear.',
     accentColor: '#10b981',
-    classTag: 'ALL-ROUND TACTICAL LANDER',
-    specs: ['BALANCED FLIGHT DYNAMICS', 'STANDARD TITANIUM STRUTS', 'RELIABLE REACTION JETS'],
+    classTag: 'CLASS-I STANDARD LANDER',
+    specs: ['BASELINE THRUST (1.00x)', 'STANDARD FUEL CELLS (180L)', 'STANDARD RCS TORQUE (1.00x)'],
   },
   {
     id: 'ares',
@@ -67,13 +67,13 @@ export const CRAFTS: CraftDefinition[] = [
     assetKey: 'lander_ares',
     spriteUrl: 'assets/images/lander_ares.png',
     price: 1200,
-    baseThrustMultiplier: 0.95,
-    baseFuelBonus: 25,
+    baseThrustMultiplier: 1.12,
+    baseFuelBonus: 30,
     baseTurnMultiplier: 1.25,
-    description: 'Next-generation planetary scout with lightweight composite frame and high-rate cold-gas RCS thrusters.',
+    description: 'Advanced planetary scout craft engineered for rapid response and tight navigation between narrow cliff gorges.',
     accentColor: '#38bdf8',
-    classTag: 'HIGH-AGILITY RECON SCOUT',
-    specs: ['HIGH-FREQUENCY RCS (+25% TURN)', 'EXPANDED TANKS (+25L FUEL)', 'LIGHTWEIGHT COMPOSITE HULL'],
+    classTag: 'CLASS-II RECON SCOUT (+12% THRUST, +30L FUEL, +25% TURN)',
+    specs: ['UPGRADED MAIN THRUST (1.12x)', 'EXTENDED PROPELLANT CELLS (+30L FUEL)', 'HIGH-FREQUENCY RCS (+25% TURN)'],
   },
   {
     id: 'hyperion',
@@ -82,13 +82,13 @@ export const CRAFTS: CraftDefinition[] = [
     assetKey: 'lander_hyperion',
     spriteUrl: 'assets/images/lander_hyperion.png',
     price: 2600,
-    baseThrustMultiplier: 1.25,
-    baseFuelBonus: 45,
-    baseTurnMultiplier: 0.9,
-    description: 'Heavy reinforced descent cruiser designed to punch through dense planetary atmospheres with brute thrust.',
+    baseThrustMultiplier: 1.30,
+    baseFuelBonus: 65,
+    baseTurnMultiplier: 1.15,
+    description: 'Reinforced deep-space flagship designed to punch through turbulent planetary atmospheres with massive dual-burn thrusters.',
     accentColor: '#e879f9',
-    classTag: 'HEAVY PLANETARY CRUISER',
-    specs: ['HIGH-OUTPUT THRUSTERS (+25%)', 'REINFORCED CHASSIS', 'SUPER-HEAVY DUAL TANKS (+45L)'],
+    classTag: 'CLASS-III HEAVY CRUISER (+30% THRUST, +65L FUEL, +15% TURN)',
+    specs: ['HEAVY INDUSTRIAL THRUST (1.30x)', 'MASSIVE DUAL TANKS (+65L FUEL)', 'REINFORCED TITAN HULL (+15% TURN)'],
   },
 ];
 
