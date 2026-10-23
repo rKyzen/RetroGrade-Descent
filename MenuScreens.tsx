@@ -401,18 +401,8 @@ export default function MenuScreens({
             </div>
           </div>
 
-          {/* Right Side: Open live viewport with subtle HUD beacon in top-right */}
-          <div className="hidden md:flex flex-col items-end justify-start pointer-events-none p-4">
-            <div className="bg-black/60 backdrop-blur-xs border border-emerald-500/40 px-3 py-1.5 font-mono text-[8px] text-right">
-              <div className="text-emerald-400 font-bold flex items-center justify-end gap-2">
-                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping inline-block" />
-                <span>LIVE SIMULATION ACTIVE // ORBITAL PATROL</span>
-              </div>
-              <div className="text-zinc-400 text-[7px] mt-0.5">
-                SECTOR: {currentPlanetDef.name.toUpperCase()} • 60 FPS REAL-TIME
-              </div>
-            </div>
-          </div>
+          {/* Right Side: Completely open live viewport */}
+          <div className="hidden md:flex flex-1" />
         </div>
       </div>
     );
@@ -426,36 +416,54 @@ export default function MenuScreens({
     const selectedDef = getPlanet(selectedPlanet);
 
     return (
-      <MenuOverlay tone="neutral" zIndex={40} fullScreen maxWidthClass="w-full max-w-7xl">
-        <div className="w-full bg-[#08080c]/95 backdrop-blur-md border-4 border-emerald-500 p-5 md:p-7 shadow-[12px_12px_0px_0px_#064e3b] flex flex-col text-emerald-400 rounded-none relative">
-          {/* Header with Step Indicator */}
-          <div className="flex items-center justify-between pb-3 mb-4 border-b-2 border-emerald-800/80">
-            <div className="flex items-center gap-2.5">
-              <Compass size={22} className="text-emerald-400 animate-pulse" />
-              <div>
-                <h2 className="text-base sm:text-xl font-black tracking-wider uppercase text-emerald-400">
+      <div className="fixed inset-0 w-full h-full z-40 flex flex-col justify-between overflow-y-auto bg-gradient-to-b from-[#06080d]/96 via-[#06080d]/92 to-[#06080d]/98 backdrop-blur-md text-emerald-400 select-none">
+        {/* Full-width Top Header Bar */}
+        <div className="w-full flex items-center justify-between px-6 py-4 border-b border-emerald-900/60 bg-[#06080d]/80 backdrop-blur-md shrink-0">
+          <div className="flex items-center gap-3">
+            <Compass size={22} className="text-emerald-400 animate-pulse" />
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="text-[7.5px] px-2 py-0.5 bg-emerald-950 border border-emerald-500/80 text-emerald-300 font-mono font-bold uppercase tracking-wider">
+                  STEP 1 OF 4
+                </span>
+                <h2 className="text-sm sm:text-lg font-black tracking-wider uppercase text-emerald-400">
                   CELESTIAL DESCENT TARGET // SELECT PLANET
                 </h2>
-                <span className="text-[7.5px] font-mono text-zinc-400 uppercase tracking-widest block">
-                  START FLOW // STEP 1 OF 4 • TARGET CELESTIAL BODY DETERMINES GRAVITY, ATMOSPHERE & MAP TOPOLOGY
-                </span>
               </div>
+              <span className="text-[7.5px] font-mono text-zinc-400 uppercase tracking-widest block mt-0.5">
+                Target celestial body determines surface gravity, atmospheric drag & map topography
+              </span>
             </div>
+          </div>
 
+          <div className="flex items-center gap-2.5">
             <button
               type="button"
               onClick={() => {
                 setMainMenuScreen('TITLE');
                 gameAudio.playCrispClick();
               }}
-              className="bg-black hover:bg-zinc-800 border-2 border-zinc-700 hover:border-emerald-400 text-zinc-300 hover:text-white px-3 py-1.5 text-[8.5px] font-bold flex items-center gap-1.5 uppercase transition">
+              className="bg-black/80 hover:bg-zinc-800 border-2 border-zinc-700 hover:border-emerald-400 text-zinc-300 hover:text-white px-3.5 py-1.5 text-[8.5px] font-bold flex items-center gap-1.5 uppercase transition">
               <ChevronLeft size={13} />
               <span>RETURN TO TITLE</span>
             </button>
+            <button
+              type="button"
+              onClick={() => {
+                toggleFullscreen();
+                gameAudio.playCrispClick();
+              }}
+              className="bg-black hover:bg-emerald-400 hover:text-black border border-emerald-500 px-3 py-1.5 text-[8.5px] flex items-center gap-1.5 font-mono font-bold transition">
+              {isFullscreen ? <Minimize2 size={13} /> : <Maximize2 size={13} />}
+              <span>{isFullscreen ? 'EXIT FS' : 'FULLSCREEN'}</span>
+            </button>
           </div>
+        </div>
 
+        {/* Content Area */}
+        <div className="w-full max-w-7xl mx-auto flex-1 flex flex-col justify-center p-6 sm:p-8 space-y-4">
           {/* 3 Celestial Planet Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
             {PLANETS.map((planet) => {
               const isSelected = selectedPlanet === planet.id;
               return (
@@ -465,7 +473,7 @@ export default function MenuScreens({
                     setSelectedPlanet(planet.id);
                     gameAudio.playCrispClick();
                   }}
-                  className={`p-4 border-2 transition rounded-none relative flex flex-col justify-between cursor-pointer group ${
+                  className={`p-5 border-2 transition rounded-none relative flex flex-col justify-between cursor-pointer group ${
                     isSelected
                       ? 'bg-zinc-900/90 shadow-[6px_6px_0_0_#10b981]'
                       : 'bg-black/75 hover:bg-zinc-950/80 border-zinc-800 hover:border-zinc-600'
@@ -561,7 +569,7 @@ export default function MenuScreens({
 
           {/* Confirmed Celestial Target Briefing Strip */}
           <div
-            className="p-3 border-2 font-mono flex flex-col sm:flex-row items-center justify-between gap-3 mb-4"
+            className="p-3 border-2 font-mono flex flex-col sm:flex-row items-center justify-between gap-3"
             style={{
               backgroundColor: `${selectedDef.accentColor}12`,
               borderColor: `${selectedDef.accentColor}70`,
@@ -582,34 +590,34 @@ export default function MenuScreens({
               [ CELESTIAL TARGET LOCKED ]
             </div>
           </div>
-
-          {/* Bottom Action Buttons */}
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-3 border-t-2 border-emerald-800/80">
-            <button
-              type="button"
-              onClick={() => {
-                setMainMenuScreen('TITLE');
-                gameAudio.playCrispClick();
-              }}
-              className="w-full sm:w-auto px-4 py-2.5 bg-black hover:bg-zinc-800 border-2 border-zinc-700 text-zinc-300 hover:text-white font-bold text-[9px] uppercase transition flex items-center justify-center gap-1.5">
-              <ChevronLeft size={14} />
-              <span>RETURN TO TITLE</span>
-            </button>
-
-            <button
-              type="button"
-              autoFocus
-              onClick={() => {
-                setMainMenuScreen('FLOW_MODE');
-                gameAudio.playCrispClick();
-              }}
-              className="w-full sm:flex-1 max-w-md bg-emerald-400 hover:bg-emerald-300 text-black border-4 border-emerald-200 font-black text-sm py-3 px-6 shadow-[0_0_20px_rgba(16,185,129,0.5)] active:translate-x-0.5 active:translate-y-0.5 transition flex items-center justify-center gap-2 uppercase rounded-none cursor-pointer">
-              <span>CONFIRM {selectedDef.name} & SELECT FLIGHT MODE</span>
-              <ChevronRight size={18} />
-            </button>
-          </div>
         </div>
-      </MenuOverlay>
+
+        {/* Full-width Bottom Action Bar */}
+        <div className="w-full px-6 py-4 border-t border-emerald-900/60 bg-[#06080d]/80 backdrop-blur-md flex flex-col sm:flex-row items-center justify-between gap-3 shrink-0">
+          <button
+            type="button"
+            onClick={() => {
+              setMainMenuScreen('TITLE');
+              gameAudio.playCrispClick();
+            }}
+            className="w-full sm:w-auto px-5 py-2.5 bg-black hover:bg-zinc-800 border-2 border-zinc-700 text-zinc-300 hover:text-white font-bold text-[9px] uppercase transition flex items-center justify-center gap-1.5">
+            <ChevronLeft size={14} />
+            <span>RETURN TO TITLE</span>
+          </button>
+
+          <button
+            type="button"
+            autoFocus
+            onClick={() => {
+              setMainMenuScreen('FLOW_MODE');
+              gameAudio.playCrispClick();
+            }}
+            className="w-full sm:flex-1 max-w-md bg-emerald-400 hover:bg-emerald-300 text-black border-4 border-emerald-200 font-black text-xs sm:text-sm py-3 px-6 shadow-[0_0_20px_rgba(16,185,129,0.5)] active:translate-x-0.5 active:translate-y-0.5 transition flex items-center justify-center gap-2 uppercase rounded-none cursor-pointer">
+            <span>CONFIRM {selectedDef.name} & SELECT FLIGHT MODE</span>
+            <ChevronRight size={18} />
+          </button>
+        </div>
+      </div>
     );
   }
 
@@ -619,34 +627,52 @@ export default function MenuScreens({
   // =========================================================================
   if (gameState.status === 'START' && mainMenuScreen === 'FLOW_MODE') {
     return (
-      <MenuOverlay tone="neutral" zIndex={40} fullScreen maxWidthClass="w-full max-w-7xl">
-        <div className="w-full bg-[#08080c]/95 backdrop-blur-md border-4 border-emerald-500 p-5 md:p-7 shadow-[12px_12px_0px_0px_#064e3b] flex flex-col text-emerald-400 rounded-none relative">
-          
-          {/* Header with Step Indicator */}
-          <div className="flex items-center justify-between pb-3 mb-4 border-b-2 border-emerald-800/80">
-            <div className="flex items-center gap-2">
-              <Rocket size={18} className="text-emerald-400" />
-              <div>
-                <h2 className="text-base sm:text-lg font-black tracking-wider uppercase text-emerald-400">
-                  SELECT FLIGHT PROFILE
-                </h2>
-                <span className="text-[7.5px] font-mono text-zinc-400 uppercase tracking-widest block">
-                  START FLOW // STEP 2 OF 4 • TARGET: {currentPlanetDef.name} [{currentPlanetDef.subname}]
+      <div className="fixed inset-0 w-full h-full z-40 flex flex-col justify-between overflow-y-auto bg-gradient-to-b from-[#06080d]/96 via-[#06080d]/92 to-[#06080d]/98 backdrop-blur-md text-emerald-400 select-none">
+        {/* Full-width Top Header Bar */}
+        <div className="w-full flex items-center justify-between px-6 py-4 border-b border-emerald-900/60 bg-[#06080d]/80 backdrop-blur-md shrink-0">
+          <div className="flex items-center gap-3">
+            <Rocket size={22} className="text-emerald-400 animate-pulse" />
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="text-[7.5px] px-2 py-0.5 bg-emerald-950 border border-emerald-500/80 text-emerald-300 font-mono font-bold uppercase tracking-wider">
+                  STEP 2 OF 4
                 </span>
+                <h2 className="text-sm sm:text-lg font-black tracking-wider uppercase text-emerald-400">
+                  SELECT FLIGHT PROFILE // MISSION FORMAT
+                </h2>
               </div>
+              <span className="text-[7.5px] font-mono text-zinc-400 uppercase tracking-widest block mt-0.5">
+                Target: {currentPlanetDef.name} [{currentPlanetDef.subname}] • Solo Campaign, Play Against AI, or 2P Duel
+              </span>
             </div>
+          </div>
 
+          <div className="flex items-center gap-2.5">
             <button
               type="button"
               onClick={() => {
                 setMainMenuScreen('FLOW_PLANET');
                 gameAudio.playCrispClick();
               }}
-              className="bg-black hover:bg-zinc-800 border-2 border-zinc-700 hover:border-emerald-400 text-zinc-300 hover:text-white px-3 py-1.5 text-[8.5px] font-bold flex items-center gap-1.5 uppercase transition">
+              className="bg-black/80 hover:bg-zinc-800 border-2 border-zinc-700 hover:border-emerald-400 text-zinc-300 hover:text-white px-3.5 py-1.5 text-[8.5px] font-bold flex items-center gap-1.5 uppercase transition">
               <ChevronLeft size={13} />
               <span>BACK TO PLANET</span>
             </button>
+            <button
+              type="button"
+              onClick={() => {
+                toggleFullscreen();
+                gameAudio.playCrispClick();
+              }}
+              className="bg-black hover:bg-emerald-400 hover:text-black border border-emerald-500 px-3 py-1.5 text-[8.5px] flex items-center gap-1.5 font-mono font-bold transition">
+              {isFullscreen ? <Minimize2 size={13} /> : <Maximize2 size={13} />}
+              <span>{isFullscreen ? 'EXIT FS' : 'FULLSCREEN'}</span>
+            </button>
           </div>
+        </div>
+
+        {/* Content Area */}
+        <div className="w-full max-w-7xl mx-auto flex-1 flex flex-col justify-center p-6 sm:p-8 space-y-5">
 
           {/* Three Mode Options */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
@@ -770,35 +796,43 @@ export default function MenuScreens({
                 ✓ Simultaneous dual tracking split cameras
               </div>
             </div>
-
           </div>
 
-          {/* Navigation Bar */}
-          <div className="flex items-center justify-between pt-3 border-t-2 border-emerald-800/80">
-            <button
-              type="button"
-              onClick={() => {
-                setMainMenuScreen('FLOW_PLANET');
-                gameAudio.playCrispClick();
-              }}
-              className="px-4 py-2 bg-black hover:bg-zinc-800 border-2 border-zinc-700 text-zinc-300 hover:text-white font-bold text-[9px] uppercase transition flex items-center gap-1.5">
-              <ChevronLeft size={14} />
-              <span>BACK TO PLANET</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => {
-                setMainMenuScreen('FLOW_CUSTOMIZE');
-                gameAudio.playCrispClick();
-              }}
-              className="px-6 py-2.5 bg-emerald-400 hover:bg-emerald-300 text-black font-black text-xs uppercase transition shadow-[3px_3px_0_0_#064e3b] flex items-center gap-2">
-              <span>CONTINUE TO CRAFT CUSTOMIZATION</span>
-              <ChevronRight size={16} />
-            </button>
+          {/* Active Profile Briefing Banner */}
+          <div className="p-3 bg-black/80 border border-zinc-800 text-[8px] font-mono flex items-center justify-between">
+            <span className="text-zinc-300">
+              ACTIVE FLIGHT PROFILE: <strong className="text-emerald-400 uppercase">{gameMode === 'SOLO' ? 'SOLO FLIGHT CAMPAIGN' : gameMode === 'AI_DUEL' ? 'AI AUTOPILOT DUEL' : '2-PLAYER LOCAL SPLIT-SCREEN'}</strong>
+            </span>
+            <span className="text-zinc-500 text-[7px] uppercase">[ READY FOR VESSEL CONFIGURATION ]</span>
           </div>
         </div>
-      </MenuOverlay>
+
+        {/* Full-width Bottom Action Bar */}
+        <div className="w-full px-6 py-4 border-t border-emerald-900/60 bg-[#06080d]/80 backdrop-blur-md flex flex-col sm:flex-row items-center justify-between gap-3 shrink-0">
+          <button
+            type="button"
+            onClick={() => {
+              setMainMenuScreen('FLOW_PLANET');
+              gameAudio.playCrispClick();
+            }}
+            className="w-full sm:w-auto px-5 py-2.5 bg-black hover:bg-zinc-800 border-2 border-zinc-700 text-zinc-300 hover:text-white font-bold text-[9px] uppercase transition flex items-center justify-center gap-1.5">
+            <ChevronLeft size={14} />
+            <span>BACK TO PLANET</span>
+          </button>
+
+          <button
+            type="button"
+            autoFocus
+            onClick={() => {
+              setMainMenuScreen('FLOW_CUSTOMIZE');
+              gameAudio.playCrispClick();
+            }}
+            className="w-full sm:flex-1 max-w-md bg-emerald-400 hover:bg-emerald-300 text-black border-4 border-emerald-200 font-black text-xs sm:text-sm py-3 px-6 shadow-[0_0_20px_rgba(16,185,129,0.5)] active:translate-x-0.5 active:translate-y-0.5 transition flex items-center justify-center gap-2 uppercase rounded-none cursor-pointer">
+            <span>CONTINUE TO CRAFT SPECIFICATIONS</span>
+            <ChevronRight size={18} />
+          </button>
+        </div>
+      </div>
     );
   }
 
@@ -808,34 +842,52 @@ export default function MenuScreens({
   // =========================================================================
   if (gameState.status === 'START' && mainMenuScreen === 'FLOW_CUSTOMIZE') {
     return (
-      <MenuOverlay tone="neutral" zIndex={40} fullScreen maxWidthClass="w-full max-w-7xl">
-        <div className="w-full bg-[#08080c]/95 backdrop-blur-md border-4 border-emerald-500 p-5 md:p-7 shadow-[12px_12px_0px_0px_#064e3b] flex flex-col text-emerald-400 rounded-none relative">
-          
-          {/* Header with Step Indicator */}
-          <div className="flex items-center justify-between pb-3 mb-4 border-b-2 border-emerald-800/80">
-            <div className="flex items-center gap-2">
-              <Shield size={18} className="text-emerald-400" />
-              <div>
-                <h2 className="text-base sm:text-lg font-black tracking-wider uppercase text-emerald-400">
+      <div className="fixed inset-0 w-full h-full z-40 flex flex-col justify-between overflow-y-auto bg-gradient-to-b from-[#06080d]/96 via-[#06080d]/92 to-[#06080d]/98 backdrop-blur-md text-emerald-400 select-none">
+        {/* Full-width Top Header Bar */}
+        <div className="w-full flex items-center justify-between px-6 py-4 border-b border-emerald-900/60 bg-[#06080d]/80 backdrop-blur-md shrink-0">
+          <div className="flex items-center gap-3">
+            <Shield size={22} className="text-emerald-400 animate-pulse" />
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="text-[7.5px] px-2 py-0.5 bg-emerald-950 border border-emerald-500/80 text-emerald-300 font-mono font-bold uppercase tracking-wider">
+                  STEP 3 OF 4
+                </span>
+                <h2 className="text-sm sm:text-lg font-black tracking-wider uppercase text-emerald-400">
                   CRAFT & PILOT SPECIFICATIONS
                 </h2>
-                <span className="text-[7.5px] font-mono text-zinc-400 uppercase tracking-widest block">
-                  START FLOW // STEP 3 OF 4 • TARGET: {currentPlanetDef.name} • PROFILE: {gameMode === 'SOLO' ? 'SOLO FLIGHT' : gameMode === 'AI_DUEL' ? 'PLAY AGAINST AI' : '2P DUEL FLIGHT'}
-                </span>
               </div>
+              <span className="text-[7.5px] font-mono text-zinc-400 uppercase tracking-widest block mt-0.5">
+                Target: {currentPlanetDef.name} • Profile: {gameMode === 'SOLO' ? 'Solo Flight' : gameMode === 'AI_DUEL' ? 'Play Against AI' : '2P Duel Flight'} • Callsign, Livery & Bot Persona
+              </span>
             </div>
+          </div>
 
+          <div className="flex items-center gap-2.5">
             <button
               type="button"
               onClick={() => {
                 setMainMenuScreen('FLOW_MODE');
                 gameAudio.playCrispClick();
               }}
-              className="bg-black hover:bg-zinc-800 border-2 border-zinc-700 hover:border-emerald-400 text-zinc-300 hover:text-white px-3 py-1.5 text-[8.5px] font-bold flex items-center gap-1.5 uppercase transition">
+              className="bg-black/80 hover:bg-zinc-800 border-2 border-zinc-700 hover:border-emerald-400 text-zinc-300 hover:text-white px-3.5 py-1.5 text-[8.5px] font-bold flex items-center gap-1.5 uppercase transition">
               <ChevronLeft size={13} />
               <span>BACK TO MODE SELECT</span>
             </button>
+            <button
+              type="button"
+              onClick={() => {
+                toggleFullscreen();
+                gameAudio.playCrispClick();
+              }}
+              className="bg-black hover:bg-emerald-400 hover:text-black border border-emerald-500 px-3 py-1.5 text-[8.5px] flex items-center gap-1.5 font-mono font-bold transition">
+              {isFullscreen ? <Minimize2 size={13} /> : <Maximize2 size={13} />}
+              <span>{isFullscreen ? 'EXIT FS' : 'FULLSCREEN'}</span>
+            </button>
           </div>
+        </div>
+
+        {/* Content Area */}
+        <div className="w-full max-w-7xl mx-auto flex-1 flex flex-col justify-center p-6 sm:p-8 space-y-5">
 
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 mb-5">
             
@@ -1125,33 +1177,34 @@ export default function MenuScreens({
             )}
 
           </div>
-
-          {/* Navigation Bar */}
-          <div className="flex items-center justify-between pt-3 border-t-2 border-emerald-800/80">
-            <button
-              type="button"
-              onClick={() => {
-                setMainMenuScreen('FLOW_MODE');
-                gameAudio.playCrispClick();
-              }}
-              className="px-4 py-2 bg-black hover:bg-zinc-800 border-2 border-zinc-700 text-zinc-300 hover:text-white font-bold text-[9px] uppercase transition flex items-center gap-1.5">
-              <ChevronLeft size={14} />
-              <span>BACK TO MODE SELECT</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => {
-                setMainMenuScreen('FLOW_LEVEL');
-                gameAudio.playCrispClick();
-              }}
-              className="px-6 py-2.5 bg-emerald-400 hover:bg-emerald-300 text-black font-black text-xs uppercase transition shadow-[3px_3px_0_0_#064e3b] flex items-center gap-2">
-              <span>CONTINUE TO LEVEL SELECTION</span>
-              <ChevronRight size={16} />
-            </button>
-          </div>
         </div>
-      </MenuOverlay>
+
+        {/* Full-width Bottom Action Bar */}
+        <div className="w-full px-6 py-4 border-t border-emerald-900/60 bg-[#06080d]/80 backdrop-blur-md flex flex-col sm:flex-row items-center justify-between gap-3 shrink-0">
+          <button
+            type="button"
+            onClick={() => {
+              setMainMenuScreen('FLOW_MODE');
+              gameAudio.playCrispClick();
+            }}
+            className="w-full sm:w-auto px-5 py-2.5 bg-black hover:bg-zinc-800 border-2 border-zinc-700 text-zinc-300 hover:text-white font-bold text-[9px] uppercase transition flex items-center justify-center gap-1.5">
+            <ChevronLeft size={14} />
+            <span>BACK TO MODE SELECT</span>
+          </button>
+
+          <button
+            type="button"
+            autoFocus
+            onClick={() => {
+              setMainMenuScreen('FLOW_LEVEL');
+              gameAudio.playCrispClick();
+            }}
+            className="w-full sm:flex-1 max-w-md bg-emerald-400 hover:bg-emerald-300 text-black border-4 border-emerald-200 font-black text-xs sm:text-sm py-3 px-6 shadow-[0_0_20px_rgba(16,185,129,0.5)] active:translate-x-0.5 active:translate-y-0.5 transition flex items-center justify-center gap-2 uppercase rounded-none cursor-pointer">
+            <span>CONTINUE TO SECTOR MAP SELECTION</span>
+            <ChevronRight size={18} />
+          </button>
+        </div>
+      </div>
     );
   }
 
@@ -1167,33 +1220,35 @@ export default function MenuScreens({
     const effectiveLevelConfig = getLevel(selectedPlanet, effectiveStartingEpoch);
 
     return (
-      <MenuOverlay tone="neutral" zIndex={40} fullScreen maxWidthClass="w-full max-w-7xl">
-        <div className="w-full bg-[#08080c]/95 backdrop-blur-md border-4 border-emerald-500 p-4 md:p-6 shadow-[12px_12px_0px_0px_#064e3b] flex flex-col text-emerald-400 rounded-none relative">
-          
-          {/* Header with Step Indicator & Quick Planet Selector */}
-          <div className="flex flex-wrap items-center justify-between gap-2.5 pb-3 mb-2.5 border-b-2 border-emerald-800/80">
-            <div className="flex items-center gap-2.5">
-              <Compass size={22} className="text-emerald-400 animate-pulse" />
-              <div>
-                <div className="flex items-center gap-2">
-                  <h2 className="text-base sm:text-xl font-black tracking-wider uppercase text-emerald-400">
-                    SELECT DESCENT SECTOR // {currentPlanetDef.name}
-                  </h2>
-                  <span className="text-[8px] font-mono font-bold px-1.5 py-0.5 border uppercase" style={{ borderColor: currentPlanetDef.accentColor, color: currentPlanetDef.accentColor }}>
-                    {currentPlanetDef.gravity} PX/S²
-                  </span>
-                  <span className="text-[7.5px] font-mono font-bold px-1.5 py-0.5 bg-zinc-900 border border-zinc-700 text-zinc-300 uppercase">
-                    CAMPAIGN UNLOCKED: {maxUnlocked}/10
-                  </span>
-                </div>
-                <span className="text-[7.5px] font-mono text-zinc-400 uppercase tracking-widest block mt-0.5">
-                  START FLOW // STEP 4 OF 4 • {currentPlanetDef.subname} • COMPLETE EACH LEVEL TO UNLOCK SUBSEQUENT SECTORS
+      <div className="fixed inset-0 w-full h-full z-40 flex flex-col justify-between overflow-y-auto bg-gradient-to-b from-[#06080d]/96 via-[#06080d]/92 to-[#06080d]/98 backdrop-blur-md text-emerald-400 select-none">
+        {/* Full-width Top Header Bar */}
+        <div className="w-full flex items-center justify-between px-6 py-4 border-b border-emerald-900/60 bg-[#06080d]/80 backdrop-blur-md shrink-0">
+          <div className="flex items-center gap-3">
+            <Compass size={22} className="text-emerald-400 animate-pulse" />
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="text-[7.5px] px-2 py-0.5 bg-emerald-950 border border-emerald-500/80 text-emerald-300 font-mono font-bold uppercase tracking-wider">
+                  STEP 4 OF 4
+                </span>
+                <h2 className="text-sm sm:text-lg font-black tracking-wider uppercase text-emerald-400">
+                  SELECT DESCENT SECTOR // {currentPlanetDef.name}
+                </h2>
+                <span className="text-[7.5px] font-mono font-bold px-1.5 py-0.5 border uppercase" style={{ borderColor: currentPlanetDef.accentColor, color: currentPlanetDef.accentColor }}>
+                  {currentPlanetDef.gravity} PX/S²
+                </span>
+                <span className="text-[7.5px] font-mono font-bold px-1.5 py-0.5 bg-zinc-900 border border-zinc-700 text-zinc-300 uppercase">
+                  UNLOCKED: {maxUnlocked}/10
                 </span>
               </div>
+              <span className="text-[7.5px] font-mono text-zinc-400 uppercase tracking-widest block mt-0.5">
+                {currentPlanetDef.subname} • Complete each sector map to unlock subsequent descent challenges
+              </span>
             </div>
+          </div>
 
+          <div className="flex items-center gap-2.5">
             {/* Quick Planet Switcher Pills */}
-            <div className="flex items-center gap-1.5 font-mono text-[7.5px]">
+            <div className="hidden md:flex items-center gap-1.5 font-mono text-[7.5px] mr-2">
               {PLANETS.map((p) => {
                 const isCurrent = selectedPlanet === p.id;
                 const planetMax = unlockedLevels[p.id] || 1;
@@ -1208,35 +1263,42 @@ export default function MenuScreens({
                       }
                       gameAudio.playCrispClick();
                     }}
-                    className={`px-2 py-1 border transition flex items-center gap-1 font-bold uppercase ${
+                    className={`px-2 py-1 border transition uppercase ${
                       isCurrent
-                        ? 'bg-zinc-900 border-emerald-400 text-white shadow-[2px_2px_0_0_#10b981]'
-                        : 'bg-black/80 border-zinc-800 text-zinc-400 hover:text-zinc-200 hover:border-zinc-700'
-                    }`}
-                    style={{
-                      borderColor: isCurrent ? p.accentColor : undefined,
-                      color: isCurrent ? p.accentColor : undefined,
-                    }}>
-                    <span>{p.icon}</span>
-                    <span>{p.name.replace('THE ', '')}</span>
-                    <span className="text-[6.5px] opacity-75">({planetMax}/10)</span>
+                        ? 'border-emerald-400 bg-emerald-950 text-white font-bold shadow-[2px_2px_0_0_#10b981]'
+                        : 'border-zinc-800 bg-black text-zinc-400 hover:border-zinc-600'
+                    }`}>
+                    {p.name} ({planetMax}/10)
                   </button>
                 );
               })}
-
-              <button
-                type="button"
-                onClick={() => {
-                  setMainMenuScreen('FLOW_CUSTOMIZE');
-                  gameAudio.playCrispClick();
-                }}
-                className="bg-black hover:bg-zinc-800 border-2 border-zinc-700 hover:border-emerald-400 text-zinc-300 hover:text-white px-2.5 py-1 text-[8px] font-bold flex items-center gap-1 uppercase transition ml-1">
-                <ChevronLeft size={12} />
-                <span>BACK</span>
-              </button>
             </div>
-          </div>
 
+            <button
+              type="button"
+              onClick={() => {
+                setMainMenuScreen('FLOW_CUSTOMIZE');
+                gameAudio.playCrispClick();
+              }}
+              className="bg-black/80 hover:bg-zinc-800 border-2 border-zinc-700 hover:border-emerald-400 text-zinc-300 hover:text-white px-3 py-1.5 text-[8.5px] font-bold flex items-center gap-1 uppercase transition">
+              <ChevronLeft size={13} />
+              <span>BACK TO CRAFT</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                toggleFullscreen();
+                gameAudio.playCrispClick();
+              }}
+              className="bg-black hover:bg-emerald-400 hover:text-black border border-emerald-500 px-3 py-1.5 text-[8.5px] flex items-center gap-1.5 font-mono font-bold transition">
+              {isFullscreen ? <Minimize2 size={13} /> : <Maximize2 size={13} />}
+              <span>{isFullscreen ? 'EXIT FS' : 'FULLSCREEN'}</span>
+            </button>
+          </div>
+        </div>
+
+        {/* Content Area */}
+        <div className="w-full max-w-7xl mx-auto flex-1 flex flex-col justify-center p-6 sm:p-8 space-y-4">
           {/* Locked Notice Banner */}
           {lockedNotice && (
             <div className="bg-amber-950/90 border-2 border-amber-500 p-2 text-center text-amber-300 font-bold text-[8px] uppercase tracking-wider mb-2.5 animate-pulse flex items-center justify-center gap-2">
@@ -1396,49 +1458,49 @@ export default function MenuScreens({
               </div>
             </div>
           </div>
+        </div>
 
-          {/* Navigation Bar & Giant Launch Button */}
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-2 border-t-2 border-emerald-800/80">
-            <div className="flex items-center gap-2 w-full sm:w-auto">
-              <button
-                type="button"
-                onClick={() => {
-                  setMainMenuScreen('FLOW_CUSTOMIZE');
-                  gameAudio.playCrispClick();
-                }}
-                className="flex-1 sm:flex-initial px-3.5 py-2 bg-black hover:bg-zinc-800 border-2 border-zinc-700 text-zinc-300 hover:text-white font-bold text-[8.5px] uppercase transition flex items-center justify-center gap-1.5">
-                <ChevronLeft size={13} />
-                <span>BACK TO CRAFT</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => {
-                  setMainMenuScreen('FLOW_PLANET');
-                  gameAudio.playCrispClick();
-                }}
-                className="flex-1 sm:flex-initial px-3.5 py-2 bg-black hover:bg-zinc-800 border-2 border-zinc-700 text-zinc-300 hover:text-white font-bold text-[8.5px] uppercase transition flex items-center justify-center gap-1.5">
-                <span>CHANGE PLANET</span>
-              </button>
-            </div>
+        {/* Full-width Bottom Action Bar */}
+        <div className="w-full px-6 py-4 border-t border-emerald-900/60 bg-[#06080d]/80 backdrop-blur-md flex flex-col sm:flex-row items-center justify-between gap-3 shrink-0">
+          <div className="flex items-center gap-2.5 w-full sm:w-auto">
+            <button
+              type="button"
+              onClick={() => {
+                setMainMenuScreen('FLOW_CUSTOMIZE');
+                gameAudio.playCrispClick();
+              }}
+              className="flex-1 sm:flex-initial px-4 py-2.5 bg-black hover:bg-zinc-800 border-2 border-zinc-700 text-zinc-300 hover:text-white font-bold text-[8.5px] uppercase transition flex items-center justify-center gap-1.5">
+              <ChevronLeft size={13} />
+              <span>BACK TO CRAFT</span>
+            </button>
 
             <button
               type="button"
-              autoFocus
-              onClick={() => onStartGame(effectiveStartingEpoch)}
-              className="w-full sm:flex-1 max-w-lg bg-emerald-400 hover:bg-emerald-300 text-black border-4 border-emerald-200 font-black text-xs md:text-sm py-2.5 px-5 shadow-[0_0_20px_rgba(16,185,129,0.5)] active:translate-x-0.5 active:translate-y-0.5 transition flex items-center justify-center gap-2 uppercase rounded-none cursor-pointer">
-              <Play size={16} fill="currentColor" />
-              <span>
-                {gameMode === 'AI_DUEL'
-                  ? `LAUNCH AI DUEL ON ${currentPlanetDef.name} // MAP ${effectiveStartingEpoch}`
-                  : gameMode === 'DUEL'
-                  ? `LAUNCH 2P DUEL ON ${currentPlanetDef.name} // MAP ${effectiveStartingEpoch}`
-                  : `LAUNCH DESCENT ON ${currentPlanetDef.name} // MAP ${effectiveStartingEpoch}`}
-              </span>
+              onClick={() => {
+                setMainMenuScreen('FLOW_PLANET');
+                gameAudio.playCrispClick();
+              }}
+              className="flex-1 sm:flex-initial px-4 py-2.5 bg-black hover:bg-zinc-800 border-2 border-zinc-700 text-zinc-300 hover:text-white font-bold text-[8.5px] uppercase transition flex items-center justify-center gap-1.5">
+              <span>CHANGE PLANET</span>
             </button>
           </div>
+
+          <button
+            type="button"
+            autoFocus
+            onClick={() => onStartGame(effectiveStartingEpoch)}
+            className="w-full sm:flex-1 max-w-xl bg-emerald-400 hover:bg-emerald-300 text-black border-4 border-emerald-200 font-black text-xs md:text-sm py-3 px-6 shadow-[0_0_24px_rgba(16,185,129,0.55)] active:translate-x-0.5 active:translate-y-0.5 transition flex items-center justify-center gap-2 uppercase rounded-none cursor-pointer">
+            <Play size={18} fill="currentColor" />
+            <span>
+              {gameMode === 'AI_DUEL'
+                ? `LAUNCH AI DUEL ON ${currentPlanetDef.name} // MAP ${effectiveStartingEpoch}`
+                : gameMode === 'DUEL'
+                ? `LAUNCH 2P DUEL ON ${currentPlanetDef.name} // MAP ${effectiveStartingEpoch}`
+                : `LAUNCH DESCENT ON ${currentPlanetDef.name} // MAP ${effectiveStartingEpoch}`}
+            </span>
+          </button>
         </div>
-      </MenuOverlay>
+      </div>
     );
   }
 
