@@ -418,33 +418,33 @@ export default function MenuScreens({
     return (
       <div className="fixed inset-0 w-full h-full z-40 flex flex-col justify-between overflow-y-auto bg-gradient-to-b from-[#06080d]/96 via-[#06080d]/92 to-[#06080d]/98 backdrop-blur-md text-emerald-400 select-none">
         {/* Full-width Top Header Bar */}
-        <div className="w-full flex items-center justify-between px-6 py-4 border-b border-emerald-900/60 bg-[#06080d]/80 backdrop-blur-md shrink-0">
+        <div className="w-full flex items-center justify-between px-6 md:px-12 py-4 border-b border-emerald-900/60 bg-[#06080d]/80 backdrop-blur-md shrink-0">
           <div className="flex items-center gap-3">
-            <Compass size={22} className="text-emerald-400 animate-pulse" />
+            <Compass size={24} className="text-emerald-400 animate-pulse" />
             <div>
-              <div className="flex items-center gap-2">
-                <span className="text-[7.5px] px-2 py-0.5 bg-emerald-950 border border-emerald-500/80 text-emerald-300 font-mono font-bold uppercase tracking-wider">
+              <div className="flex items-center gap-2.5">
+                <span className="text-xs px-2.5 py-0.5 bg-emerald-950 border border-emerald-500/80 text-emerald-300 font-mono font-bold uppercase tracking-wider">
                   STEP 1 OF 4
                 </span>
-                <h2 className="text-sm sm:text-lg font-black tracking-wider uppercase text-emerald-400">
+                <h2 className="text-base sm:text-xl font-black tracking-wider uppercase text-emerald-400">
                   CELESTIAL DESCENT TARGET // SELECT PLANET
                 </h2>
               </div>
-              <span className="text-[7.5px] font-mono text-zinc-400 uppercase tracking-widest block mt-0.5">
-                Target celestial body determines surface gravity, atmospheric drag & map topography
+              <span className="text-xs font-mono text-zinc-400 uppercase tracking-widest block mt-1">
+                CHOOSE CELESTIAL BODY • 10 PROGRESSIVE MAPS WITH RETROGRESSION PER PLANET
               </span>
             </div>
           </div>
 
-          <div className="flex items-center gap-2.5">
+          <div className="flex items-center gap-3">
             <button
               type="button"
               onClick={() => {
                 setMainMenuScreen('TITLE');
                 gameAudio.playCrispClick();
               }}
-              className="bg-black/80 hover:bg-zinc-800 border-2 border-zinc-700 hover:border-emerald-400 text-zinc-300 hover:text-white px-3.5 py-1.5 text-[8.5px] font-bold flex items-center gap-1.5 uppercase transition">
-              <ChevronLeft size={13} />
+              className="bg-black/80 hover:bg-zinc-800 border-2 border-zinc-700 hover:border-emerald-400 text-zinc-300 hover:text-white px-4 py-2 text-xs font-bold flex items-center gap-1.5 uppercase transition">
+              <ChevronLeft size={15} />
               <span>RETURN TO TITLE</span>
             </button>
             <button
@@ -453,17 +453,17 @@ export default function MenuScreens({
                 toggleFullscreen();
                 gameAudio.playCrispClick();
               }}
-              className="bg-black hover:bg-emerald-400 hover:text-black border border-emerald-500 px-3 py-1.5 text-[8.5px] flex items-center gap-1.5 font-mono font-bold transition">
-              {isFullscreen ? <Minimize2 size={13} /> : <Maximize2 size={13} />}
+              className="bg-black hover:bg-emerald-400 hover:text-black border border-emerald-500 px-4 py-2 text-xs flex items-center gap-1.5 font-mono font-bold transition">
+              {isFullscreen ? <Minimize2 size={15} /> : <Maximize2 size={15} />}
               <span>{isFullscreen ? 'EXIT FS' : 'FULLSCREEN'}</span>
             </button>
           </div>
         </div>
 
-        {/* Content Area */}
-        <div className="w-full max-w-7xl mx-auto flex-1 flex flex-col justify-center p-6 sm:p-8 space-y-4">
-          {/* 3 Celestial Planet Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+        {/* Content Area - Utilizing Full Screen & Spreading Panels to Edges */}
+        <div className="w-full flex-1 flex flex-col justify-between px-6 sm:px-10 md:px-16 py-4 md:py-6 space-y-6">
+          {/* 3 Celestial Planet Cards Spanning Full Width & Height */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 md:gap-8 flex-1 items-stretch">
             {PLANETS.map((planet) => {
               const isSelected = selectedPlanet === planet.id;
               return (
@@ -473,29 +473,29 @@ export default function MenuScreens({
                     setSelectedPlanet(planet.id);
                     gameAudio.playCrispClick();
                   }}
-                  className={`p-5 border-2 transition rounded-none relative flex flex-col justify-between cursor-pointer group ${
+                  className={`p-6 md:p-8 border-2 transition rounded-none relative flex flex-col justify-between cursor-pointer group ${
                     isSelected
-                      ? 'bg-zinc-900/90 shadow-[6px_6px_0_0_#10b981]'
+                      ? 'bg-zinc-900/90 shadow-[8px_8px_0_0_#10b981]'
                       : 'bg-black/75 hover:bg-zinc-950/80 border-zinc-800 hover:border-zinc-600'
                   }`}
                   style={{
                     borderColor: isSelected ? planet.accentColor : undefined,
-                    boxShadow: isSelected ? `6px 6px 0 0 ${planet.accentColor}` : undefined,
+                    boxShadow: isSelected ? `8px 8px 0 0 ${planet.accentColor}` : undefined,
                   }}>
                   <div>
                     {/* Planet Header */}
-                    <div className="flex items-center justify-between mb-3">
-                      <div className="flex items-center gap-2.5">
-                        <span className="text-3xl filter drop-shadow-[0_0_12px_rgba(255,255,255,0.3)]">
+                    <div className="flex items-center justify-between mb-4">
+                      <div className="flex items-center gap-3">
+                        <span className="text-4xl filter drop-shadow-[0_0_14px_rgba(255,255,255,0.3)]">
                           {planet.icon}
                         </span>
                         <div>
                           <h3
-                            className="text-base sm:text-lg font-black uppercase tracking-wider leading-none"
+                            className="text-lg sm:text-xl md:text-2xl font-black uppercase tracking-wider leading-none"
                             style={{ color: planet.accentColor }}>
                             {planet.name}
                           </h3>
-                          <span className="text-[7px] font-mono text-zinc-400 uppercase block tracking-widest mt-0.5">
+                          <span className="text-xs font-mono text-zinc-400 uppercase block tracking-widest mt-1">
                             {planet.subname}
                           </span>
                         </div>
@@ -503,57 +503,52 @@ export default function MenuScreens({
 
                       {isSelected ? (
                         <div
-                          className="px-2 py-0.5 text-[7px] font-mono font-bold uppercase flex items-center gap-1 border"
+                          className="px-2.5 py-1 text-xs font-mono font-bold uppercase flex items-center gap-1.5 border"
                           style={{
                             borderColor: planet.accentColor,
                             color: planet.accentColor,
                             backgroundColor: `${planet.accentColor}18`,
                           }}>
-                          <Check size={11} />
+                          <Check size={14} />
                           <span>TARGET</span>
                         </div>
                       ) : (
-                        <span className="text-[6.5px] font-mono px-1.5 py-0.5 bg-zinc-950 border border-zinc-800 text-zinc-400 group-hover:text-zinc-200">
-                          CLICK TO TARGET
+                        <span className="text-xs font-mono px-2 py-1 bg-zinc-950 border border-zinc-800 text-zinc-400 group-hover:text-zinc-200 uppercase font-bold">
+                          SELECT
                         </span>
                       )}
                     </div>
 
-                    {/* Planet Description */}
-                    <p className="text-[8px] text-zinc-300 font-mono leading-relaxed mb-3">
-                      {planet.description}
-                    </p>
-
-                    {/* Atmospheric & Physics Specifications */}
-                    <div className="space-y-1.5 bg-black/85 border border-zinc-800/80 p-2.5 font-mono text-[7px]">
+                    {/* Atmospheric & Physics Specifications (Clean Label-Only) */}
+                    <div className="space-y-2.5 bg-black/85 border border-zinc-800/80 p-3.5 font-mono text-xs my-4">
                       <div className="flex items-center justify-between">
-                        <span className="text-zinc-500">SURFACE GRAVITY:</span>
-                        <strong className="font-bold" style={{ color: planet.accentColor }}>
+                        <span className="text-zinc-400 font-bold">SURFACE GRAVITY:</span>
+                        <strong className="font-bold text-sm" style={{ color: planet.accentColor }}>
                           {planet.gravity} px/s²
                         </strong>
                       </div>
                       <div className="flex items-center justify-between">
-                        <span className="text-zinc-500">ATMOSPHERIC PRESSURE:</span>
-                        <span className="text-zinc-300 font-bold">{planet.atmospherePressure}</span>
+                        <span className="text-zinc-400 font-bold">ATMOSPHERIC PRESSURE:</span>
+                        <span className="text-zinc-200 font-bold">{planet.atmospherePressure}</span>
                       </div>
                       <div className="flex items-center justify-between">
-                        <span className="text-zinc-500">MAIN ENGINE THRUST:</span>
+                        <span className="text-zinc-400 font-bold">MAIN ENGINE THRUST:</span>
                         <span className="text-emerald-400 font-bold">{planet.mainThrust} px/s²</span>
                       </div>
                       <div className="flex items-center justify-between">
-                        <span className="text-zinc-500">CAMPAIGN SECTORS:</span>
+                        <span className="text-zinc-400 font-bold">CAMPAIGN SECTORS:</span>
                         <span className="text-cyan-400 font-bold">10 UNIQUE MAPS</span>
                       </div>
                     </div>
                   </div>
 
                   {/* Planet Bottom Quote & Difficulty Badge */}
-                  <div className="mt-3 pt-2 border-t border-zinc-800/80 flex items-center justify-between">
-                    <span className="text-[6.5px] font-mono text-zinc-400 italic truncate max-w-[200px]">
-                      {planet.flavorQuote}
+                  <div className="mt-4 pt-3 border-t border-zinc-800/80 flex items-center justify-between gap-3">
+                    <span className="text-xs font-mono text-zinc-300 italic">
+                      "{planet.flavorQuote}"
                     </span>
                     <span
-                      className="text-[6.5px] font-mono font-bold px-1.5 py-0.5 uppercase border"
+                      className="text-xs font-mono font-bold px-2 py-1 uppercase border shrink-0"
                       style={{
                         borderColor: `${planet.accentColor}60`,
                         color: planet.accentColor,
@@ -569,25 +564,25 @@ export default function MenuScreens({
 
           {/* Confirmed Celestial Target Briefing Strip */}
           <div
-            className="p-3 border-2 font-mono flex flex-col sm:flex-row items-center justify-between gap-3"
+            className="p-4 border-2 font-mono flex flex-col sm:flex-row items-center justify-between gap-3 shrink-0"
             style={{
               backgroundColor: `${selectedDef.accentColor}12`,
               borderColor: `${selectedDef.accentColor}70`,
             }}>
             <div className="flex items-center gap-3">
-              <span className="text-2xl">{selectedDef.icon}</span>
+              <span className="text-3xl">{selectedDef.icon}</span>
               <div>
-                <span className="text-[9px] font-bold uppercase tracking-wider block" style={{ color: selectedDef.accentColor }}>
-                  TARGET CONFIRMED: {selectedDef.name} [{selectedDef.subname}]
+                <span className="text-sm font-bold uppercase tracking-wider block" style={{ color: selectedDef.accentColor }}>
+                  TARGET LOCKED: {selectedDef.name} [{selectedDef.subname}]
                 </span>
-                <span className="text-[7.5px] text-zinc-300 block">
-                  Gravity: {selectedDef.gravity} px/s² • Atmosphere: {selectedDef.atmospherePressure} • 10 progressive maps with avionics retrogression
+                <span className="text-xs text-zinc-300 block">
+                  GRAVITY: {selectedDef.gravity} PX/S² • ATMOSPHERE: {selectedDef.atmospherePressure} • 10 MAPS
                 </span>
               </div>
             </div>
 
-            <div className="text-[7.5px] text-zinc-400 uppercase font-mono tracking-wider shrink-0">
-              [ CELESTIAL TARGET LOCKED ]
+            <div className="text-xs text-zinc-300 italic font-mono shrink-0">
+              "{selectedDef.flavorQuote}"
             </div>
           </div>
         </div>
@@ -629,33 +624,33 @@ export default function MenuScreens({
     return (
       <div className="fixed inset-0 w-full h-full z-40 flex flex-col justify-between overflow-y-auto bg-gradient-to-b from-[#06080d]/96 via-[#06080d]/92 to-[#06080d]/98 backdrop-blur-md text-emerald-400 select-none">
         {/* Full-width Top Header Bar */}
-        <div className="w-full flex items-center justify-between px-6 py-4 border-b border-emerald-900/60 bg-[#06080d]/80 backdrop-blur-md shrink-0">
+        <div className="w-full flex items-center justify-between px-6 md:px-12 py-4 border-b border-emerald-900/60 bg-[#06080d]/80 backdrop-blur-md shrink-0">
           <div className="flex items-center gap-3">
-            <Rocket size={22} className="text-emerald-400 animate-pulse" />
+            <Rocket size={24} className="text-emerald-400 animate-pulse" />
             <div>
-              <div className="flex items-center gap-2">
-                <span className="text-[7.5px] px-2 py-0.5 bg-emerald-950 border border-emerald-500/80 text-emerald-300 font-mono font-bold uppercase tracking-wider">
+              <div className="flex items-center gap-2.5">
+                <span className="text-xs px-2.5 py-0.5 bg-emerald-950 border border-emerald-500/80 text-emerald-300 font-mono font-bold uppercase tracking-wider">
                   STEP 2 OF 4
                 </span>
-                <h2 className="text-sm sm:text-lg font-black tracking-wider uppercase text-emerald-400">
+                <h2 className="text-base sm:text-xl font-black tracking-wider uppercase text-emerald-400">
                   SELECT FLIGHT PROFILE // MISSION FORMAT
                 </h2>
               </div>
-              <span className="text-[7.5px] font-mono text-zinc-400 uppercase tracking-widest block mt-0.5">
-                Target: {currentPlanetDef.name} [{currentPlanetDef.subname}] • Solo Campaign, Play Against AI, or 2P Duel
+              <span className="text-xs font-mono text-zinc-400 uppercase tracking-widest block mt-1">
+                TARGET: {currentPlanetDef.name} [{currentPlanetDef.subname}] • SOLO CAMPAIGN, PLAY AGAINST AI, OR 2P DUEL
               </span>
             </div>
           </div>
 
-          <div className="flex items-center gap-2.5">
+          <div className="flex items-center gap-3">
             <button
               type="button"
               onClick={() => {
                 setMainMenuScreen('FLOW_PLANET');
                 gameAudio.playCrispClick();
               }}
-              className="bg-black/80 hover:bg-zinc-800 border-2 border-zinc-700 hover:border-emerald-400 text-zinc-300 hover:text-white px-3.5 py-1.5 text-[8.5px] font-bold flex items-center gap-1.5 uppercase transition">
-              <ChevronLeft size={13} />
+              className="bg-black/80 hover:bg-zinc-800 border-2 border-zinc-700 hover:border-emerald-400 text-zinc-300 hover:text-white px-4 py-2 text-xs font-bold flex items-center gap-1.5 uppercase transition">
+              <ChevronLeft size={15} />
               <span>BACK TO PLANET</span>
             </button>
             <button
@@ -664,18 +659,17 @@ export default function MenuScreens({
                 toggleFullscreen();
                 gameAudio.playCrispClick();
               }}
-              className="bg-black hover:bg-emerald-400 hover:text-black border border-emerald-500 px-3 py-1.5 text-[8.5px] flex items-center gap-1.5 font-mono font-bold transition">
-              {isFullscreen ? <Minimize2 size={13} /> : <Maximize2 size={13} />}
+              className="bg-black hover:bg-emerald-400 hover:text-black border border-emerald-500 px-4 py-2 text-xs flex items-center gap-1.5 font-mono font-bold transition">
+              {isFullscreen ? <Minimize2 size={15} /> : <Maximize2 size={15} />}
               <span>{isFullscreen ? 'EXIT FS' : 'FULLSCREEN'}</span>
             </button>
           </div>
         </div>
 
-        {/* Content Area */}
-        <div className="w-full max-w-7xl mx-auto flex-1 flex flex-col justify-center p-6 sm:p-8 space-y-5">
-
-          {/* Three Mode Options */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+        {/* Content Area - Utilizing Full Screen & Spreading Panels to Edges */}
+        <div className="w-full flex-1 flex flex-col justify-between px-6 sm:px-10 md:px-16 py-4 md:py-6 space-y-6">
+          {/* Three Mode Options Spanning Full Width & Height */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 md:gap-8 flex-1 items-stretch">
             
             {/* Mode 1: Solo Flight */}
             <div
@@ -683,37 +677,53 @@ export default function MenuScreens({
                 setGameMode('SOLO');
                 gameAudio.playCrispClick();
               }}
-              className={`p-4 border-2 transition cursor-pointer flex flex-col justify-between rounded-none ${
+              className={`p-6 md:p-8 border-2 transition cursor-pointer flex flex-col justify-between rounded-none ${
                 gameMode === 'SOLO'
-                  ? 'bg-emerald-950/60 border-emerald-400 text-emerald-300 shadow-[4px_4px_0_0_#064e3b]'
+                  ? 'bg-emerald-950/60 border-emerald-400 text-emerald-300 shadow-[8px_8px_0_0_#064e3b]'
                   : 'bg-black/80 border-zinc-800 text-zinc-400 hover:border-zinc-600'
               }`}>
               <div>
-                <div className="flex items-center justify-between mb-3">
-                  <div className={`w-9 h-9 flex items-center justify-center border ${
+                <div className="flex items-center justify-between mb-4">
+                  <div className={`w-12 h-12 flex items-center justify-center border ${
                     gameMode === 'SOLO' ? 'border-emerald-400 bg-emerald-950 text-emerald-400' : 'border-zinc-700 bg-zinc-950 text-zinc-500'
                   }`}>
-                    <Rocket size={18} />
+                    <Rocket size={24} />
                   </div>
                   {gameMode === 'SOLO' && (
-                    <span className="text-[7.5px] bg-emerald-400 text-black px-1.5 py-0.5 font-bold uppercase">
+                    <span className="text-xs bg-emerald-400 text-black px-2.5 py-1 font-bold uppercase tracking-wider">
                       ACTIVE PROFILE
                     </span>
                   )}
                 </div>
-                <h3 className="text-sm font-black uppercase text-emerald-400 mb-1">
-                  SOLO FLIGHT
+                <h3 className="text-lg sm:text-xl font-black uppercase text-emerald-400 mb-1">
+                  SOLO DESCENT
                 </h3>
-                <span className="text-[7px] font-mono text-zinc-400 block mb-2 uppercase">
-                  1 PILOT • 10 RETROGRESSION LEVELS
+                <span className="text-xs font-mono text-zinc-400 block mb-4 uppercase font-bold">
+                  1 PILOT • 10 PROGRESSIVE MAPS
                 </span>
-                <p className="text-[8px] font-mono text-zinc-300 leading-relaxed">
-                  Fly solo across 10 progressive technological eras. Maintain fuel discipline,
-                  brave crosswinds, and adapt as cockpit avionics strip away toward complete blackout.
-                </p>
+                
+                {/* Clean Feature Pills */}
+                <div className="space-y-2 font-mono text-xs text-zinc-300 my-4">
+                  <div className="bg-black/60 border border-zinc-800 p-2 text-emerald-300 font-bold">
+                    [10 MAP CAMPAIGN PROGRESSION]
+                  </div>
+                  <div className="bg-black/60 border border-zinc-800 p-2 text-zinc-300">
+                    [HARDCODED AVIONICS RETROGRESSION]
+                  </div>
+                  <div className="bg-black/60 border border-zinc-800 p-2 text-zinc-300">
+                    [HIGH SCORE TELEMETRY LOGS]
+                  </div>
+                </div>
               </div>
-              <div className="pt-3 mt-3 border-t border-zinc-800/80 text-[7px] font-mono text-emerald-400/90 font-bold">
-                ✓ Full 10-level campaign progression
+
+              {/* Flavor Quote */}
+              <div className="mt-4 pt-3 border-t border-zinc-800/80 flex items-center justify-between">
+                <span className="text-xs font-mono text-zinc-300 italic">
+                  "Descent through deep silence."
+                </span>
+                <span className="text-xs font-mono text-emerald-400 font-bold">
+                  WASD / ARROWS
+                </span>
               </div>
             </div>
 
@@ -723,37 +733,53 @@ export default function MenuScreens({
                 setGameMode('AI_DUEL');
                 gameAudio.playCrispClick();
               }}
-              className={`p-4 border-2 transition cursor-pointer flex flex-col justify-between rounded-none ${
+              className={`p-6 md:p-8 border-2 transition cursor-pointer flex flex-col justify-between rounded-none ${
                 gameMode === 'AI_DUEL'
-                  ? 'bg-cyan-950/60 border-cyan-400 text-cyan-300 shadow-[4px_4px_0_0_#0891b2]'
+                  ? 'bg-cyan-950/60 border-cyan-400 text-cyan-300 shadow-[8px_8px_0_0_#0891b2]'
                   : 'bg-black/80 border-zinc-800 text-zinc-400 hover:border-zinc-600'
               }`}>
               <div>
-                <div className="flex items-center justify-between mb-3">
-                  <div className={`w-9 h-9 flex items-center justify-center border ${
+                <div className="flex items-center justify-between mb-4">
+                  <div className={`w-12 h-12 flex items-center justify-center border ${
                     gameMode === 'AI_DUEL' ? 'border-cyan-400 bg-cyan-950 text-cyan-400' : 'border-zinc-700 bg-zinc-950 text-zinc-500'
                   }`}>
-                    <Bot size={18} />
+                    <Bot size={24} />
                   </div>
                   {gameMode === 'AI_DUEL' && (
-                    <span className="text-[7.5px] bg-cyan-400 text-black px-1.5 py-0.5 font-bold uppercase">
+                    <span className="text-xs bg-cyan-400 text-black px-2.5 py-1 font-bold uppercase tracking-wider">
                       ACTIVE PROFILE
                     </span>
                   )}
                 </div>
-                <h3 className="text-sm font-black uppercase text-cyan-400 mb-1">
-                  PLAY AGAINST AI
+                <h3 className="text-lg sm:text-xl font-black uppercase text-cyan-400 mb-1">
+                  AI AUTOPILOT DUEL
                 </h3>
-                <span className="text-[7px] font-mono text-zinc-400 block mb-2 uppercase">
-                  RACE AN AUTONOMOUS LUNAR ROBOT
+                <span className="text-xs font-mono text-zinc-400 block mb-4 uppercase font-bold">
+                  RACE AN AUTONOMOUS BOT PILOT
                 </span>
-                <p className="text-[8px] font-mono text-zinc-300 leading-relaxed">
-                  Challenge the intelligent AI Lunar Bot in a real-time race! Both landers spawn on
-                  shared physical terrain with live split-screen cameras. First safe touchdown wins the duel.
-                </p>
+
+                {/* Clean Feature Pills */}
+                <div className="space-y-2 font-mono text-xs text-zinc-300 my-4">
+                  <div className="bg-black/60 border border-zinc-800 p-2 text-cyan-300 font-bold">
+                    [REAL-TIME AUTONOMOUS BOT RACER]
+                  </div>
+                  <div className="bg-black/60 border border-zinc-800 p-2 text-zinc-300">
+                    [LIVE SPLIT-SCREEN FLIGHT CAMERAS]
+                  </div>
+                  <div className="bg-black/60 border border-zinc-800 p-2 text-zinc-300">
+                    [CUSTOMIZABLE BOT DIFFICULTY]
+                  </div>
+                </div>
               </div>
-              <div className="pt-3 mt-3 border-t border-zinc-800/80 text-[7px] font-mono text-cyan-400 font-bold">
-                ✓ Intelligent real-time vector AI controller
+
+              {/* Flavor Quote */}
+              <div className="mt-4 pt-3 border-t border-zinc-800/80 flex items-center justify-between">
+                <span className="text-xs font-mono text-zinc-300 italic">
+                  "Synthetic reflexes vs human intuition."
+                </span>
+                <span className="text-xs font-mono text-cyan-400 font-bold">
+                  P1 vs AI BOT
+                </span>
               </div>
             </div>
 
@@ -763,47 +789,63 @@ export default function MenuScreens({
                 setGameMode('DUEL');
                 gameAudio.playCrispClick();
               }}
-              className={`p-4 border-2 transition cursor-pointer flex flex-col justify-between rounded-none ${
+              className={`p-6 md:p-8 border-2 transition cursor-pointer flex flex-col justify-between rounded-none ${
                 gameMode === 'DUEL'
-                  ? 'bg-yellow-950/60 border-yellow-400 text-yellow-300 shadow-[4px_4px_0_0_#78350f]'
+                  ? 'bg-yellow-950/60 border-yellow-400 text-yellow-300 shadow-[8px_8px_0_0_#78350f]'
                   : 'bg-black/80 border-zinc-800 text-zinc-400 hover:border-zinc-600'
               }`}>
               <div>
-                <div className="flex items-center justify-between mb-3">
-                  <div className={`w-9 h-9 flex items-center justify-center border ${
+                <div className="flex items-center justify-between mb-4">
+                  <div className={`w-12 h-12 flex items-center justify-center border ${
                     gameMode === 'DUEL' ? 'border-yellow-400 bg-yellow-950 text-yellow-400' : 'border-zinc-700 bg-zinc-950 text-zinc-500'
                   }`}>
-                    <Users size={18} />
+                    <Users size={24} />
                   </div>
                   {gameMode === 'DUEL' && (
-                    <span className="text-[7.5px] bg-yellow-400 text-black px-1.5 py-0.5 font-bold uppercase">
+                    <span className="text-xs bg-yellow-400 text-black px-2.5 py-1 font-bold uppercase tracking-wider">
                       ACTIVE PROFILE
                     </span>
                   )}
                 </div>
-                <h3 className="text-sm font-black uppercase text-yellow-400 mb-1">
-                  2P DUEL FLIGHT
+                <h3 className="text-lg sm:text-xl font-black uppercase text-yellow-400 mb-1">
+                  2-PLAYER DUEL
                 </h3>
-                <span className="text-[7px] font-mono text-zinc-400 block mb-2 uppercase">
-                  LOCAL 2-PLAYER SPLIT SCREEN
+                <span className="text-xs font-mono text-zinc-400 block mb-4 uppercase font-bold">
+                  LOCAL 2-PLAYER SPLIT-SCREEN
                 </span>
-                <p className="text-[8px] font-mono text-zinc-300 leading-relaxed">
-                  Head-to-head local multiplayer race. Player 1 (WASD) and Player 2 (Arrow Keys or custom)
-                  compete on the same lunar crater terrain for distant pad multipliers.
-                </p>
+
+                {/* Clean Feature Pills */}
+                <div className="space-y-2 font-mono text-xs text-zinc-300 my-4">
+                  <div className="bg-black/60 border border-zinc-800 p-2 text-yellow-300 font-bold">
+                    [HEAD-TO-HEAD ON SHARED SURFACE]
+                  </div>
+                  <div className="bg-black/60 border border-zinc-800 p-2 text-zinc-300">
+                    [DUAL SPLIT-SCREEN COCKPITS]
+                  </div>
+                  <div className="bg-black/60 border border-zinc-800 p-2 text-zinc-300">
+                    [COMPETE FOR DISTANT PAD MULTIPLIERS]
+                  </div>
+                </div>
               </div>
-              <div className="pt-3 mt-3 border-t border-zinc-800/80 text-[7px] font-mono text-yellow-400 font-bold">
-                ✓ Simultaneous dual tracking split cameras
+
+              {/* Flavor Quote */}
+              <div className="mt-4 pt-3 border-t border-zinc-800/80 flex items-center justify-between">
+                <span className="text-xs font-mono text-zinc-300 italic">
+                  "Two enter the canyon, one claims the pad."
+                </span>
+                <span className="text-xs font-mono text-yellow-400 font-bold">
+                  WASD vs ARROWS
+                </span>
               </div>
             </div>
           </div>
 
           {/* Active Profile Briefing Banner */}
-          <div className="p-3 bg-black/80 border border-zinc-800 text-[8px] font-mono flex items-center justify-between">
+          <div className="p-4 bg-black/80 border-2 border-zinc-800 text-xs font-mono flex items-center justify-between shrink-0">
             <span className="text-zinc-300">
-              ACTIVE FLIGHT PROFILE: <strong className="text-emerald-400 uppercase">{gameMode === 'SOLO' ? 'SOLO FLIGHT CAMPAIGN' : gameMode === 'AI_DUEL' ? 'AI AUTOPILOT DUEL' : '2-PLAYER LOCAL SPLIT-SCREEN'}</strong>
+              ACTIVE FLIGHT PROFILE: <strong className="text-emerald-400 uppercase text-sm font-bold">{gameMode === 'SOLO' ? 'SOLO DESCENT CAMPAIGN' : gameMode === 'AI_DUEL' ? 'AI AUTOPILOT DUEL' : '2-PLAYER LOCAL SPLIT-SCREEN'}</strong>
             </span>
-            <span className="text-zinc-500 text-[7px] uppercase">[ READY FOR VESSEL CONFIGURATION ]</span>
+            <span className="text-zinc-400 text-xs uppercase font-bold">[ READY FOR VESSEL CONFIGURATION ]</span>
           </div>
         </div>
 
@@ -844,33 +886,33 @@ export default function MenuScreens({
     return (
       <div className="fixed inset-0 w-full h-full z-40 flex flex-col justify-between overflow-y-auto bg-gradient-to-b from-[#06080d]/96 via-[#06080d]/92 to-[#06080d]/98 backdrop-blur-md text-emerald-400 select-none">
         {/* Full-width Top Header Bar */}
-        <div className="w-full flex items-center justify-between px-6 py-4 border-b border-emerald-900/60 bg-[#06080d]/80 backdrop-blur-md shrink-0">
+        <div className="w-full flex items-center justify-between px-6 md:px-12 py-4 border-b border-emerald-900/60 bg-[#06080d]/80 backdrop-blur-md shrink-0">
           <div className="flex items-center gap-3">
-            <Shield size={22} className="text-emerald-400 animate-pulse" />
+            <Shield size={24} className="text-emerald-400 animate-pulse" />
             <div>
-              <div className="flex items-center gap-2">
-                <span className="text-[7.5px] px-2 py-0.5 bg-emerald-950 border border-emerald-500/80 text-emerald-300 font-mono font-bold uppercase tracking-wider">
+              <div className="flex items-center gap-2.5">
+                <span className="text-xs px-2.5 py-0.5 bg-emerald-950 border border-emerald-500/80 text-emerald-300 font-mono font-bold uppercase tracking-wider">
                   STEP 3 OF 4
                 </span>
-                <h2 className="text-sm sm:text-lg font-black tracking-wider uppercase text-emerald-400">
+                <h2 className="text-base sm:text-xl font-black tracking-wider uppercase text-emerald-400">
                   CRAFT & PILOT SPECIFICATIONS
                 </h2>
               </div>
-              <span className="text-[7.5px] font-mono text-zinc-400 uppercase tracking-widest block mt-0.5">
-                Target: {currentPlanetDef.name} • Profile: {gameMode === 'SOLO' ? 'Solo Flight' : gameMode === 'AI_DUEL' ? 'Play Against AI' : '2P Duel Flight'} • Callsign, Livery & Bot Persona
+              <span className="text-xs font-mono text-zinc-400 uppercase tracking-widest block mt-1">
+                TARGET: {currentPlanetDef.name} • PROFILE: {gameMode === 'SOLO' ? 'SOLO FLIGHT' : gameMode === 'AI_DUEL' ? 'PLAY AGAINST AI' : '2P DUEL FLIGHT'} • CALLSIGN, LIVERY & BOT CALIBRATION
               </span>
             </div>
           </div>
 
-          <div className="flex items-center gap-2.5">
+          <div className="flex items-center gap-3">
             <button
               type="button"
               onClick={() => {
                 setMainMenuScreen('FLOW_MODE');
                 gameAudio.playCrispClick();
               }}
-              className="bg-black/80 hover:bg-zinc-800 border-2 border-zinc-700 hover:border-emerald-400 text-zinc-300 hover:text-white px-3.5 py-1.5 text-[8.5px] font-bold flex items-center gap-1.5 uppercase transition">
-              <ChevronLeft size={13} />
+              className="bg-black/80 hover:bg-zinc-800 border-2 border-zinc-700 hover:border-emerald-400 text-zinc-300 hover:text-white px-4 py-2 text-xs font-bold flex items-center gap-1.5 uppercase transition">
+              <ChevronLeft size={15} />
               <span>BACK TO MODE SELECT</span>
             </button>
             <button
@@ -879,31 +921,31 @@ export default function MenuScreens({
                 toggleFullscreen();
                 gameAudio.playCrispClick();
               }}
-              className="bg-black hover:bg-emerald-400 hover:text-black border border-emerald-500 px-3 py-1.5 text-[8.5px] flex items-center gap-1.5 font-mono font-bold transition">
-              {isFullscreen ? <Minimize2 size={13} /> : <Maximize2 size={13} />}
+              className="bg-black hover:bg-emerald-400 hover:text-black border border-emerald-500 px-4 py-2 text-xs flex items-center gap-1.5 font-mono font-bold transition">
+              {isFullscreen ? <Minimize2 size={15} /> : <Maximize2 size={15} />}
               <span>{isFullscreen ? 'EXIT FS' : 'FULLSCREEN'}</span>
             </button>
           </div>
         </div>
 
-        {/* Content Area */}
-        <div className="w-full max-w-7xl mx-auto flex-1 flex flex-col justify-center p-6 sm:p-8 space-y-5">
+        {/* Content Area - Utilizing Full Screen & Spreading Panels to Edges */}
+        <div className="w-full flex-1 flex flex-col justify-between px-6 sm:px-10 md:px-16 py-4 md:py-6 space-y-6">
 
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 mb-5">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 flex-1 items-stretch">
             
             {/* PLAYER 1 CUSTOMIZATION */}
-            <div className={`${gameMode === 'SOLO' ? 'lg:col-span-12' : 'lg:col-span-6'} bg-black/80 border-2 border-emerald-700 p-4 rounded-none space-y-3`}>
-              <div className="flex items-center justify-between border-b border-zinc-800 pb-2">
-                <span className="text-[8.5px] font-bold text-emerald-400 font-mono uppercase flex items-center gap-1.5">
-                  <User size={13} />
+            <div className={`${gameMode === 'SOLO' ? 'lg:col-span-12' : 'lg:col-span-6'} bg-black/80 border-2 border-emerald-700 p-6 md:p-8 rounded-none flex flex-col justify-between space-y-4`}>
+              <div className="flex items-center justify-between border-b border-zinc-800 pb-3">
+                <span className="text-sm font-bold text-emerald-400 font-mono uppercase flex items-center gap-2">
+                  <User size={16} />
                   <span>{gameMode === 'DUEL' ? 'PLAYER 1 (WASD)' : 'PRIMARY LUNAR PILOT'}</span>
                 </span>
-                <span className="text-[7px] text-zinc-500 font-mono">CALLSIGN & LIVERY</span>
+                <span className="text-xs text-zinc-400 font-mono uppercase font-bold">[CALLSIGN & LIVERY]</span>
               </div>
 
               {/* Callsign Input */}
               <div>
-                <label className="text-[7.5px] uppercase font-mono text-zinc-400 font-bold block mb-1">
+                <label className="text-xs uppercase font-mono text-zinc-300 font-bold block mb-2">
                   PILOT CALLSIGN:
                 </label>
                 <input
@@ -915,11 +957,11 @@ export default function MenuScreens({
                     setPilotName(val);
                     setStoredPilotName(val);
                   }}
-                  className="w-full bg-zinc-950 border-2 border-emerald-600 px-3 py-1.5 text-emerald-300 text-[10px] font-bold tracking-widest focus:outline-none focus:border-emerald-400 rounded-none mb-2"
+                  className="w-full bg-zinc-950 border-2 border-emerald-600 px-4 py-2 text-emerald-300 text-sm font-bold tracking-widest focus:outline-none focus:border-emerald-400 rounded-none mb-3"
                 />
 
                 {/* Preset Chips */}
-                <div className="flex flex-wrap gap-1">
+                <div className="flex flex-wrap gap-1.5">
                   {presetPilotNames.map((name) => (
                     <button
                       key={name}
@@ -929,7 +971,7 @@ export default function MenuScreens({
                         setStoredPilotName(name);
                         gameAudio.playCrispClick();
                       }}
-                      className={`text-[6.5px] px-2 py-0.5 border font-mono transition ${
+                      className={`text-xs px-2.5 py-1 border font-mono transition ${
                         pilotName === name
                           ? 'bg-emerald-500 text-black border-emerald-400 font-bold'
                           : 'bg-zinc-900 text-zinc-400 border-zinc-700 hover:text-white'
@@ -942,10 +984,10 @@ export default function MenuScreens({
 
               {/* Hull Livery Selector */}
               <div>
-                <span className="text-[7.5px] uppercase font-mono text-zinc-400 font-bold block mb-1.5">
-                  HULL LIVERY ACCENT:
+                <span className="text-xs uppercase font-mono text-zinc-300 font-bold block mb-2">
+                  HULL LIVERY PALETTE:
                 </span>
-                <div className="grid grid-cols-5 gap-1.5 mb-2">
+                <div className="grid grid-cols-5 gap-2 mb-3">
                   {shipThemes.map((theme) => {
                     const isSelected = p1Theme.id === theme.id;
                     return (
@@ -956,11 +998,11 @@ export default function MenuScreens({
                           setP1Theme(theme);
                           gameAudio.playCrispClick();
                         }}
-                        className={`p-1.5 border text-center transition flex flex-col items-center gap-1 ${
-                          isSelected ? 'border-white bg-zinc-900 scale-105 shadow-[0_0_8px_rgba(255,255,255,0.4)]' : 'border-zinc-800 bg-zinc-950 opacity-60 hover:opacity-100'
+                        className={`p-2 border text-center transition flex flex-col items-center gap-1.5 ${
+                          isSelected ? 'border-white bg-zinc-900 scale-105 shadow-[0_0_12px_rgba(255,255,255,0.4)]' : 'border-zinc-800 bg-zinc-950 opacity-60 hover:opacity-100'
                         }`}>
-                        <div className="w-5 h-5 border border-black" style={{ backgroundColor: theme.color }} />
-                        <span className="text-[6px] font-mono truncate w-full" style={{ color: theme.color }}>
+                        <div className="w-6 h-6 border border-black shadow" style={{ backgroundColor: theme.color }} />
+                        <span className="text-[10px] font-mono font-bold truncate w-full" style={{ color: theme.color }}>
                           {theme.name.split(' ')[0]}
                         </span>
                       </button>
@@ -970,31 +1012,31 @@ export default function MenuScreens({
               </div>
 
               {/* Craft Visual Preview Bay */}
-              <div className="bg-zinc-950 border border-zinc-800 p-2.5 flex items-center justify-between">
+              <div className="bg-zinc-950 border border-zinc-800 p-3.5 flex items-center justify-between mt-auto">
                 <div className="flex items-center gap-3">
-                  <div className="relative w-12 h-10 bg-black border border-zinc-800 flex items-center justify-center">
+                  <div className="relative w-14 h-12 bg-black border border-zinc-800 flex items-center justify-center">
                     <div
-                      className="absolute bottom-1 w-3 h-4 rounded-full blur-[2px] animate-pulse"
+                      className="absolute bottom-1 w-4 h-5 rounded-full blur-[2px] animate-pulse"
                       style={{ backgroundColor: p1Theme.color }}
                     />
                     {assets['lander'] ? (
-                      <img src={assets['lander'].src} alt="Lander" className="w-8 h-7 object-contain relative z-10" />
+                      <img src={assets['lander'].src} alt="Lander" className="w-9 h-8 object-contain relative z-10" />
                     ) : (
-                      <div className="w-6 h-5 bg-white rounded-sm" />
+                      <div className="w-7 h-6 bg-white rounded-sm" />
                     )}
                   </div>
                   <div>
-                    <span className="text-[7.5px] font-bold block" style={{ color: p1Theme.color }}>
+                    <span className="text-xs font-bold block" style={{ color: p1Theme.color }}>
                       {p1Theme.name}
                     </span>
-                    <span className="text-[6.5px] font-mono text-zinc-500 block">
+                    <span className="text-[10px] font-mono text-zinc-400 block">
                       TITANIUM ALLOY STRUTS // HYDRAULIC SUSPENSION
                     </span>
                   </div>
                 </div>
-                <div className="text-right">
-                  <span className="text-[6.5px] text-zinc-500 font-mono block">STARTING FUEL</span>
-                  <span className="text-[8.5px] text-emerald-400 font-mono font-bold block">
+                <div className="text-right font-mono">
+                  <span className="text-xs text-zinc-400 font-bold block">STARTING FUEL</span>
+                  <span className="text-sm text-emerald-400 font-bold block">
                     {selectedLevelConfig.fuelCapacity}L
                   </span>
                 </div>
@@ -1003,21 +1045,21 @@ export default function MenuScreens({
 
             {/* PLAYER 2 / AI OPPONENT SPECIFICATIONS */}
             {gameMode === 'AI_DUEL' && (
-              <div className="lg:col-span-6 bg-black/80 border-2 border-cyan-700 p-4 rounded-none space-y-3">
-                <div className="flex items-center justify-between border-b border-zinc-800 pb-2">
-                  <span className="text-[8.5px] font-bold text-cyan-400 font-mono uppercase flex items-center gap-1.5">
-                    <Bot size={13} />
+              <div className="lg:col-span-6 bg-black/80 border-2 border-cyan-700 p-6 md:p-8 rounded-none flex flex-col justify-between space-y-4">
+                <div className="flex items-center justify-between border-b border-zinc-800 pb-3">
+                  <span className="text-sm font-bold text-cyan-400 font-mono uppercase flex items-center gap-2">
+                    <Bot size={16} />
                     <span>AI OPPONENT ROBOT</span>
                   </span>
-                  <span className="text-[7px] text-cyan-500 font-mono">[AUTONOMOUS PILOT]</span>
+                  <span className="text-xs text-cyan-400 font-mono font-bold">[AUTONOMOUS PILOT]</span>
                 </div>
 
                 {/* AI Craft Visual Preview Bay (Identical Spacecraft Model) */}
-                <div className="bg-zinc-950 border border-cyan-900/60 p-2.5 flex items-center justify-between">
+                <div className="bg-zinc-950 border border-cyan-900/60 p-3.5 flex items-center justify-between">
                   <div className="flex items-center gap-3">
-                    <div className="relative w-12 h-10 bg-black border border-cyan-900 flex items-center justify-center">
+                    <div className="relative w-14 h-12 bg-black border border-cyan-900 flex items-center justify-center">
                       <div
-                        className="absolute bottom-1 w-3 h-4 rounded-full blur-[2px] animate-pulse"
+                        className="absolute bottom-1 w-4 h-5 rounded-full blur-[2px] animate-pulse"
                         style={{ backgroundColor: selectedAiPersona.hullColor }}
                       />
                       {assets['lander'] ? (
@@ -1222,33 +1264,33 @@ export default function MenuScreens({
     return (
       <div className="fixed inset-0 w-full h-full z-40 flex flex-col justify-between overflow-y-auto bg-gradient-to-b from-[#06080d]/96 via-[#06080d]/92 to-[#06080d]/98 backdrop-blur-md text-emerald-400 select-none">
         {/* Full-width Top Header Bar */}
-        <div className="w-full flex items-center justify-between px-6 py-4 border-b border-emerald-900/60 bg-[#06080d]/80 backdrop-blur-md shrink-0">
+        <div className="w-full flex items-center justify-between px-6 md:px-12 py-4 border-b border-emerald-900/60 bg-[#06080d]/80 backdrop-blur-md shrink-0">
           <div className="flex items-center gap-3">
-            <Compass size={22} className="text-emerald-400 animate-pulse" />
+            <Compass size={24} className="text-emerald-400 animate-pulse" />
             <div>
-              <div className="flex items-center gap-2">
-                <span className="text-[7.5px] px-2 py-0.5 bg-emerald-950 border border-emerald-500/80 text-emerald-300 font-mono font-bold uppercase tracking-wider">
+              <div className="flex items-center gap-2.5">
+                <span className="text-xs px-2.5 py-0.5 bg-emerald-950 border border-emerald-500/80 text-emerald-300 font-mono font-bold uppercase tracking-wider">
                   STEP 4 OF 4
                 </span>
-                <h2 className="text-sm sm:text-lg font-black tracking-wider uppercase text-emerald-400">
+                <h2 className="text-base sm:text-xl font-black tracking-wider uppercase text-emerald-400">
                   SELECT DESCENT SECTOR // {currentPlanetDef.name}
                 </h2>
-                <span className="text-[7.5px] font-mono font-bold px-1.5 py-0.5 border uppercase" style={{ borderColor: currentPlanetDef.accentColor, color: currentPlanetDef.accentColor }}>
+                <span className="text-xs font-mono font-bold px-2 py-0.5 border uppercase" style={{ borderColor: currentPlanetDef.accentColor, color: currentPlanetDef.accentColor }}>
                   {currentPlanetDef.gravity} PX/S²
                 </span>
-                <span className="text-[7.5px] font-mono font-bold px-1.5 py-0.5 bg-zinc-900 border border-zinc-700 text-zinc-300 uppercase">
+                <span className="text-xs font-mono font-bold px-2 py-0.5 bg-zinc-900 border border-zinc-700 text-zinc-300 uppercase">
                   UNLOCKED: {maxUnlocked}/10
                 </span>
               </div>
-              <span className="text-[7.5px] font-mono text-zinc-400 uppercase tracking-widest block mt-0.5">
-                {currentPlanetDef.subname} • Complete each sector map to unlock subsequent descent challenges
+              <span className="text-xs font-mono text-zinc-400 uppercase tracking-widest block mt-1">
+                {currentPlanetDef.subname} • 10 MAPS WITH PROGRESSIVE AVIONICS RETROGRESSION
               </span>
             </div>
           </div>
 
-          <div className="flex items-center gap-2.5">
+          <div className="flex items-center gap-3">
             {/* Quick Planet Switcher Pills */}
-            <div className="hidden md:flex items-center gap-1.5 font-mono text-[7.5px] mr-2">
+            <div className="hidden md:flex items-center gap-2 font-mono text-xs mr-2">
               {PLANETS.map((p) => {
                 const isCurrent = selectedPlanet === p.id;
                 const planetMax = unlockedLevels[p.id] || 1;
@@ -1263,9 +1305,9 @@ export default function MenuScreens({
                       }
                       gameAudio.playCrispClick();
                     }}
-                    className={`px-2 py-1 border transition uppercase ${
+                    className={`px-3 py-1.5 border transition uppercase text-xs font-bold ${
                       isCurrent
-                        ? 'border-emerald-400 bg-emerald-950 text-white font-bold shadow-[2px_2px_0_0_#10b981]'
+                        ? 'border-emerald-400 bg-emerald-950 text-white shadow-[2px_2px_0_0_#10b981]'
                         : 'border-zinc-800 bg-black text-zinc-400 hover:border-zinc-600'
                     }`}>
                     {p.name} ({planetMax}/10)
@@ -1280,8 +1322,8 @@ export default function MenuScreens({
                 setMainMenuScreen('FLOW_CUSTOMIZE');
                 gameAudio.playCrispClick();
               }}
-              className="bg-black/80 hover:bg-zinc-800 border-2 border-zinc-700 hover:border-emerald-400 text-zinc-300 hover:text-white px-3 py-1.5 text-[8.5px] font-bold flex items-center gap-1 uppercase transition">
-              <ChevronLeft size={13} />
+              className="bg-black/80 hover:bg-zinc-800 border-2 border-zinc-700 hover:border-emerald-400 text-zinc-300 hover:text-white px-4 py-2 text-xs font-bold flex items-center gap-1.5 uppercase transition">
+              <ChevronLeft size={15} />
               <span>BACK TO CRAFT</span>
             </button>
             <button
@@ -1290,25 +1332,25 @@ export default function MenuScreens({
                 toggleFullscreen();
                 gameAudio.playCrispClick();
               }}
-              className="bg-black hover:bg-emerald-400 hover:text-black border border-emerald-500 px-3 py-1.5 text-[8.5px] flex items-center gap-1.5 font-mono font-bold transition">
-              {isFullscreen ? <Minimize2 size={13} /> : <Maximize2 size={13} />}
+              className="bg-black hover:bg-emerald-400 hover:text-black border border-emerald-500 px-4 py-2 text-xs flex items-center gap-1.5 font-mono font-bold transition">
+              {isFullscreen ? <Minimize2 size={15} /> : <Maximize2 size={15} />}
               <span>{isFullscreen ? 'EXIT FS' : 'FULLSCREEN'}</span>
             </button>
           </div>
         </div>
 
-        {/* Content Area */}
-        <div className="w-full max-w-7xl mx-auto flex-1 flex flex-col justify-center p-6 sm:p-8 space-y-4">
+        {/* Content Area - Utilizing Full Screen & Spreading Panels to Edges */}
+        <div className="w-full flex-1 flex flex-col justify-between px-6 sm:px-10 md:px-16 py-4 md:py-6 space-y-5">
           {/* Locked Notice Banner */}
           {lockedNotice && (
-            <div className="bg-amber-950/90 border-2 border-amber-500 p-2 text-center text-amber-300 font-bold text-[8px] uppercase tracking-wider mb-2.5 animate-pulse flex items-center justify-center gap-2">
-              <Lock size={13} className="shrink-0 text-amber-400" />
+            <div className="bg-amber-950/90 border-2 border-amber-500 p-2.5 text-center text-amber-300 font-bold text-xs uppercase tracking-wider mb-2 animate-pulse flex items-center justify-center gap-2">
+              <Lock size={15} className="shrink-0 text-amber-400" />
               <span>{lockedNotice}</span>
             </div>
           )}
 
           {/* 10 Map Cards Grid (5x2) - Each Map Has Unique Terrain & Hardcoded Retrogression */}
-          <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 mb-3">
+          <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 mb-2 flex-1">
             {planetLevels.map((level) => {
               const isUnlocked = level.id <= maxUnlocked;
               const isSelected = effectiveStartingEpoch === level.id;
@@ -1339,47 +1381,47 @@ export default function MenuScreens({
                     setSelectedStartingEpoch(level.id);
                     gameAudio.playCrispClick();
                   }}
-                  className={`p-2.5 text-left border-2 transition rounded-none relative flex flex-col justify-between ${
+                  className={`p-3 text-left border-2 transition rounded-none relative flex flex-col justify-between ${
                     !isUnlocked
                       ? 'bg-zinc-950/70 border-zinc-900 opacity-45 cursor-not-allowed grayscale'
                       : isSelected
-                      ? 'bg-zinc-900 border-emerald-400 shadow-[3px_3px_0_0_#10b981] cursor-pointer'
+                      ? 'bg-zinc-900 border-emerald-400 shadow-[4px_4px_0_0_#10b981] cursor-pointer'
                       : 'bg-black/80 border-zinc-800 hover:border-zinc-600 cursor-pointer'
                   }`}
                   style={{
                     borderColor: isSelected ? level.themeColor : undefined,
-                    boxShadow: isSelected ? `3px 3px 0 0 ${level.themeColor}` : undefined,
+                    boxShadow: isSelected ? `4px 4px 0 0 ${level.themeColor}` : undefined,
                   }}>
                   <div>
-                    <div className="flex items-center justify-between mb-1">
-                      <span className="text-[8.5px] font-black uppercase" style={{ color: isUnlocked ? level.themeColor : '#71717a' }}>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <span className="text-xs font-black uppercase" style={{ color: isUnlocked ? level.themeColor : '#71717a' }}>
                         MAP {level.id.toString().padStart(2, '0')}
                       </span>
                       {!isUnlocked ? (
-                        <span className="text-[6px] font-mono px-1 py-0.2 bg-zinc-900 border border-zinc-800 text-zinc-500 flex items-center gap-0.5">
-                          <Lock size={7} />
+                        <span className="text-[10px] font-mono px-1.5 py-0.5 bg-zinc-900 border border-zinc-800 text-zinc-500 flex items-center gap-1">
+                          <Lock size={9} />
                           <span>LOCKED</span>
                         </span>
                       ) : isSelected ? (
-                        <Check size={12} style={{ color: level.themeColor }} />
+                        <Check size={15} style={{ color: level.themeColor }} />
                       ) : (
-                        <span className="text-[6px] font-mono px-1 py-0.2 bg-zinc-950 border border-zinc-800 text-zinc-400">
+                        <span className="text-[10px] font-mono px-1.5 py-0.5 bg-zinc-950 border border-zinc-800 text-zinc-400">
                           {level.fuelCapacity}L
                         </span>
                       )}
                     </div>
-                    <span className="text-[8px] font-bold text-zinc-200 block truncate uppercase leading-tight">
+                    <span className="text-xs font-bold text-zinc-200 block truncate uppercase leading-tight">
                       {isUnlocked ? level.name : `[LOCKED] ${level.name}`}
                     </span>
-                    <span className="text-[6.5px] font-mono text-zinc-400 block truncate mt-0.5">
+                    <span className="text-[10px] font-mono text-zinc-400 block truncate mt-1">
                       {level.mapType}
                     </span>
                   </div>
 
-                  <div className="mt-2.5 pt-1.5 border-t border-zinc-800/80 text-[6.5px] font-mono flex items-center justify-between text-zinc-400">
-                    <span className="text-zinc-400 font-bold">{level.fuelCapacity}L FUEL</span>
+                  <div className="mt-3 pt-2 border-t border-zinc-800/80 text-[10px] font-mono flex items-center justify-between text-zinc-400">
+                    <span className="text-zinc-300 font-bold">{level.fuelCapacity}L</span>
                     <span
-                      className="font-bold uppercase tracking-wider"
+                      className="font-bold uppercase tracking-wider text-[10px]"
                       style={{ color: isUnlocked ? level.themeColor : '#71717a' }}>
                       {isUnlocked ? avionicsLabel : 'LOCKED'}
                     </span>
@@ -1389,41 +1431,42 @@ export default function MenuScreens({
             })}
           </div>
 
-          {/* Clean Selected Map Briefing Panel */}
-          <div className="bg-black/90 border-2 border-zinc-800 p-3 mb-3 rounded-none grid grid-cols-1 md:grid-cols-12 gap-3 font-mono">
-            {/* Left: Map Title, Terrain & Retrogression Status */}
-            <div className="md:col-span-7 space-y-1.5">
-              <div className="flex items-center gap-2">
-                <span className="text-xs sm:text-sm font-black uppercase text-emerald-400" style={{ color: effectiveLevelConfig.themeColor }}>
+          {/* Clean Selected Map Briefing Panel (Label-Only with Flavor Quote) */}
+          <div className="bg-black/90 border-2 border-zinc-800 p-4 rounded-none grid grid-cols-1 md:grid-cols-12 gap-4 font-mono shrink-0">
+            {/* Left: Map Title, Flavor Quote & Retrogression Status */}
+            <div className="md:col-span-7 space-y-2">
+              <div className="flex items-center gap-3">
+                <span className="text-sm sm:text-base font-black uppercase text-emerald-400" style={{ color: effectiveLevelConfig.themeColor }}>
                   MAP {effectiveLevelConfig.id}: {effectiveLevelConfig.name}
                 </span>
-                <span className="text-[7px] px-1.5 py-0.5 bg-zinc-900 border border-zinc-700 text-zinc-300">
+                <span className="text-xs px-2 py-0.5 bg-zinc-900 border border-zinc-700 text-zinc-300 font-bold">
                   {effectiveLevelConfig.mapType}
                 </span>
               </div>
 
-              <p className="text-[7.5px] text-zinc-300 leading-relaxed">
-                {effectiveLevelConfig.description}
-              </p>
+              {/* Flavor Quote - Kept prominent and stylish */}
+              <div className="text-xs sm:text-sm italic text-zinc-200 border-l-2 border-emerald-500 pl-3 py-0.5 my-2">
+                "{effectiveLevelConfig.flavorQuote}"
+              </div>
 
               {/* Hardcoded Retrogression Status Banner */}
               <div
-                className="p-2 border text-[7.5px] flex flex-col gap-1 rounded-none"
+                className="p-2.5 border text-xs flex flex-col gap-1.5 rounded-none"
                 style={{
                   backgroundColor: `${effectiveLevelConfig.themeColor}15`,
                   borderColor: `${effectiveLevelConfig.themeColor}80`,
                 }}>
                 <div className="flex items-center justify-between">
-                  <span className="font-bold uppercase tracking-wider text-[8px]" style={{ color: effectiveLevelConfig.themeColor }}>
-                    HARDCODED AVIONICS (LEVEL {effectiveLevelConfig.id}): {effectiveLevelConfig.era}
+                  <span className="font-bold uppercase tracking-wider text-xs" style={{ color: effectiveLevelConfig.themeColor }}>
+                    AVIONICS SPECIFICATION: {effectiveLevelConfig.era}
                   </span>
-                  <span className="text-[6.5px] font-mono text-zinc-400">
-                    OFFLINE SYSTEMS NEVER RETURN
+                  <span className="text-[10px] font-mono text-zinc-400 uppercase font-bold">
+                    [OFFLINE PROTOCOLS PERMANENT]
                   </span>
                 </div>
-                <div className="flex flex-wrap gap-1.5 text-zinc-300 text-[6.5px]">
+                <div className="flex flex-wrap gap-2 text-zinc-300 text-xs">
                   {effectiveLevelConfig.degradedAvionics.map((item, i) => (
-                    <span key={i} className="text-zinc-200 bg-black/60 px-1.5 py-0.5 border border-zinc-800">
+                    <span key={i} className="text-zinc-200 bg-black/60 px-2 py-1 border border-zinc-800 font-bold">
                       • {item}
                     </span>
                   ))}
@@ -1431,25 +1474,25 @@ export default function MenuScreens({
               </div>
             </div>
 
-            {/* Right: Flight Conditions & Target Platforms */}
-            <div className="md:col-span-5 space-y-1.5 border-t md:border-t-0 md:border-l border-zinc-800 md:pl-3 pt-2 md:pt-0">
-              <div className="flex items-center justify-between text-[7px] text-zinc-400">
-                <span>START FUEL: <strong className="text-emerald-400">{effectiveLevelConfig.fuelCapacity}L</strong></span>
+            {/* Right: Flight Conditions & Target Platforms (Clean Labels) */}
+            <div className="md:col-span-5 space-y-2.5 border-t md:border-t-0 md:border-l border-zinc-800 md:pl-4 pt-2 md:pt-0">
+              <div className="flex items-center justify-between text-xs text-zinc-300 font-bold">
+                <span>FUEL: <strong className="text-emerald-400">{effectiveLevelConfig.fuelCapacity}L</strong></span>
                 <span>WIND: <strong className="text-cyan-300">{effectiveLevelConfig.windSpeed} PX/S</strong></span>
                 <span>HAZARDS: <strong className="text-amber-400">{effectiveLevelConfig.hazardCount}</strong></span>
               </div>
 
               <div>
-                <span className="text-[6.5px] font-bold text-zinc-400 uppercase block mb-1">
-                  LANDING PADS ON THIS MAP:
+                <span className="text-xs font-bold text-zinc-400 uppercase block mb-1.5">
+                  LANDING PLATFORMS ON THIS MAP:
                 </span>
-                <div className="grid grid-cols-2 gap-1">
+                <div className="grid grid-cols-2 gap-1.5">
                   {effectiveLevelConfig.pads.map((pad) => (
-                    <div key={pad.code} className="bg-zinc-950 border border-zinc-800 p-1 flex items-center justify-between">
-                      <span className="text-[7px] font-bold" style={{ color: pad.color }}>
+                    <div key={pad.code} className="bg-zinc-950 border border-zinc-800 p-1.5 flex items-center justify-between">
+                      <span className="text-xs font-bold" style={{ color: pad.color }}>
                         {pad.code} [{pad.multiplier}x]
                       </span>
-                      <span className="text-[6px] text-zinc-400 font-mono">
+                      <span className="text-[10px] text-zinc-400 font-mono">
                         {pad.w}px wide
                       </span>
                     </div>
@@ -2257,107 +2300,107 @@ export default function MenuScreens({
             {/* ============================================================= */}
             {/* LEFT HALF: LEVEL SCORE BREAKDOWN & LANDING TELEMETRY          */}
             {/* ============================================================= */}
-            <div className="flex flex-col gap-3 bg-black/80 border-2 border-emerald-500/80 p-3.5 sm:p-4 font-mono">
-              <div className="flex items-center justify-between border-b border-emerald-900 pb-2">
-                <span className="text-[9px] font-black uppercase text-emerald-400 tracking-wider flex items-center gap-2">
-                  <Gauge size={14} className="text-emerald-400" />
-                  <span>LEFT HALF: MISSION TELEMETRY & SCORE BREAKDOWN</span>
+            <div className="flex flex-col gap-3.5 bg-black/80 border-2 border-emerald-500/80 p-4 sm:p-5 font-mono">
+              <div className="flex items-center justify-between border-b border-emerald-900 pb-2.5">
+                <span className="text-xs sm:text-sm font-black uppercase text-emerald-400 tracking-wider flex items-center gap-2">
+                  <Gauge size={16} className="text-emerald-400" />
+                  <span>MISSION TELEMETRY & SCORE BREAKDOWN</span>
                 </span>
-                <span className="text-[7.5px] px-2 py-0.5 bg-emerald-950 text-emerald-300 border border-emerald-700 font-bold uppercase">
+                <span className="text-xs px-2.5 py-0.5 bg-emerald-950 text-emerald-300 border border-emerald-700 font-bold uppercase">
                   VERIFIED TOUCHDOWN
                 </span>
               </div>
 
               {/* Points Summary Header */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 bg-zinc-950/90 border border-emerald-900/60 p-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-zinc-950/90 border border-emerald-900/60 p-4">
                 <div>
-                  <span className="text-[7.5px] text-zinc-400 uppercase font-bold tracking-widest block mb-0.5">
+                  <span className="text-xs text-zinc-400 uppercase font-bold tracking-widest block mb-1">
                     LEVEL {completedLevelNum} SCORE AWARDED
                   </span>
                   <span className="text-2xl sm:text-3xl font-black text-emerald-400 drop-shadow-[0_0_12px_rgba(16,185,129,0.5)]">
-                    +{lastTouchdownStats.pointsAwarded.toLocaleString()} <span className="text-xs">PTS</span>
+                    +{lastTouchdownStats.pointsAwarded.toLocaleString()} <span className="text-sm font-bold">PTS</span>
                   </span>
                 </div>
-                <div className="sm:text-right border-t sm:border-t-0 sm:border-l border-zinc-800 pt-2 sm:pt-0 sm:pl-3">
-                  <span className="text-[7.5px] text-zinc-500 uppercase font-bold tracking-widest block mb-0.5">
+                <div className="sm:text-right border-t sm:border-t-0 sm:border-l border-zinc-800 pt-2 sm:pt-0 sm:pl-4">
+                  <span className="text-xs text-zinc-400 uppercase font-bold tracking-widest block mb-1">
                     CAMPAIGN TOTAL SCORE
                   </span>
                   <span className="text-xl sm:text-2xl font-black text-yellow-400 drop-shadow-[0_0_10px_rgba(250,204,21,0.4)]">
-                    {(lastTouchdownStats.totalCumulativeScore ?? gameState.score).toLocaleString()} <span className="text-xs">PTS</span>
+                    {(lastTouchdownStats.totalCumulativeScore ?? gameState.score).toLocaleString()} <span className="text-sm font-bold">PTS</span>
                   </span>
                 </div>
               </div>
 
               {/* 4 Score Multipliers Cards */}
-              <div className="grid grid-cols-2 gap-2 text-[8px]">
-                <div className="bg-zinc-950 p-2.5 border border-zinc-800">
-                  <span className="text-zinc-500 block text-[7px] uppercase font-bold">BASE SECTOR VALUE:</span>
+              <div className="grid grid-cols-2 gap-2.5 text-xs">
+                <div className="bg-zinc-950 p-3 border border-zinc-800">
+                  <span className="text-zinc-400 block text-[10px] uppercase font-bold">BASE SECTOR VALUE:</span>
                   <strong className="text-white font-black text-sm block">
                     +{(lastTouchdownStats.basePoints ?? completedLevelNum * 1000).toLocaleString()}
                   </strong>
-                  <span className="text-[6.5px] text-zinc-400">Map {completedLevelNum} difficulty rating</span>
+                  <span className="text-[10px] text-zinc-400">Map {completedLevelNum} difficulty rating</span>
                 </div>
 
-                <div className="bg-zinc-950 p-2.5 border border-zinc-800">
-                  <span className="text-zinc-500 block text-[7px] uppercase font-bold">FUEL CONSERVED:</span>
+                <div className="bg-zinc-950 p-3 border border-zinc-800">
+                  <span className="text-zinc-400 block text-[10px] uppercase font-bold">FUEL CONSERVED:</span>
                   <strong className="text-cyan-400 font-black text-sm block">
                     +{(lastTouchdownStats.fuelBonus ?? 0).toLocaleString()}
                   </strong>
-                  <span className="text-[6.5px] text-zinc-400">{lastTouchdownStats.fuelRemaining}L remaining @ 15 pts/L</span>
+                  <span className="text-[10px] text-zinc-400">{lastTouchdownStats.fuelRemaining}L remaining</span>
                 </div>
 
-                <div className="bg-zinc-950 p-2.5 border border-zinc-800">
-                  <span className="text-zinc-500 block text-[7px] uppercase font-bold">SOFT LANDING BONUS:</span>
+                <div className="bg-zinc-950 p-3 border border-zinc-800">
+                  <span className="text-zinc-400 block text-[10px] uppercase font-bold">SOFT LANDING BONUS:</span>
                   <strong className="text-emerald-400 font-black text-sm block">
                     +{(lastTouchdownStats.precisionBonus ?? 0).toLocaleString()}
                   </strong>
-                  <span className="text-[6.5px] text-zinc-400">Low impact cushion precision</span>
+                  <span className="text-[10px] text-zinc-400">Hydraulic shock precision</span>
                 </div>
 
-                <div className="bg-zinc-950 p-2.5 border border-zinc-800">
-                  <span className="text-zinc-500 block text-[7px] uppercase font-bold">DISTANCE MULTIPLIER:</span>
+                <div className="bg-zinc-950 p-3 border border-zinc-800">
+                  <span className="text-zinc-400 block text-[10px] uppercase font-bold">DISTANCE MULTIPLIER:</span>
                   <strong className="text-amber-400 font-black text-sm block">
                     {lastTouchdownStats.padMultiplier}x
                   </strong>
-                  <span className="text-[6.5px] text-zinc-400">{lastTouchdownStats.padName} landing pad</span>
+                  <span className="text-[10px] text-zinc-400">{lastTouchdownStats.padName} landing pad</span>
                 </div>
               </div>
 
               {/* Real Flight Dynamics Telemetry Box */}
-              <div className="bg-zinc-950 p-3 border border-zinc-800/80 space-y-2 mt-auto">
-                <span className="text-[7.5px] font-bold uppercase text-zinc-400 block tracking-wider">
-                  FLIGHT TOUCHDOWN DYNAMICS // HYDRAULIC SUSPENSION CUSHION
+              <div className="bg-zinc-950 p-3.5 border border-zinc-800/80 space-y-2.5 mt-auto font-mono">
+                <span className="text-xs font-bold uppercase text-zinc-400 block tracking-wider">
+                  FLIGHT TOUCHDOWN DYNAMICS // SUSPENSION CUSHION
                 </span>
 
-                <div className="grid grid-cols-3 gap-2 text-center text-[7.5px]">
-                  <div className="bg-black p-2 border border-emerald-900/60">
-                    <span className="text-zinc-500 block text-[6.5px]">DESCENT SPEED</span>
-                    <strong className="text-emerald-300 font-bold text-xs block">
-                      {Math.round(lastTouchdownStats.vy)} <span className="text-[7px]">PX/S</span>
+                <div className="grid grid-cols-3 gap-2.5 text-center text-xs">
+                  <div className="bg-black p-2.5 border border-emerald-900/60">
+                    <span className="text-zinc-400 block text-[10px] font-bold">DESCENT SPEED</span>
+                    <strong className="text-emerald-300 font-bold text-sm block">
+                      {Math.round(lastTouchdownStats.vy)} <span className="text-[10px]">PX/S</span>
                     </strong>
-                    <span className="text-[6px] text-zinc-500">LIMIT: ≤75 PX/S</span>
+                    <span className="text-[9px] text-zinc-500 font-mono">SAFE: ≤75</span>
                   </div>
 
-                  <div className="bg-black p-2 border border-cyan-900/60">
-                    <span className="text-zinc-500 block text-[6.5px]">LATERAL DRIFT</span>
-                    <strong className="text-cyan-300 font-bold text-xs block">
-                      {Math.round(Math.abs(lastTouchdownStats.vx))} <span className="text-[7px]">PX/S</span>
+                  <div className="bg-black p-2.5 border border-cyan-900/60">
+                    <span className="text-zinc-400 block text-[10px] font-bold">LATERAL DRIFT</span>
+                    <strong className="text-cyan-300 font-bold text-sm block">
+                      {Math.round(Math.abs(lastTouchdownStats.vx))} <span className="text-[10px]">PX/S</span>
                     </strong>
-                    <span className="text-[6px] text-zinc-500">LIMIT: ≤45 PX/S</span>
+                    <span className="text-[9px] text-zinc-500 font-mono">SAFE: ≤45</span>
                   </div>
 
-                  <div className="bg-black p-2 border border-amber-900/60">
-                    <span className="text-zinc-500 block text-[6.5px]">ATTITUDE TILT</span>
-                    <strong className="text-amber-300 font-bold text-xs block">
+                  <div className="bg-black p-2.5 border border-amber-900/60">
+                    <span className="text-zinc-400 block text-[10px] font-bold">ATTITUDE TILT</span>
+                    <strong className="text-amber-300 font-bold text-sm block">
                       {Math.round(Math.abs(lastTouchdownStats.tilt))}°
                     </strong>
-                    <span className="text-[6px] text-zinc-500">LIMIT: ≤16°</span>
+                    <span className="text-[9px] text-zinc-500 font-mono">SAFE: ≤16°</span>
                   </div>
                 </div>
 
-                <div className="flex items-center justify-between text-[7px] text-zinc-400 pt-1 border-t border-zinc-900">
-                  <span className="text-emerald-400 font-bold flex items-center gap-1">
-                    <Check size={11} /> STRUT ABSORPTION: 100% NOMINAL
+                <div className="flex items-center justify-between text-xs text-zinc-300 pt-1.5 border-t border-zinc-900">
+                  <span className="text-emerald-400 font-bold flex items-center gap-1.5">
+                    <Check size={14} /> STRUT ABSORPTION: NOMINAL
                   </span>
                   <span>PILOT: <strong className="text-white">{lastTouchdownStats.pilotName || pilotName}</strong></span>
                 </div>
@@ -2368,17 +2411,17 @@ export default function MenuScreens({
             {/* RIGHT HALF: AVIONICS DEGRADATION PROTOCOL FOR NEXT LEVEL     */}
             {/* ============================================================= */}
             {gameMode === 'SOLO' && !isMaxCampaign ? (
-              <div className="flex flex-col gap-3 bg-red-950/25 border-2 border-red-500/80 p-3.5 sm:p-4 font-mono">
+              <div className="flex flex-col gap-3.5 bg-red-950/25 border-2 border-red-500/80 p-4 sm:p-5 font-mono">
                 {/* Header */}
-                <div className="flex items-center justify-between border-b border-red-900 pb-2">
+                <div className="flex items-center justify-between border-b border-red-900 pb-2.5">
                   <div className="flex items-center gap-2">
-                    <AlertTriangle size={15} className="text-red-400 animate-pulse shrink-0" />
-                    <span className="text-[9px] font-black uppercase text-red-400 tracking-wider">
-                      RIGHT HALF: AVIONICS DEGRADATION PROTOCOL // ADVANCING TO LEVEL {nextLevelNum}
+                    <AlertTriangle size={17} className="text-red-400 animate-pulse shrink-0" />
+                    <span className="text-xs sm:text-sm font-black uppercase text-red-400 tracking-wider">
+                      AVIONICS DEGRADATION PROTOCOL // ADVANCING TO LEVEL {nextLevelNum}
                     </span>
                   </div>
                   <span
-                    className="text-[7px] font-bold px-2 py-0.5 uppercase border shrink-0"
+                    className="text-xs font-bold px-2.5 py-0.5 uppercase border shrink-0"
                     style={{
                       borderColor: nextRetrogression.color,
                       color: nextRetrogression.color,
@@ -2389,27 +2432,27 @@ export default function MenuScreens({
                 </div>
 
                 {/* Upcoming Level Specs */}
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-[7.5px] bg-black/70 p-2.5 border border-red-900/50">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 text-xs bg-black/70 p-3 border border-red-900/50">
                   <div>
-                    <span className="text-zinc-500 block text-[6.5px]">SECTOR NAME:</span>
+                    <span className="text-zinc-400 block text-[10px] font-bold">SECTOR NAME:</span>
                     <strong className="text-white uppercase font-bold block truncate">
                       {nextLevelConfig.name}
                     </strong>
                   </div>
                   <div>
-                    <span className="text-zinc-500 block text-[6.5px]">TOPOLOGY:</span>
+                    <span className="text-zinc-400 block text-[10px] font-bold">TOPOLOGY:</span>
                     <strong className="text-yellow-300 uppercase font-bold block truncate">
                       {nextLevelConfig.mapType}
                     </strong>
                   </div>
                   <div>
-                    <span className="text-zinc-500 block text-[6.5px]">ATMOSPHERIC WIND:</span>
+                    <span className="text-zinc-400 block text-[10px] font-bold">CROSSWIND:</span>
                     <strong className="text-cyan-300 uppercase font-bold block truncate">
                       {nextLevelConfig.windMax > 0 ? `±${nextLevelConfig.windMax} PX/S` : 'VACUUM (0)'}
                     </strong>
                   </div>
                   <div>
-                    <span className="text-zinc-500 block text-[6.5px]">STARTING FUEL:</span>
+                    <span className="text-zinc-400 block text-[10px] font-bold">STARTING FUEL:</span>
                     <strong className="text-amber-400 uppercase font-bold block truncate">
                       {nextLevelConfig.fuelCapacity}L
                     </strong>
@@ -2417,33 +2460,32 @@ export default function MenuScreens({
                 </div>
 
                 {/* Era & Stage Description */}
-                <div className="bg-black/80 border border-zinc-800 p-2.5">
+                <div className="bg-black/80 border border-zinc-800 p-3">
                   <div className="flex items-center justify-between mb-1">
-                    <span className="text-[8px] font-bold uppercase" style={{ color: nextRetrogression.color }}>
+                    <span className="text-xs font-bold uppercase" style={{ color: nextRetrogression.color }}>
                       RETROGRESSION STAGE: {nextRetrogression.stageName}
                     </span>
-                    <span className="text-[7px] text-zinc-400">{nextRetrogression.title}</span>
+                    <span className="text-xs text-zinc-400 font-bold">{nextRetrogression.title}</span>
                   </div>
-                  <p className="text-[7.5px] text-zinc-300 leading-relaxed">
-                    Advancing to Level {nextLevelNum} forces ship technology backward in time. Digital fly-by-wire
-                    and radar sensors are progressively decommissioned.
-                  </p>
+                  <div className="text-xs text-zinc-300 italic pl-2 border-l border-red-500 mt-1">
+                    "{nextLevelConfig.flavorQuote || 'Systems are stripped backward in time. Offlined features never return.'}"
+                  </div>
                 </div>
 
                 {/* Newly Decommissioned Avionics */}
                 <div>
-                  <span className="text-[7.5px] text-red-400 uppercase font-black block mb-1.5 tracking-wider flex items-center gap-1.5">
+                  <span className="text-xs text-red-400 uppercase font-black block mb-2 tracking-wider flex items-center gap-1.5">
                     <span>⚠️</span>
                     <span>NEWLY DECOMMISSIONED ON LEVEL {nextLevelNum}:</span>
                   </span>
-                  <div className="space-y-1">
+                  <div className="space-y-1.5">
                     {(getNewlyDecommissioned(nextLevelNum).length > 0
                       ? getNewlyDecommissioned(nextLevelNum)
                       : nextRetrogression.decommissioned
                     ).map((degraded, i) => (
-                      <div key={i} className="flex items-start gap-2 bg-black/90 border border-red-900/90 p-1.5 text-[7.5px]">
-                        <span className="text-red-400 font-black text-[6.5px] px-1.5 py-0.5 bg-red-950 border border-red-700 shrink-0 uppercase">
-                          STRIPPED
+                      <div key={i} className="flex items-start gap-2.5 bg-black/90 border border-red-900/90 p-2 text-xs">
+                        <span className="text-red-400 font-black text-[10px] px-2 py-0.5 bg-red-950 border border-red-700 shrink-0 uppercase">
+                          OFFLINE
                         </span>
                         <span className="text-yellow-200 font-bold leading-tight">
                           {degraded}
@@ -2456,18 +2498,18 @@ export default function MenuScreens({
                 {/* Previously Decommissioned (Never Comes Back) */}
                 {getPreviouslyDecommissioned(nextLevelNum).length > 0 && (
                   <div>
-                    <span className="text-[7px] text-zinc-400 uppercase font-bold block mb-1 tracking-wider flex items-center gap-1">
+                    <span className="text-xs text-zinc-400 uppercase font-bold block mb-1.5 tracking-wider flex items-center gap-1">
                       <span>🚫</span>
-                      <span>PREVIOUSLY DECOMMISSIONED (PERMANENTLY OFFLINE — WILL NOT RETURN):</span>
+                      <span>PREVIOUSLY DECOMMISSIONED (PERMANENTLY OFFLINE):</span>
                     </span>
-                    <div className="space-y-1 max-h-[85px] overflow-y-auto pr-1">
+                    <div className="space-y-1.5 max-h-[90px] overflow-y-auto pr-1">
                       {getPreviouslyDecommissioned(nextLevelNum).map((prevDegraded, i) => (
-                        <div key={i} className="flex items-center justify-between gap-1 bg-zinc-950/90 border border-zinc-800/80 px-2 py-1 text-[7px]">
-                          <span className="text-zinc-400 truncate">
+                        <div key={i} className="flex items-center justify-between gap-2 bg-zinc-950/90 border border-zinc-800/80 px-2.5 py-1.5 text-xs">
+                          <span className="text-zinc-300 truncate">
                             {prevDegraded}
                           </span>
-                          <span className="text-zinc-600 font-mono text-[6px] shrink-0 font-bold uppercase">
-                            PERMANENTLY OFFLINE
+                          <span className="text-zinc-500 font-mono text-[10px] shrink-0 font-bold uppercase">
+                            OFFLINE
                           </span>
                         </div>
                       ))}
@@ -2475,22 +2517,8 @@ export default function MenuScreens({
                   </div>
                 )}
 
-                {/* Operational Flight Systems Remaining */}
-                <div>
-                  <span className="text-[7px] text-emerald-400 uppercase font-bold block mb-1 tracking-wider">
-                    ✓ OPERATIONAL FLIGHT SYSTEMS REMAINING ONLINE:
-                  </span>
-                  <div className="flex flex-wrap gap-1">
-                    {getActiveOperationalSystems(nextLevelNum).map((feat, i) => (
-                      <span key={i} className="text-[6.5px] px-1.5 py-0.5 bg-emerald-950/70 border border-emerald-800 text-emerald-300 font-mono">
-                        ✓ {feat}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-
                 {/* Pilot Warning Advisory */}
-                <div className="bg-black/90 border border-amber-900/70 p-2.5 text-[7.5px] text-zinc-200 italic flex items-center gap-2 mt-auto">
+                <div className="bg-black/90 border border-amber-900/70 p-3 text-xs text-zinc-200 italic flex items-center gap-2 mt-auto">
                   <span className="text-amber-400 font-bold not-italic shrink-0">[PILOT ADVISORY]</span>
                   <span>"{nextRetrogression.pilotWarning}"</span>
                 </div>

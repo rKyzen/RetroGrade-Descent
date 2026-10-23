@@ -2591,11 +2591,239 @@ export default function App() {
     }
 
     // -----------------------------------------------------------------------
-    // TACTICAL RADAR MINIMAP
+    // FLIGHT INSTRUMENTS & CRT TELEMETRY HUD
+    // Corners & Edges Layout:
+    // Top-Left: Artificial Horizon (Attitude Gyro)
+    // Below Top-Left: Velocity / Speed Meter
+    // Top-Right: Tactical Radar Minimap
+    // Below Top-Right: Fuel Meter
+    // -----------------------------------------------------------------------
+
+    const leftX = 16;
+    const leftW = isP2Side ? 142 : 166;
+
+    // 1. ARTIFICIAL HORIZON (TOP-LEFT)
+    const horizonY = 16;
+    const horizonH = isP2Side ? 104 : 116;
+    {
+      ctx.save();
+      // Outer glass backdrop
+      ctx.fillStyle = 'rgba(2, 6, 23, 0.94)';
+      ctx.fillRect(leftX, horizonY, leftW, horizonH);
+      ctx.strokeStyle = activeLander.themeColor;
+      ctx.lineWidth = 2;
+      ctx.strokeRect(leftX, horizonY, leftW, horizonH);
+
+      // Corner brackets
+      ctx.fillStyle = activeLander.themeColor;
+      ctx.fillRect(leftX - 1, horizonY - 1, 6, 2);
+      ctx.fillRect(leftX - 1, horizonY - 1, 2, 6);
+      ctx.fillRect(leftX + leftW - 5, horizonY - 1, 6, 2);
+      ctx.fillRect(leftX + leftW - 1, horizonY - 1, 2, 6);
+      ctx.fillRect(leftX - 1, horizonY + horizonH - 1, 6, 2);
+      ctx.fillRect(leftX - 1, horizonY + horizonH - 5, 2, 6);
+      ctx.fillRect(leftX + leftW - 5, horizonY + horizonH - 1, 6, 2);
+      ctx.fillRect(leftX + leftW - 1, horizonY + horizonH - 5, 2, 6);
+
+      // Header strip
+      ctx.fillStyle = 'rgba(16, 185, 129, 0.15)';
+      ctx.fillRect(leftX + 1, horizonY + 1, leftW - 2, 16);
+      ctx.fillStyle = activeLander.themeColor;
+      ctx.font = 'bold 8px "Press Start 2P", monospace';
+      ctx.fillText('HORIZON // GYRO', leftX + 8, horizonY + 12);
+
+      // Center of gimbal dial
+      const gCenterX = leftX + leftW / 2;
+      const gCenterY = horizonY + 18 + (horizonH - 36) / 2;
+      const gRadius = isP2Side ? 26 : 30;
+
+      // Circular aperture
+      ctx.save();
+      ctx.beginPath();
+      ctx.arc(gCenterX, gCenterY, gRadius, 0, Math.PI * 2);
+      ctx.clip();
+
+      // Pitch & Roll attitude
+      ctx.translate(gCenterX, gCenterY);
+      ctx.rotate(-activeLander.angle);
+
+      // Sky hemisphere (top)
+      const skyGrad = ctx.createLinearGradient(0, -gRadius, 0, 0);
+      skyGrad.addColorStop(0, '#0284c7');
+      skyGrad.addColorStop(1, '#0369a1');
+      ctx.fillStyle = skyGrad;
+      ctx.fillRect(-gRadius, -gRadius, gRadius * 2, gRadius);
+
+      // Ground hemisphere (bottom)
+      const groundGrad = ctx.createLinearGradient(0, 0, 0, gRadius);
+      groundGrad.addColorStop(0, '#78350f');
+      groundGrad.addColorStop(1, '#451a03');
+      ctx.fillStyle = groundGrad;
+      ctx.fillRect(-gRadius, 0, gRadius * 2, gRadius);
+
+      // Bright horizon line
+      ctx.strokeStyle = '#38bdf8';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(-gRadius, 0);
+      ctx.lineTo(gRadius, 0);
+      ctx.stroke();
+
+      // Pitch ladder rungs
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.7)';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      // +10 deg pitch up
+      ctx.moveTo(-10, -10); ctx.lineTo(10, -10);
+      ctx.moveTo(-10, -10); ctx.lineTo(-10, -7);
+      ctx.moveTo(10, -10); ctx.lineTo(10, -7);
+      // -10 deg pitch down
+      ctx.moveTo(-10, 10); ctx.lineTo(10, 10);
+      ctx.moveTo(-10, 10); ctx.lineTo(-10, 7);
+      ctx.moveTo(10, 10); ctx.lineTo(10, 7);
+      ctx.stroke();
+
+      ctx.restore(); // restore rotation & clip
+
+      // Bezel ring
+      ctx.strokeStyle = activeLander.themeColor;
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.arc(gCenterX, gCenterY, gRadius, 0, Math.PI * 2);
+      ctx.stroke();
+
+      // Fixed aircraft reticle
+      ctx.strokeStyle = '#f59e0b';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(gCenterX - 16, gCenterY);
+      ctx.lineTo(gCenterX - 5, gCenterY);
+      ctx.moveTo(gCenterX + 5, gCenterY);
+      ctx.lineTo(gCenterX + 16, gCenterY);
+      ctx.stroke();
+
+      ctx.fillStyle = '#f59e0b';
+      ctx.beginPath();
+      ctx.arc(gCenterX, gCenterY, 2.5, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Digital tilt readout
+      const rollDeg = Math.round((activeLander.angle * 180) / Math.PI);
+      const isSafeRoll = Math.abs(rollDeg) <= 15;
+      ctx.fillStyle = isSafeRoll ? '#10b981' : '#ef4444';
+      ctx.font = 'bold 7.5px "Press Start 2P", monospace';
+      ctx.textAlign = 'center';
+      ctx.fillText(`PITCH: ${rollDeg >= 0 ? '+' : ''}${rollDeg}°`, gCenterX, horizonY + horizonH - 5);
+      ctx.textAlign = 'left';
+
+      ctx.restore();
+    }
+
+    // 2. VELOCITY / SPEED METER (DIRECTLY BELOW ARTIFICIAL HORIZON)
+    const velY = horizonY + horizonH + 10;
+    const velH = isP2Side ? 96 : 106;
+    {
+      ctx.save();
+      // Outer glass backdrop
+      ctx.fillStyle = 'rgba(2, 6, 23, 0.94)';
+      ctx.fillRect(leftX, velY, leftW, velH);
+      ctx.strokeStyle = activeLander.themeColor;
+      ctx.lineWidth = 2;
+      ctx.strokeRect(leftX, velY, leftW, velH);
+
+      // Corner brackets
+      ctx.fillStyle = activeLander.themeColor;
+      ctx.fillRect(leftX - 1, velY - 1, 6, 2);
+      ctx.fillRect(leftX - 1, velY - 1, 2, 6);
+      ctx.fillRect(leftX + leftW - 5, velY - 1, 6, 2);
+      ctx.fillRect(leftX + leftW - 1, velY - 1, 2, 6);
+      ctx.fillRect(leftX - 1, velY + velH - 1, 6, 2);
+      ctx.fillRect(leftX - 1, velY + velH - 5, 2, 6);
+      ctx.fillRect(leftX + leftW - 5, velY + velH - 1, 6, 2);
+      ctx.fillRect(leftX + leftW - 1, velY + velH - 5, 2, 6);
+
+      // Header strip
+      ctx.fillStyle = 'rgba(16, 185, 129, 0.15)';
+      ctx.fillRect(leftX + 1, velY + 1, leftW - 2, 16);
+      ctx.fillStyle = activeLander.themeColor;
+      ctx.font = 'bold 8px "Press Start 2P", monospace';
+      ctx.fillText('VELOCITY // VECTORS', leftX + 8, velY + 12);
+
+      const maxSafeVy = 28;
+      const maxSafeVx = 16;
+      const isSafeVy = Math.abs(activeLander.vy) <= maxSafeVy;
+      const isSafeVx = Math.abs(activeLander.vx) <= maxSafeVx;
+      const totalSpeed = Math.round(Math.hypot(activeLander.vx, activeLander.vy));
+
+      // V-SPD Readout
+      ctx.font = 'bold 8px "Press Start 2P", monospace';
+      ctx.fillStyle = '#94a3b8';
+      ctx.fillText('V-SPD:', leftX + 8, velY + 30);
+      ctx.fillStyle = isSafeVy ? '#10b981' : '#ef4444';
+      ctx.fillText(`${activeLander.vy >= 0 ? '+' : ''}${Math.round(activeLander.vy)} PX/S`, leftX + 54, velY + 30);
+
+      // H-SPD Readout
+      ctx.fillStyle = '#94a3b8';
+      ctx.fillText('H-SPD:', leftX + 8, velY + 44);
+      ctx.fillStyle = isSafeVx ? '#38bdf8' : '#f59e0b';
+      ctx.fillText(`${activeLander.vx >= 0 ? '+' : ''}${Math.round(activeLander.vx)} PX/S`, leftX + 54, velY + 44);
+
+      // TOTAL SPEED Readout
+      ctx.fillStyle = '#94a3b8';
+      ctx.fillText('TOTAL:', leftX + 8, velY + 58);
+      ctx.fillStyle = '#f8fafc';
+      ctx.fillText(`${totalSpeed} PX/S`, leftX + 54, velY + 58);
+
+      // Speed warning or safe indicator bar
+      const barY = velY + 68;
+      const barW = leftW - 16;
+      const barH = 10;
+      ctx.fillStyle = '#0f172a';
+      ctx.fillRect(leftX + 8, barY, barW, barH);
+      ctx.strokeStyle = '#475569';
+      ctx.lineWidth = 1;
+      ctx.strokeRect(leftX + 8, barY, barW, barH);
+
+      const speedRatio = Math.min(1.0, Math.abs(activeLander.vy) / (maxSafeVy * 1.5));
+      const fillW = Math.max(0, (barW - 2) * speedRatio);
+      ctx.fillStyle = isSafeVy ? '#10b981' : '#ef4444';
+      ctx.fillRect(leftX + 9, barY + 1, fillW, barH - 2);
+
+      // Safe threshold tick line at ~66%
+      const safeTickX = leftX + 8 + (barW * (maxSafeVy / (maxSafeVy * 1.5)));
+      ctx.strokeStyle = '#ffffff';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.moveTo(safeTickX, barY - 1);
+      ctx.lineTo(safeTickX, barY + barH + 1);
+      ctx.stroke();
+
+      // Status text
+      ctx.font = '7px "Press Start 2P", monospace';
+      ctx.textAlign = 'center';
+      if (isSafeVy) {
+        ctx.fillStyle = '#10b981';
+        ctx.fillText('DESCENT: SAFE', leftX + leftW / 2, velY + velH - 6);
+      } else {
+        ctx.fillStyle = '#ef4444';
+        ctx.fillText('DESCENT: FAST!', leftX + leftW / 2, velY + velH - 6);
+      }
+      ctx.textAlign = 'left';
+
+      ctx.restore();
+    }
+
+    // -----------------------------------------------------------------------
+    // 3. TACTICAL RADAR MINIMAP (TOP-RIGHT)
     // Levels 1..4: Continuous High-Refresh Radar
     // Levels 5..6: 2-Second Strobe Pulse Decay
     // Levels 7+: PERMANENTLY OFFLINE (Never comes back!)
     // -----------------------------------------------------------------------
+    const radarW = isP2Side ? Math.min(230, Math.floor(viewportW * 0.44)) : Math.min(270, Math.floor(viewportW * 0.36));
+    const radarH = isP2Side ? 80 : 92;
+    const radarX = viewportW - radarW - 16;
+    const radarY = 16;
+
     const showRadar = avionics.radarMinimap;
     if (showRadar) {
       const isRadarStrobing = avionics.radarStrobe;
@@ -2605,11 +2833,6 @@ export default function App() {
         const strobePhase = (Date.now() % 2000) / 2000;
         if (strobePhase > 0.45) {
           // Strobe dark phase: show faint degraded frame
-          const radarW = isP2Side ? Math.min(230, Math.floor(viewportW * 0.44)) : Math.min(270, Math.floor(viewportW * 0.36));
-          const radarH = isP2Side ? 80 : 92;
-          const radarX = viewportW - radarW - 16;
-          const radarY = 16;
-
           ctx.save();
           ctx.fillStyle = 'rgba(2, 6, 23, 0.5)';
           ctx.fillRect(radarX, radarY, radarW, radarH);
@@ -2626,11 +2849,6 @@ export default function App() {
       }
 
       if (!isRadarStrobing || ((Date.now() % 2000) / 2000) <= 0.45) {
-      const radarW = isP2Side ? Math.min(230, Math.floor(viewportW * 0.44)) : Math.min(270, Math.floor(viewportW * 0.36));
-      const radarH = isP2Side ? 80 : 92;
-      const radarX = viewportW - radarW - 16;
-      const radarY = 16;
-
       ctx.save();
       ctx.globalAlpha = strobeAlpha;
       // Outer radar backdrop
@@ -2790,6 +3008,104 @@ export default function App() {
 
       ctx.restore();
       }
+    } else {
+      // Degraded / Offline Radar Frame (Levels 7+)
+      ctx.save();
+      ctx.fillStyle = 'rgba(2, 6, 23, 0.7)';
+      ctx.fillRect(radarX, radarY, radarW, radarH);
+      ctx.strokeStyle = 'rgba(239, 68, 68, 0.4)';
+      ctx.lineWidth = 1.5;
+      ctx.strokeRect(radarX, radarY, radarW, radarH);
+      ctx.fillStyle = '#ef4444';
+      ctx.font = 'bold 8px "Press Start 2P", monospace';
+      ctx.fillText('RADAR // OFFLINE', radarX + 8, radarY + 18);
+      ctx.fillStyle = '#94a3b8';
+      ctx.font = '7px "Press Start 2P", monospace';
+      ctx.fillText('[SENSOR DEAD / SENSORY LOSS]', radarX + 8, radarY + 38);
+      ctx.restore();
+    }
+
+    // -----------------------------------------------------------------------
+    // 4. FUEL METER (DIRECTLY BELOW THE RADAR)
+    // -----------------------------------------------------------------------
+    const fuelX = radarX;
+    const fuelY = radarY + radarH + 10;
+    const fuelW = radarW;
+    const fuelH = isP2Side ? 56 : 62;
+    {
+      ctx.save();
+      // Outer glass backdrop
+      ctx.fillStyle = 'rgba(2, 6, 23, 0.94)';
+      ctx.fillRect(fuelX, fuelY, fuelW, fuelH);
+      ctx.strokeStyle = activeLander.themeColor;
+      ctx.lineWidth = 2;
+      ctx.strokeRect(fuelX, fuelY, fuelW, fuelH);
+
+      // Corner brackets
+      ctx.fillStyle = activeLander.themeColor;
+      ctx.fillRect(fuelX - 1, fuelY - 1, 6, 2);
+      ctx.fillRect(fuelX - 1, fuelY - 1, 2, 6);
+      ctx.fillRect(fuelX + fuelW - 5, fuelY - 1, 6, 2);
+      ctx.fillRect(fuelX + fuelW - 1, fuelY - 1, 2, 6);
+      ctx.fillRect(fuelX - 1, fuelY + fuelH - 1, 6, 2);
+      ctx.fillRect(fuelX - 1, fuelY + fuelH - 5, 2, 6);
+      ctx.fillRect(fuelX + fuelW - 5, fuelY + fuelH - 1, 6, 2);
+      ctx.fillRect(fuelX + fuelW - 1, fuelY + fuelH - 5, 2, 6);
+
+      // Header strip
+      ctx.fillStyle = 'rgba(16, 185, 129, 0.15)';
+      ctx.fillRect(fuelX + 1, fuelY + 1, fuelW - 2, 16);
+      ctx.fillStyle = activeLander.themeColor;
+      ctx.font = 'bold 8px "Press Start 2P", monospace';
+      ctx.fillText(isP2Side ? 'P2 // FUEL CELL' : 'FUEL CELL // TANK', fuelX + 8, fuelY + 12);
+
+      const maxFuel = epochInfo.fuelCapacity || 180;
+      const currentFuel = Math.max(0, Math.round(activeLander.fuel));
+      const isLowFuel = currentFuel < 25;
+      const fuelPct = Math.max(0, Math.min(100, Math.round((currentFuel / maxFuel) * 100)));
+
+      if (avionics.blackoutFuelGauge) {
+        ctx.fillStyle = '#ef4444';
+        ctx.font = 'bold 8px "Press Start 2P", monospace';
+        ctx.fillText('[SENSOR BLACKOUT]', fuelX + 8, fuelY + 34);
+      } else {
+        // Digital readout
+        ctx.font = 'bold 8px "Press Start 2P", monospace';
+        ctx.fillStyle = isLowFuel ? '#ef4444' : '#10b981';
+        ctx.fillText(`QTY: ${currentFuel}L`, fuelX + 8, fuelY + 32);
+
+        ctx.textAlign = 'right';
+        ctx.fillStyle = isLowFuel ? '#ef4444' : '#38bdf8';
+        ctx.fillText(`${fuelPct}%`, fuelX + fuelW - 8, fuelY + 32);
+        ctx.textAlign = 'left';
+
+        // Fuel Bar
+        const barY = fuelY + 38;
+        const barW = fuelW - 16;
+        const barH = 12;
+        ctx.fillStyle = '#0f172a';
+        ctx.fillRect(fuelX + 8, barY, barW, barH);
+        ctx.strokeStyle = '#475569';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(fuelX + 8, barY, barW, barH);
+
+        const fillW = Math.max(0, (barW - 2) * (fuelPct / 100));
+        ctx.fillStyle = isLowFuel ? '#ef4444' : '#10b981';
+        ctx.fillRect(fuelX + 9, barY + 1, fillW, barH - 2);
+
+        // Segment tick marks at 25%, 50%, 75%
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.4)';
+        ctx.lineWidth = 1;
+        for (let q = 1; q <= 3; q++) {
+          const qX = fuelX + 8 + (barW * q) / 4;
+          ctx.beginPath();
+          ctx.moveTo(qX, barY + 1);
+          ctx.lineTo(qX, barY + barH - 1);
+          ctx.stroke();
+        }
+      }
+
+      ctx.restore();
     }
 
     // Scanline & CRT vignette
@@ -2963,16 +3279,16 @@ export default function App() {
         </div>
       )}
 
-      {/* DECLUTTERED SLEEK IN-FLIGHT COCKPIT HUD - ENLARGED TELEMETRY */}
+      {/* CLEAN & DECLUTTERED TOP BAR: CLEAN LABELS, ENLARGED READABLE TYPOGRAPHY */}
       {gameState.status !== 'START' && (
-      <header className="w-full bg-[#08080c]/90 backdrop-blur-md border-b-2 border-emerald-500/50 px-4 py-2 md:py-3 z-20 shrink-0 flex items-center justify-between gap-3 shadow-lg rounded-none">
-        {/* Left: Mission & Epoch Pill */}
-        <div className="flex items-center gap-2.5 shrink-0">
-          <span className="text-xs md:text-sm font-black text-emerald-400 tracking-wider">
+      <header className="w-full bg-[#08080c]/90 backdrop-blur-md border-b-2 border-emerald-500/50 px-5 py-2.5 md:py-3.5 z-20 shrink-0 flex items-center justify-between gap-4 shadow-lg rounded-none">
+        {/* Left: Mission & Planet/Map Label */}
+        <div className="flex items-center gap-3 shrink-0">
+          <span className="text-sm md:text-base font-black text-emerald-400 tracking-wider">
             RETROGRADE
           </span>
           <span
-            className="text-[9px] md:text-xs font-bold px-2.5 py-1 border uppercase shadow-sm"
+            className="text-xs md:text-sm font-bold px-3 py-1 border uppercase shadow-sm"
             style={{
               color: activeEpoch.themeColor,
               borderColor: `${activeEpoch.themeColor}90`,
@@ -2980,123 +3296,34 @@ export default function App() {
             }}>
             [{currentPlanet.name}] MAP {gameState.level}: {activeEpoch.name}
           </span>
-          <span className="text-[8px] text-zinc-400 font-mono hidden md:inline uppercase">
-            [{activeEpoch.retrogressionShort} • {currentPlanet.gravity} px/s²]
-          </span>
         </div>
 
-        {/* Center: Integrated Telemetry Cluster */}
-        <div className="flex items-center gap-3 md:gap-6 text-xs font-mono">
-          {/* Fuel Bar & Quantity (Player 1) */}
-          <div className="flex items-center gap-2">
-            <Zap size={15} className={isLowFuelP1 ? 'text-red-500 animate-bounce' : 'text-emerald-400'} />
-            <div className="flex flex-col">
-              <div className="flex items-center gap-1.5 leading-none mb-1">
-                <span className="text-zinc-500 text-[8px] md:text-[9px] font-bold">
-                  {gameMode === 'DUEL' ? 'P1 FUEL:' : gameMode === 'AI_DUEL' ? 'YOU FUEL:' : 'FUEL:'}
-                </span>
-                {getAvionics(gameState.level).blackoutFuelGauge ? (
-                  <span className="font-bold text-[8.5px] text-red-500 font-mono animate-pulse">
-                    [BLACKOUT]
-                  </span>
-                ) : getAvionics(gameState.level).analogFuelGauge ? (
-                  <span className="font-bold text-xs text-amber-400 font-mono">
-                    {currentFuelP1}L <span className="text-[7px] text-zinc-500">[ANALOG]</span>
-                  </span>
-                ) : (
-                  <span className={`font-bold text-xs md:text-sm ${isLowFuelP1 ? 'text-red-400' : 'text-emerald-400'}`}>
-                    {currentFuelP1}L
-                  </span>
-                )}
-              </div>
-              <div className="w-20 md:w-32 h-2.5 bg-zinc-900 border border-zinc-700 overflow-hidden shadow-inner">
-                <div
-                  className={`h-full transition-all duration-100 ${
-                    isLowFuelP1 ? 'bg-red-500 shadow-[0_0_8px_#ef4444]' : 'bg-emerald-400 shadow-[0_0_8px_#10b981]'
-                  }`}
-                  style={{ width: `${Math.max(0, Math.min(100, (currentFuelP1 / telemetry.maxFuel) * 100))}%` }}
-                />
-              </div>
-            </div>
-          </div>
-
-          {/* In Duel & AI Duel Mode, display P2 / AI Bot Fuel */}
-          {(gameMode === 'DUEL' || gameMode === 'AI_DUEL') && (
-            <div className="flex items-center gap-2">
-              <Zap
-                size={15}
-                className={isLowFuelP2 ? 'text-red-500 animate-bounce' : gameMode === 'AI_DUEL' ? 'text-cyan-400' : 'text-amber-400'}
-              />
-              <div className="flex flex-col">
-                <div className="flex items-center gap-1.5 leading-none mb-1">
-                  <span className="text-zinc-500 text-[8px] md:text-[9px] font-bold">
-                    {gameMode === 'AI_DUEL' ? `${selectedAiPersona.callsign} FUEL:` : 'P2 FUEL:'}
-                  </span>
-                  <span
-                    className="font-bold text-xs md:text-sm"
-                    style={{ color: isLowFuelP2 ? '#f87171' : gameMode === 'AI_DUEL' ? selectedAiPersona.hullColor : '#fbbf24' }}>
-                    {currentFuelP2}L
-                  </span>
-                </div>
-                <div className="w-20 md:w-32 h-2.5 bg-zinc-900 border border-zinc-700 overflow-hidden shadow-inner">
-                  <div
-                    className="h-full transition-all duration-100"
-                    style={{
-                      width: `${Math.max(0, Math.min(100, (currentFuelP2 / telemetryP2.maxFuel) * 100))}%`,
-                      backgroundColor: isLowFuelP2 ? '#ef4444' : gameMode === 'AI_DUEL' ? selectedAiPersona.hullColor : '#f59e0b',
-                    }}
-                  />
-                </div>
-              </div>
-            </div>
+        {/* Center: Target Navigation Beacon (Clean Label-Only) */}
+        <div className="flex items-center gap-2 text-emerald-300 text-xs md:text-sm font-bold font-mono">
+          <Compass size={16} className={!getAvionics(gameState.level).targetCompassBeacon ? "text-zinc-600" : "text-emerald-400 shrink-0"} />
+          {!getAvionics(gameState.level).targetCompassBeacon ? (
+            <span className="font-mono text-zinc-600 text-xs uppercase">
+              [BEACON: OFFLINE]
+            </span>
+          ) : (
+            <span className="truncate max-w-xs md:max-w-md">
+              TARGET: {telemetry.nearestPadName} [{telemetry.nearestPadMult}x] {telemetry.nearestPadDir === 'aligned' ? '▼ ALIGNED' : telemetry.nearestPadDir === 'left' ? `◄ ${telemetry.nearestPadDist}m` : `${telemetry.nearestPadDist}m ►`}
+            </span>
           )}
-
-          {/* Vertical Speed Readout */}
-          <div className="flex items-center gap-1.5">
-            <span className="text-zinc-500 text-[8px] md:text-[9px] font-bold">V-SPD:</span>
-            {!getAvionics(gameState.level).digitalSpeedometer ? (
-              <span className="font-bold text-[8px] text-amber-400 font-mono">
-                [ANALOG ONLY]
-              </span>
-            ) : (
-              <span
-                className={`font-bold text-xs md:text-sm ${
-                  Math.abs(telemetry.vy) > (getConfig('maxSafeLandingVy') as number)
-                    ? 'text-red-400 animate-pulse'
-                    : 'text-cyan-300'
-                }`}>
-                {telemetry.vy} <span className="text-[7.5px] text-zinc-500">PX/S</span>
-              </span>
-            )}
-          </div>
-
-          {/* Target Navigation Beacon */}
-          <div className="hidden sm:flex items-center gap-1.5 text-emerald-300 text-[9px] md:text-xs">
-            <Compass size={14} className={!getAvionics(gameState.level).targetCompassBeacon ? "text-zinc-600" : "text-emerald-400 shrink-0"} />
-            {!getAvionics(gameState.level).targetCompassBeacon ? (
-              <span className="font-mono text-zinc-600 text-[8px] uppercase">
-                [BEACON: RADAR OFFLINE]
-              </span>
-            ) : (
-              <span className="font-bold truncate max-w-[190px]">
-                {telemetry.nearestPadName} [{telemetry.nearestPadMult}x] {telemetry.nearestPadDir === 'aligned' ? '▼ ALIGNED' : telemetry.nearestPadDir === 'left' ? `◄ ${telemetry.nearestPadDist}m` : `${telemetry.nearestPadDist}m ►`}
-              </span>
-            )}
-          </div>
         </div>
 
-        {/* Right: Score, Reserves & Actions */}
-        <div className="flex items-center gap-2 md:gap-3 shrink-0">
+        {/* Right: Score, Reserves & Actions (Enlarged Readability) */}
+        <div className="flex items-center gap-3 md:gap-4 shrink-0 font-mono">
           {gameMode === 'SOLO' && (
-            <div className="hidden md:flex items-center gap-1.5 font-mono text-zinc-400">
-              <span className="text-zinc-500 text-[8px] md:text-[9px]">LIVES:</span>
-              <span className="font-bold text-xs md:text-sm text-yellow-400">{gameState.lives}</span>
+            <div className="flex items-center gap-1.5 text-zinc-300 text-xs md:text-sm">
+              <span className="text-zinc-500 font-bold">LIVES:</span>
+              <span className="font-bold text-yellow-400">{gameState.lives}</span>
             </div>
           )}
 
-          <div className="flex items-center gap-1.5 font-mono">
-            <span className="text-zinc-500 text-[8px] md:text-[9px] hidden sm:inline">SCORE:</span>
-            <span className="font-bold text-xs md:text-sm text-emerald-400">{gameState.score}</span>
+          <div className="flex items-center gap-1.5 text-xs md:text-sm">
+            <span className="text-zinc-500 font-bold">SCORE:</span>
+            <span className="font-bold text-emerald-400">{gameState.score}</span>
           </div>
 
           <button
@@ -3129,8 +3356,8 @@ export default function App() {
               gameAudio.playCrispClick();
             }}
             aria-label="Toggle Game Menu"
-            className="px-2.5 py-1.5 bg-emerald-500/15 hover:bg-emerald-400 hover:text-black text-emerald-400 border border-emerald-500/60 transition text-[9px] md:text-[10px] font-bold flex items-center gap-1.5">
-            <Menu size={14} />
+            className="px-3 py-1.5 bg-emerald-500/15 hover:bg-emerald-400 hover:text-black text-emerald-400 border border-emerald-500/60 transition text-xs font-bold flex items-center gap-1.5">
+            <Menu size={15} />
             <span className="hidden sm:inline">MENU</span>
           </button>
         </div>
