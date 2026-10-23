@@ -14,6 +14,7 @@ export interface AiPersona {
   hullColor: string;
   description: string;
   riskPreference: 'SAFE' | 'BALANCED' | 'AGGRESSIVE';
+  agility: number;
 }
 
 export const AI_PERSONAS: AiPersona[] = [
@@ -25,6 +26,7 @@ export const AI_PERSONAS: AiPersona[] = [
     hullColor: '#ef4444',
     description: 'Heuristic Algorithmic Guidance. Methodical, highly calculated descent targeting high multipliers.',
     riskPreference: 'BALANCED',
+    agility: 88,
   },
   {
     id: 'apollo-ai',
@@ -34,6 +36,7 @@ export const AI_PERSONAS: AiPersona[] = [
     hullColor: '#38bdf8',
     description: 'Historical MIT AGC Emulation. Conservative flight path prioritizing safe pad touchdowns.',
     riskPreference: 'SAFE',
+    agility: 74,
   },
   {
     id: 'voyager-x',
@@ -43,6 +46,7 @@ export const AI_PERSONAS: AiPersona[] = [
     hullColor: '#f59e0b',
     description: 'Deep Space Autonomous Probe. High speed, aggressive long-range pad hunter.',
     riskPreference: 'AGGRESSIVE',
+    agility: 96,
   },
 ];
 

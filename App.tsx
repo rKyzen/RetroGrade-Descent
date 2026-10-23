@@ -46,7 +46,17 @@ import {
   setStoredP2Name,
   setStoredPilotName,
 } from './leaderboard';
-import {LEVELS, getLevel, LevelConfig, LandingPadDef} from './levels';
+import {
+  LEVELS,
+  LEVELS_BY_PLANET,
+  getLevel,
+  LevelConfig,
+  LandingPadDef,
+  PlanetId,
+  PLANETS,
+  getPlanet,
+  RETROGRESSION_STEPS,
+} from './levels';
 import {computeAiPilotInputs, AI_PERSONAS, AiPersona} from './aiPilot';
 import {
   KeyBindings,
@@ -246,6 +256,11 @@ export default function App() {
   // Ship Livery Theme Customization
   const [p1Theme, setP1Theme] = useState<ShipTheme>(SHIP_THEMES[0]);
   const [p2Theme, setP2Theme] = useState<ShipTheme>(SHIP_THEMES[2]);
+
+  // Selected Celestial Target Planet ('moon' | 'mars' | 'venus')
+  const [selectedPlanet, setSelectedPlanet] = useState<PlanetId>('moon');
+  const selectedPlanetRef = useRef<PlanetId>('moon');
+  selectedPlanetRef.current = selectedPlanet;
 
   // Selected Starting Level for Retrogression (1..10)
   const [selectedStartingEpoch, setSelectedStartingEpoch] = useState<number>(1);
@@ -450,7 +465,7 @@ export default function App() {
 
   // Function to compute fuel capacity by level
   const getMaxFuel = useCallback((epoch: number) => {
-    return getLevel(epoch).fuelCapacity;
+    return getLevel(selectedPlanetRef.current, epoch).fuelCapacity;
   }, []);
 
   // Lander Vessels State (stored in Refs for zero-jitter 60fps physics)
@@ -521,7 +536,7 @@ export default function App() {
   // Perfectly level plateau for each landing pad with Hermite smoothstep transition
   // =========================================================================
   const generateTerrain = useCallback((epoch: number) => {
-    const levelConfig = getLevel(epoch);
+    const levelConfig = getLevel(selectedPlanetRef.current, epoch);
     const wWidth = levelConfig.worldWidth;
     const wHeight = levelConfig.worldHeight;
     worldDimensionsRef.current = {width: wWidth, height: wHeight};
@@ -1101,8 +1116,9 @@ export default function App() {
       }
     }
 
-    const gravity = getConfig('gravity') as number;
-    const mainThrust = getConfig('mainThrust') as number;
+    const planetDef = getPlanet(selectedPlanetRef.current);
+    const gravity = planetDef.gravity;
+    const mainThrust = planetDef.mainThrust;
     const rotationSpeed = getConfig('rotationSpeed') as number;
     const fuelRate = getConfig('fuelConsumptionRate') as number;
 
@@ -1125,10 +1141,14 @@ export default function App() {
     let ax = 0;
     let ay = gravity;
 
-    // Dynamic Crosswinds & Airspace Turbulence (Level difficulty scaling)
-    const windScale = 6 + currentEpoch * 7;
+    // Dynamic Crosswinds & Airspace Turbulence (Level difficulty scaling + Planet wind)
+    const levelConfig = getLevel(selectedPlanetRef.current, currentEpoch);
+    const windScale = levelConfig.windSpeed * 0.7 + currentEpoch * 2.5;
     const gust = Math.sin(Date.now() * 0.002 + lander.y * 0.012) * windScale;
     ax += gust;
+    if (planetDef.atmosphereDensity > 0) {
+      ax -= lander.vx * (planetDef.atmosphereDensity * 0.15);
+    }
 
     // Drifting orbital micrometeorites update (Once per tick via P1)
     if (lander.id === 'p1') {
@@ -1731,13 +1751,14 @@ export default function App() {
     const worldW = worldDimensionsRef.current.width;
     const worldH = worldDimensionsRef.current.height;
     const currentEpoch = gameStateRef.current.level;
-    const epochInfo = EPOCHS[currentEpoch - 1] || EPOCHS[0];
+    const planetDef = getPlanet(selectedPlanetRef.current);
+    const epochInfo = getLevel(selectedPlanetRef.current, currentEpoch);
 
-    // 1. Deep Space Void with Cosmic Gradient
+    // 1. Planetary Sky with Cosmic / Atmospheric Gradient
     const spaceGrad = ctx.createLinearGradient(0, 0, 0, viewportH);
-    spaceGrad.addColorStop(0, '#02040a');
-    spaceGrad.addColorStop(0.5, '#040814');
-    spaceGrad.addColorStop(1, '#070d1e');
+    spaceGrad.addColorStop(0, planetDef.skyTopColor);
+    spaceGrad.addColorStop(0.5, planetDef.skyBottomColor);
+    spaceGrad.addColorStop(1, '#050811');
     ctx.fillStyle = spaceGrad;
     ctx.fillRect(0, 0, viewportW, viewportH);
 
@@ -1958,8 +1979,8 @@ export default function App() {
         ctx.closePath();
 
         const grad = ctx.createLinearGradient(0, worldH * 0.5, 0, worldH);
-        grad.addColorStop(0, '#1c2638');
-        grad.addColorStop(0.35, '#101726');
+        grad.addColorStop(0, planetDef.terrainPrimaryColor);
+        grad.addColorStop(0.35, planetDef.terrainSecondaryColor);
         grad.addColorStop(1, '#050811');
         ctx.fillStyle = grad;
         ctx.fill();
@@ -2247,8 +2268,8 @@ export default function App() {
     const showTrajectoryPredictor = currentEpoch === 1 || epochInfo.hudStyle === 'modern';
     if (showTrajectoryPredictor && !activeLander.crashed && !activeLander.landed) {
       ctx.save();
-      const gravityVal = getConfig('gravity') as number;
-      const mainThrustVal = getConfig('mainThrust') as number;
+      const gravityVal = planetDef.gravity;
+      const mainThrustVal = planetDef.mainThrust;
       const maxSafeVy = getConfig('maxSafeLandingVy') as number;
 
       let simX = activeLander.x;
@@ -2727,7 +2748,8 @@ export default function App() {
     return () => cancelAnimationFrame(raf);
   }, [exitAttractMode]);
 
-  const activeEpoch = EPOCHS[gameState.level - 1] || EPOCHS[0];
+  const activeEpoch = getLevel(selectedPlanet, gameState.level);
+  const currentPlanet = getPlanet(selectedPlanet);
   const isPlayingMusic =
     !isMusicMuted &&
     ['PLAYING', 'LEVEL_COMPLETE'].includes(gameState.status) &&
@@ -2777,10 +2799,10 @@ export default function App() {
               borderColor: `${activeEpoch.themeColor}90`,
               backgroundColor: `${activeEpoch.themeColor}20`,
             }}>
-            MAP {gameState.level}: {activeEpoch.name}
+            [{currentPlanet.name}] MAP {gameState.level}: {activeEpoch.name}
           </span>
           <span className="text-[8px] text-zinc-400 font-mono hidden md:inline uppercase">
-            [{activeEpoch.era}]
+            [{activeEpoch.retrogressionShort} • {currentPlanet.gravity} px/s²]
           </span>
         </div>
 
@@ -3064,6 +3086,8 @@ export default function App() {
           setMainMenuScreen={setMainMenuScreen}
           previousScreen={previousScreen}
           setPreviousScreen={setPreviousScreen}
+          selectedPlanet={selectedPlanet}
+          setSelectedPlanet={setSelectedPlanet}
           gameMode={gameMode}
           setGameMode={setGameMode}
           pilotName={pilotName}

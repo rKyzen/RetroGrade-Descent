@@ -44,7 +44,17 @@ import {
   X,
   Zap,
 } from 'lucide-react';
-import {LEVELS, getLevel, LevelConfig} from './levels';
+import {
+  LEVELS,
+  LEVELS_BY_PLANET,
+  getLevel,
+  LevelConfig,
+  PlanetId,
+  PLANETS,
+  getPlanet,
+  RETROGRESSION_STEPS,
+  RetrogressionStep,
+} from './levels';
 import {AI_PERSONAS, AiPersona} from './aiPilot';
 import {
   KeyBindings,
@@ -72,6 +82,7 @@ export interface ShipTheme {
 
 export type MainMenuScreen =
   | 'TITLE'
+  | 'FLOW_PLANET'
   | 'FLOW_MODE'
   | 'FLOW_CUSTOMIZE'
   | 'FLOW_LEVEL'
@@ -84,6 +95,8 @@ interface MenuScreensProps {
   setMainMenuScreen: (screen: MainMenuScreen) => void;
   previousScreen: 'TITLE' | 'PAUSE';
   setPreviousScreen: (screen: 'TITLE' | 'PAUSE') => void;
+  selectedPlanet: PlanetId;
+  setSelectedPlanet: (planet: PlanetId) => void;
   gameMode: 'SOLO' | 'AI_DUEL' | 'DUEL';
   setGameMode: (mode: 'SOLO' | 'AI_DUEL' | 'DUEL') => void;
   pilotName: string;
@@ -139,6 +152,8 @@ export default function MenuScreens({
   setMainMenuScreen,
   previousScreen,
   setPreviousScreen,
+  selectedPlanet,
+  setSelectedPlanet,
   gameMode,
   setGameMode,
   pilotName,
@@ -179,8 +194,9 @@ export default function MenuScreens({
 }: MenuScreensProps) {
   const [leaderboardFilter, setLeaderboardFilter] = useState<'ALL' | 'SOLO' | 'AI_DUEL' | 'DUEL'>('ALL');
 
-  const selectedLevelConfig = getLevel(selectedStartingEpoch);
-  const activeLevelConfig = getLevel(gameState.level);
+  const currentPlanetDef = getPlanet(selectedPlanet);
+  const selectedLevelConfig = getLevel(selectedPlanet, selectedStartingEpoch);
+  const activeLevelConfig = getLevel(selectedPlanet, gameState.level);
 
   // Filtered leaderboard entries
   const filteredLeaderboard = leaderboardList.filter((entry) => {
@@ -257,7 +273,7 @@ export default function MenuScreens({
                   type="button"
                   autoFocus
                   onClick={() => {
-                    setMainMenuScreen('FLOW_MODE');
+                    setMainMenuScreen('FLOW_PLANET');
                     gameAudio.playCrispClick();
                   }}
                   className="w-full bg-emerald-400 hover:bg-emerald-300 text-black border-4 border-emerald-200 font-black p-4 text-left shadow-[6px_6px_0px_0px_#064e3b] active:translate-x-0.5 active:translate-y-0.5 transition flex items-center justify-between group cursor-pointer rounded-none">
@@ -379,7 +395,202 @@ export default function MenuScreens({
   }
 
   // =========================================================================
-  // 2. START FLOW - STEP 1: SELECT MODE
+  // 2. START FLOW - STEP 1: CELESTIAL TARGET (PLANET SELECTION)
+  // 1) The Moon  2) The Mars  3) The Venus
+  // =========================================================================
+  if (gameState.status === 'START' && mainMenuScreen === 'FLOW_PLANET') {
+    const selectedDef = getPlanet(selectedPlanet);
+
+    return (
+      <MenuOverlay tone="neutral" zIndex={40} fullScreen maxWidthClass="w-full max-w-6xl">
+        <div className="w-full bg-[#08080c]/95 backdrop-blur-md border-4 border-emerald-500 p-5 md:p-7 shadow-[12px_12px_0px_0px_#064e3b] flex flex-col text-emerald-400 rounded-none relative">
+          {/* Header with Step Indicator */}
+          <div className="flex items-center justify-between pb-3 mb-4 border-b-2 border-emerald-800/80">
+            <div className="flex items-center gap-2.5">
+              <Compass size={22} className="text-emerald-400 animate-pulse" />
+              <div>
+                <h2 className="text-base sm:text-xl font-black tracking-wider uppercase text-emerald-400">
+                  CELESTIAL DESCENT TARGET // SELECT PLANET
+                </h2>
+                <span className="text-[7.5px] font-mono text-zinc-400 uppercase tracking-widest block">
+                  START FLOW // STEP 1 OF 4 • TARGET CELESTIAL BODY DETERMINES GRAVITY, ATMOSPHERE & MAP TOPOLOGY
+                </span>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => {
+                setMainMenuScreen('TITLE');
+                gameAudio.playCrispClick();
+              }}
+              className="bg-black hover:bg-zinc-800 border-2 border-zinc-700 hover:border-emerald-400 text-zinc-300 hover:text-white px-3 py-1.5 text-[8.5px] font-bold flex items-center gap-1.5 uppercase transition">
+              <ChevronLeft size={13} />
+              <span>RETURN TO TITLE</span>
+            </button>
+          </div>
+
+          {/* 3 Celestial Planet Cards */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+            {PLANETS.map((planet) => {
+              const isSelected = selectedPlanet === planet.id;
+              return (
+                <div
+                  key={planet.id}
+                  onClick={() => {
+                    setSelectedPlanet(planet.id);
+                    gameAudio.playCrispClick();
+                  }}
+                  className={`p-4 border-2 transition rounded-none relative flex flex-col justify-between cursor-pointer group ${
+                    isSelected
+                      ? 'bg-zinc-900/90 shadow-[6px_6px_0_0_#10b981]'
+                      : 'bg-black/75 hover:bg-zinc-950/80 border-zinc-800 hover:border-zinc-600'
+                  }`}
+                  style={{
+                    borderColor: isSelected ? planet.accentColor : undefined,
+                    boxShadow: isSelected ? `6px 6px 0 0 ${planet.accentColor}` : undefined,
+                  }}>
+                  <div>
+                    {/* Planet Header */}
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="flex items-center gap-2.5">
+                        <span className="text-3xl filter drop-shadow-[0_0_12px_rgba(255,255,255,0.3)]">
+                          {planet.icon}
+                        </span>
+                        <div>
+                          <h3
+                            className="text-base sm:text-lg font-black uppercase tracking-wider leading-none"
+                            style={{ color: planet.accentColor }}>
+                            {planet.name}
+                          </h3>
+                          <span className="text-[7px] font-mono text-zinc-400 uppercase block tracking-widest mt-0.5">
+                            {planet.subname}
+                          </span>
+                        </div>
+                      </div>
+
+                      {isSelected ? (
+                        <div
+                          className="px-2 py-0.5 text-[7px] font-mono font-bold uppercase flex items-center gap-1 border"
+                          style={{
+                            borderColor: planet.accentColor,
+                            color: planet.accentColor,
+                            backgroundColor: `${planet.accentColor}18`,
+                          }}>
+                          <Check size={11} />
+                          <span>TARGET</span>
+                        </div>
+                      ) : (
+                        <span className="text-[6.5px] font-mono px-1.5 py-0.5 bg-zinc-950 border border-zinc-800 text-zinc-400 group-hover:text-zinc-200">
+                          CLICK TO TARGET
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Planet Description */}
+                    <p className="text-[8px] text-zinc-300 font-mono leading-relaxed mb-3">
+                      {planet.description}
+                    </p>
+
+                    {/* Atmospheric & Physics Specifications */}
+                    <div className="space-y-1.5 bg-black/85 border border-zinc-800/80 p-2.5 font-mono text-[7px]">
+                      <div className="flex items-center justify-between">
+                        <span className="text-zinc-500">SURFACE GRAVITY:</span>
+                        <strong className="font-bold" style={{ color: planet.accentColor }}>
+                          {planet.gravity} px/s²
+                        </strong>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-zinc-500">ATMOSPHERIC PRESSURE:</span>
+                        <span className="text-zinc-300 font-bold">{planet.atmospherePressure}</span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-zinc-500">MAIN ENGINE THRUST:</span>
+                        <span className="text-emerald-400 font-bold">{planet.mainThrust} px/s²</span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-zinc-500">CAMPAIGN SECTORS:</span>
+                        <span className="text-cyan-400 font-bold">10 UNIQUE MAPS</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Planet Bottom Quote & Difficulty Badge */}
+                  <div className="mt-3 pt-2 border-t border-zinc-800/80 flex items-center justify-between">
+                    <span className="text-[6.5px] font-mono text-zinc-400 italic truncate max-w-[200px]">
+                      {planet.flavorQuote}
+                    </span>
+                    <span
+                      className="text-[6.5px] font-mono font-bold px-1.5 py-0.5 uppercase border"
+                      style={{
+                        borderColor: `${planet.accentColor}60`,
+                        color: planet.accentColor,
+                        backgroundColor: `${planet.accentColor}10`,
+                      }}>
+                      {planet.difficultyRating}
+                    </span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Confirmed Celestial Target Briefing Strip */}
+          <div
+            className="p-3 border-2 font-mono flex flex-col sm:flex-row items-center justify-between gap-3 mb-4"
+            style={{
+              backgroundColor: `${selectedDef.accentColor}12`,
+              borderColor: `${selectedDef.accentColor}70`,
+            }}>
+            <div className="flex items-center gap-3">
+              <span className="text-2xl">{selectedDef.icon}</span>
+              <div>
+                <span className="text-[9px] font-bold uppercase tracking-wider block" style={{ color: selectedDef.accentColor }}>
+                  TARGET CONFIRMED: {selectedDef.name} [{selectedDef.subname}]
+                </span>
+                <span className="text-[7.5px] text-zinc-300 block">
+                  Gravity: {selectedDef.gravity} px/s² • Atmosphere: {selectedDef.atmospherePressure} • 10 progressive maps with avionics retrogression
+                </span>
+              </div>
+            </div>
+
+            <div className="text-[7.5px] text-zinc-400 uppercase font-mono tracking-wider shrink-0">
+              [ CELESTIAL TARGET LOCKED ]
+            </div>
+          </div>
+
+          {/* Bottom Action Buttons */}
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-3 border-t-2 border-emerald-800/80">
+            <button
+              type="button"
+              onClick={() => {
+                setMainMenuScreen('TITLE');
+                gameAudio.playCrispClick();
+              }}
+              className="w-full sm:w-auto px-4 py-2.5 bg-black hover:bg-zinc-800 border-2 border-zinc-700 text-zinc-300 hover:text-white font-bold text-[9px] uppercase transition flex items-center justify-center gap-1.5">
+              <ChevronLeft size={14} />
+              <span>RETURN TO TITLE</span>
+            </button>
+
+            <button
+              type="button"
+              autoFocus
+              onClick={() => {
+                setMainMenuScreen('FLOW_MODE');
+                gameAudio.playCrispClick();
+              }}
+              className="w-full sm:flex-1 max-w-md bg-emerald-400 hover:bg-emerald-300 text-black border-4 border-emerald-200 font-black text-sm py-3 px-6 shadow-[0_0_20px_rgba(16,185,129,0.5)] active:translate-x-0.5 active:translate-y-0.5 transition flex items-center justify-center gap-2 uppercase rounded-none cursor-pointer">
+              <span>CONFIRM {selectedDef.name} & SELECT FLIGHT MODE</span>
+              <ChevronRight size={18} />
+            </button>
+          </div>
+        </div>
+      </MenuOverlay>
+    );
+  }
+
+  // =========================================================================
+  // 3. START FLOW - STEP 2: SELECT MODE
   // Solo Flight vs Play Against AI vs 2P Duel Flight + BACK BUTTON
   // =========================================================================
   if (gameState.status === 'START' && mainMenuScreen === 'FLOW_MODE') {
@@ -396,7 +607,7 @@ export default function MenuScreens({
                   SELECT FLIGHT PROFILE
                 </h2>
                 <span className="text-[7.5px] font-mono text-zinc-400 uppercase tracking-widest block">
-                  START FLOW // STEP 1 OF 3
+                  START FLOW // STEP 2 OF 4 • TARGET: {currentPlanetDef.name} [{currentPlanetDef.subname}]
                 </span>
               </div>
             </div>
@@ -404,12 +615,12 @@ export default function MenuScreens({
             <button
               type="button"
               onClick={() => {
-                setMainMenuScreen('TITLE');
+                setMainMenuScreen('FLOW_PLANET');
                 gameAudio.playCrispClick();
               }}
               className="bg-black hover:bg-zinc-800 border-2 border-zinc-700 hover:border-emerald-400 text-zinc-300 hover:text-white px-3 py-1.5 text-[8.5px] font-bold flex items-center gap-1.5 uppercase transition">
               <ChevronLeft size={13} />
-              <span>BACK TO TITLE</span>
+              <span>BACK TO PLANET</span>
             </button>
           </div>
 
@@ -543,12 +754,12 @@ export default function MenuScreens({
             <button
               type="button"
               onClick={() => {
-                setMainMenuScreen('TITLE');
+                setMainMenuScreen('FLOW_PLANET');
                 gameAudio.playCrispClick();
               }}
               className="px-4 py-2 bg-black hover:bg-zinc-800 border-2 border-zinc-700 text-zinc-300 hover:text-white font-bold text-[9px] uppercase transition flex items-center gap-1.5">
               <ChevronLeft size={14} />
-              <span>BACK TO TITLE</span>
+              <span>BACK TO PLANET</span>
             </button>
 
             <button
@@ -568,7 +779,7 @@ export default function MenuScreens({
   }
 
   // =========================================================================
-  // 3. START FLOW - STEP 2: CRAFT CUSTOMIZATION
+  // 4. START FLOW - STEP 3: CRAFT CUSTOMIZATION
   // Callsign, Livery Colors, AI Bot Persona (if AI mode), P2 (if Duel) + BACK BUTTON
   // =========================================================================
   if (gameState.status === 'START' && mainMenuScreen === 'FLOW_CUSTOMIZE') {
@@ -585,7 +796,7 @@ export default function MenuScreens({
                   CRAFT & PILOT SPECIFICATIONS
                 </h2>
                 <span className="text-[7.5px] font-mono text-zinc-400 uppercase tracking-widest block">
-                  START FLOW // STEP 2 OF 3 • PROFILE: {gameMode === 'SOLO' ? 'SOLO FLIGHT' : gameMode === 'AI_DUEL' ? 'PLAY AGAINST AI' : '2P DUEL FLIGHT'}
+                  START FLOW // STEP 3 OF 4 • TARGET: {currentPlanetDef.name} • PROFILE: {gameMode === 'SOLO' ? 'SOLO FLIGHT' : gameMode === 'AI_DUEL' ? 'PLAY AGAINST AI' : '2P DUEL FLIGHT'}
                 </span>
               </div>
             </div>
@@ -921,43 +1132,167 @@ export default function MenuScreens({
   }
 
   // =========================================================================
-  // 4. START FLOW - STEP 3: MAP SELECTION (10 Unique Lunar Maps)
-  // Clean, uncluttered Map Selector with clear Retrogression Status
+  // 5. START FLOW - STEP 4: MAP & RETROGRESSION SELECTION (10 Progressive Maps)
+  // Clean Map Selector + Interactive 10-Step Retrogression Flow Map
   // =========================================================================
   if (gameState.status === 'START' && mainMenuScreen === 'FLOW_LEVEL') {
+    const planetLevels = LEVELS_BY_PLANET[selectedPlanet] || LEVELS_BY_PLANET.moon;
+    const currentRetrogressionStep = RETROGRESSION_STEPS[selectedStartingEpoch - 1] || RETROGRESSION_STEPS[0];
+
     return (
       <MenuOverlay tone="neutral" zIndex={40} fullScreen maxWidthClass="w-full max-w-6xl">
         <div className="w-full bg-[#08080c]/95 backdrop-blur-md border-4 border-emerald-500 p-4 md:p-6 shadow-[12px_12px_0px_0px_#064e3b] flex flex-col text-emerald-400 rounded-none relative">
           
-          {/* Header */}
-          <div className="flex items-center justify-between pb-3 mb-4 border-b-2 border-emerald-800/80">
+          {/* Header with Step Indicator & Quick Planet Selector */}
+          <div className="flex flex-wrap items-center justify-between gap-2.5 pb-3 mb-3 border-b-2 border-emerald-800/80">
             <div className="flex items-center gap-2.5">
-              <Compass size={20} className="text-emerald-400 animate-pulse" />
+              <Compass size={22} className="text-emerald-400 animate-pulse" />
               <div>
-                <h2 className="text-base sm:text-xl font-black tracking-wider uppercase text-emerald-400">
-                  SELECT LUNAR MAP
-                </h2>
-                <span className="text-[8px] font-mono text-zinc-400 uppercase tracking-widest block">
-                  10 UNIQUE MAPS • AVIONICS RETROGRESS (DEGRADE) AS YOU ADVANCE
+                <div className="flex items-center gap-2">
+                  <h2 className="text-base sm:text-xl font-black tracking-wider uppercase text-emerald-400">
+                    SELECT DESCENT SECTOR // {currentPlanetDef.name}
+                  </h2>
+                  <span className="text-[8px] font-mono font-bold px-1.5 py-0.5 border uppercase" style={{ borderColor: currentPlanetDef.accentColor, color: currentPlanetDef.accentColor }}>
+                    {currentPlanetDef.gravity} PX/S²
+                  </span>
+                </div>
+                <span className="text-[7.5px] font-mono text-zinc-400 uppercase tracking-widest block mt-0.5">
+                  START FLOW // STEP 4 OF 4 • {currentPlanetDef.subname} • 10 MAPS WITH PROGRESSIVE AVIONICS RETROGRESSION
                 </span>
               </div>
             </div>
 
-            <button
-              type="button"
-              onClick={() => {
-                setMainMenuScreen('FLOW_CUSTOMIZE');
-                gameAudio.playCrispClick();
-              }}
-              className="bg-black hover:bg-zinc-800 border-2 border-zinc-700 hover:border-emerald-400 text-zinc-300 hover:text-white px-3 py-1.5 text-[8.5px] font-bold flex items-center gap-1.5 uppercase transition">
-              <ChevronLeft size={13} />
-              <span>BACK TO CRAFT</span>
-            </button>
+            {/* Quick Planet Switcher Pills */}
+            <div className="flex items-center gap-1.5 font-mono text-[7.5px]">
+              {PLANETS.map((p) => {
+                const isCurrent = selectedPlanet === p.id;
+                return (
+                  <button
+                    key={p.id}
+                    type="button"
+                    onClick={() => {
+                      setSelectedPlanet(p.id);
+                      gameAudio.playCrispClick();
+                    }}
+                    className={`px-2 py-1 border transition flex items-center gap-1 font-bold uppercase ${
+                      isCurrent
+                        ? 'bg-zinc-900 border-emerald-400 text-white shadow-[2px_2px_0_0_#10b981]'
+                        : 'bg-black/80 border-zinc-800 text-zinc-400 hover:text-zinc-200 hover:border-zinc-700'
+                    }`}
+                    style={{
+                      borderColor: isCurrent ? p.accentColor : undefined,
+                      color: isCurrent ? p.accentColor : undefined,
+                    }}>
+                    <span>{p.icon}</span>
+                    <span>{p.name.replace('THE ', '')}</span>
+                  </button>
+                );
+              })}
+
+              <button
+                type="button"
+                onClick={() => {
+                  setMainMenuScreen('FLOW_CUSTOMIZE');
+                  gameAudio.playCrispClick();
+                }}
+                className="bg-black hover:bg-zinc-800 border-2 border-zinc-700 hover:border-emerald-400 text-zinc-300 hover:text-white px-2.5 py-1 text-[8px] font-bold flex items-center gap-1 uppercase transition ml-1">
+                <ChevronLeft size={12} />
+                <span>BACK</span>
+              </button>
+            </div>
           </div>
 
-          {/* 10 Clean Map Cards Grid (5x2) */}
-          <div className="grid grid-cols-2 sm:grid-cols-5 gap-2.5 mb-4">
-            {LEVELS.map((level) => {
+          {/* INTERACTIVE 10-STEP RETROGRESSION FLOW MAP */}
+          <div className="bg-black/90 border-2 border-emerald-800/80 p-2.5 mb-3 rounded-none font-mono">
+            <div className="flex flex-wrap items-center justify-between gap-1.5 mb-2 pb-1.5 border-b border-zinc-800/80">
+              <div className="flex items-center gap-2">
+                <Radio size={13} className="text-emerald-400 animate-pulse" />
+                <span className="text-[8px] font-bold text-emerald-300 uppercase tracking-wider">
+                  RETROGRESSION SEQUENCE PIPELINE (LEVELS 01 → 10)
+                </span>
+              </div>
+              <span className="text-[6.5px] text-zinc-400 uppercase">
+                CLICK ANY STEP TO SET STARTING LEVEL • AVIONICS DEGRADE EACH LEVEL
+              </span>
+            </div>
+
+            {/* 10 Pipeline Nodes Matching Levels 1..10 */}
+            <div className="grid grid-cols-2 sm:grid-cols-5 md:grid-cols-10 gap-1.5 mb-2">
+              {RETROGRESSION_STEPS.map((step) => {
+                const isSelected = selectedStartingEpoch === step.level;
+                return (
+                  <button
+                    key={step.level}
+                    type="button"
+                    onClick={() => {
+                      setSelectedStartingEpoch(step.level);
+                      gameAudio.playCrispClick();
+                    }}
+                    className={`p-1.5 border text-left flex flex-col justify-between transition cursor-pointer rounded-none relative ${
+                      isSelected
+                        ? 'bg-zinc-900 border-2 shadow-[2px_2px_0_0_#10b981]'
+                        : 'bg-black/85 border-zinc-800 hover:border-zinc-700'
+                    }`}
+                    style={{
+                      borderColor: isSelected ? step.color : undefined,
+                      boxShadow: isSelected ? `2px 2px 0 0 ${step.color}` : undefined,
+                    }}>
+                    <div>
+                      <div className="flex items-center justify-between mb-0.5">
+                        <span className="text-[7.5px] font-black" style={{ color: step.color }}>
+                          L{step.level.toString().padStart(2, '0')}
+                        </span>
+                        <span className="text-[8.5px]">{step.icon}</span>
+                      </div>
+                      <span className="text-[6.5px] font-bold text-zinc-200 block truncate leading-tight uppercase">
+                        {step.shortBadge}
+                      </span>
+                    </div>
+
+                    <div className="mt-1 pt-1 border-t border-zinc-800/80 text-[6px] text-zinc-400 flex items-center justify-between">
+                      <span>{step.fuelCapacity}L</span>
+                      {isSelected ? (
+                        <span className="font-bold text-[6px]" style={{ color: step.color }}>ACTIVE</span>
+                      ) : (
+                        <span className="text-zinc-500 text-[6px]">{step.windSpeed}w</span>
+                      )}
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Active Retrogression Step Detail Strip */}
+            {currentRetrogressionStep && (
+              <div
+                className="p-2 border text-[7px] flex flex-col sm:flex-row sm:items-center justify-between gap-2"
+                style={{
+                  backgroundColor: `${currentRetrogressionStep.color}14`,
+                  borderColor: `${currentRetrogressionStep.color}70`,
+                }}>
+                <div className="flex items-center gap-2.5">
+                  <span className="text-base">{currentRetrogressionStep.icon}</span>
+                  <div>
+                    <span className="font-bold uppercase tracking-wider block" style={{ color: currentRetrogressionStep.color }}>
+                      LEVEL {currentRetrogressionStep.level}: {currentRetrogressionStep.title} [{currentRetrogressionStep.stageName}]
+                    </span>
+                    <span className="text-zinc-300 block">
+                      DEGRADED: {currentRetrogressionStep.decommissioned.join(' • ')}
+                    </span>
+                  </div>
+                </div>
+                <div className="text-right sm:max-w-xs shrink-0">
+                  <span className="text-zinc-300 italic block">
+                    "{currentRetrogressionStep.pilotWarning}"
+                  </span>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* 10 Map Cards Grid (5x2) */}
+          <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 mb-3">
+            {planetLevels.map((level) => {
               const isSelected = selectedStartingEpoch === level.id;
               return (
                 <button
@@ -967,7 +1302,7 @@ export default function MenuScreens({
                     setSelectedStartingEpoch(level.id);
                     gameAudio.playCrispClick();
                   }}
-                  className={`p-2.5 text-left border-2 transition rounded-none relative flex flex-col justify-between ${
+                  className={`p-2 text-left border-2 transition rounded-none relative flex flex-col justify-between ${
                     isSelected
                       ? 'bg-zinc-900 border-emerald-400 shadow-[3px_3px_0_0_#10b981]'
                       : 'bg-black/80 border-zinc-800 hover:border-zinc-600'
@@ -978,26 +1313,26 @@ export default function MenuScreens({
                   }}>
                   <div>
                     <div className="flex items-center justify-between mb-1">
-                      <span className="text-[9px] font-black uppercase" style={{ color: level.themeColor }}>
+                      <span className="text-[8.5px] font-black uppercase" style={{ color: level.themeColor }}>
                         MAP {level.id.toString().padStart(2, '0')}
                       </span>
                       {isSelected ? (
-                        <Check size={13} style={{ color: level.themeColor }} />
+                        <Check size={12} style={{ color: level.themeColor }} />
                       ) : (
                         <span className="text-[6px] font-mono px-1 py-0.2 bg-zinc-950 border border-zinc-800 text-zinc-400">
                           {level.retrogressionShort}
                         </span>
                       )}
                     </div>
-                    <span className="text-[8px] font-bold text-zinc-200 block truncate uppercase leading-tight">
+                    <span className="text-[7.5px] font-bold text-zinc-200 block truncate uppercase leading-tight">
                       {level.name}
                     </span>
-                    <span className="text-[6.5px] font-mono text-zinc-400 block truncate mt-0.5">
+                    <span className="text-[6px] font-mono text-zinc-400 block truncate mt-0.5">
                       {level.mapType}
                     </span>
                   </div>
 
-                  <div className="mt-2.5 pt-1.5 border-t border-zinc-800/80 text-[6.5px] font-mono flex items-center justify-between text-zinc-400">
+                  <div className="mt-2 pt-1 border-t border-zinc-800/80 text-[6px] font-mono flex items-center justify-between text-zinc-400">
                     <span>FUEL: {level.fuelCapacity}L</span>
                     <span style={{ color: level.themeColor }}>{level.retrogressionShort}</span>
                   </div>
@@ -1007,25 +1342,25 @@ export default function MenuScreens({
           </div>
 
           {/* Clean Selected Map Briefing Panel */}
-          <div className="bg-black/90 border-2 border-zinc-800 p-3.5 mb-4 rounded-none grid grid-cols-1 md:grid-cols-12 gap-4 font-mono">
+          <div className="bg-black/90 border-2 border-zinc-800 p-3 mb-3 rounded-none grid grid-cols-1 md:grid-cols-12 gap-3 font-mono">
             {/* Left: Map Title, Terrain & Retrogression Status */}
-            <div className="md:col-span-7 space-y-2">
+            <div className="md:col-span-7 space-y-1.5">
               <div className="flex items-center gap-2">
-                <span className="text-sm font-black uppercase text-emerald-400" style={{ color: selectedLevelConfig.themeColor }}>
+                <span className="text-xs sm:text-sm font-black uppercase text-emerald-400" style={{ color: selectedLevelConfig.themeColor }}>
                   MAP {selectedLevelConfig.id}: {selectedLevelConfig.name}
                 </span>
-                <span className="text-[7.5px] px-1.5 py-0.5 bg-zinc-900 border border-zinc-700 text-zinc-300">
+                <span className="text-[7px] px-1.5 py-0.5 bg-zinc-900 border border-zinc-700 text-zinc-300">
                   {selectedLevelConfig.mapType}
                 </span>
               </div>
 
-              <p className="text-[8px] text-zinc-300 leading-relaxed">
+              <p className="text-[7.5px] text-zinc-300 leading-relaxed">
                 {selectedLevelConfig.description}
               </p>
 
               {/* Retrogression Status Banner */}
               <div
-                className="p-2 border text-[7.5px] flex flex-col gap-1 rounded-none"
+                className="p-1.5 border text-[7px] flex flex-col gap-0.5 rounded-none"
                 style={{
                   backgroundColor: `${selectedLevelConfig.themeColor}15`,
                   borderColor: `${selectedLevelConfig.themeColor}80`,
@@ -1033,7 +1368,7 @@ export default function MenuScreens({
                 <span className="font-bold uppercase tracking-wider" style={{ color: selectedLevelConfig.themeColor }}>
                   RETROGRESSION STATUS: {selectedLevelConfig.era}
                 </span>
-                <div className="flex flex-wrap gap-1.5 text-zinc-300 text-[7px]">
+                <div className="flex flex-wrap gap-1.5 text-zinc-300 text-[6.5px]">
                   {selectedLevelConfig.degradedAvionics.map((item, i) => (
                     <span key={i} className="text-zinc-200">
                       • {item}
@@ -1044,24 +1379,24 @@ export default function MenuScreens({
             </div>
 
             {/* Right: Flight Conditions & Target Platforms */}
-            <div className="md:col-span-5 space-y-2 border-t md:border-t-0 md:border-l border-zinc-800 md:pl-4 pt-2 md:pt-0">
-              <div className="flex items-center justify-between text-[7.5px] text-zinc-400">
+            <div className="md:col-span-5 space-y-1.5 border-t md:border-t-0 md:border-l border-zinc-800 md:pl-3 pt-2 md:pt-0">
+              <div className="flex items-center justify-between text-[7px] text-zinc-400">
                 <span>START FUEL: <strong className="text-emerald-400">{selectedLevelConfig.fuelCapacity}L</strong></span>
                 <span>WIND: <strong className="text-cyan-300">{selectedLevelConfig.windSpeed} PX/S</strong></span>
                 <span>HAZARDS: <strong className="text-amber-400">{selectedLevelConfig.hazardCount}</strong></span>
               </div>
 
               <div>
-                <span className="text-[7px] font-bold text-zinc-400 uppercase block mb-1">
+                <span className="text-[6.5px] font-bold text-zinc-400 uppercase block mb-1">
                   LANDING PADS ON THIS MAP:
                 </span>
-                <div className="grid grid-cols-2 gap-1.5">
+                <div className="grid grid-cols-2 gap-1">
                   {selectedLevelConfig.pads.map((pad) => (
-                    <div key={pad.code} className="bg-zinc-950 border border-zinc-800 p-1.5 flex items-center justify-between">
-                      <span className="text-[7.5px] font-bold" style={{ color: pad.color }}>
+                    <div key={pad.code} className="bg-zinc-950 border border-zinc-800 p-1 flex items-center justify-between">
+                      <span className="text-[7px] font-bold" style={{ color: pad.color }}>
                         {pad.code} [{pad.multiplier}x]
                       </span>
-                      <span className="text-[6.5px] text-zinc-400 font-mono">
+                      <span className="text-[6px] text-zinc-400 font-mono">
                         {pad.w}px wide
                       </span>
                     </div>
@@ -1073,29 +1408,41 @@ export default function MenuScreens({
 
           {/* Navigation Bar & Giant Launch Button */}
           <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-2 border-t-2 border-emerald-800/80">
-            <button
-              type="button"
-              onClick={() => {
-                setMainMenuScreen('FLOW_CUSTOMIZE');
-                gameAudio.playCrispClick();
-              }}
-              className="w-full sm:w-auto px-4 py-2.5 bg-black hover:bg-zinc-800 border-2 border-zinc-700 text-zinc-300 hover:text-white font-bold text-[9px] uppercase transition flex items-center justify-center gap-1.5">
-              <ChevronLeft size={14} />
-              <span>BACK TO CRAFT</span>
-            </button>
+            <div className="flex items-center gap-2 w-full sm:w-auto">
+              <button
+                type="button"
+                onClick={() => {
+                  setMainMenuScreen('FLOW_CUSTOMIZE');
+                  gameAudio.playCrispClick();
+                }}
+                className="flex-1 sm:flex-initial px-3.5 py-2 bg-black hover:bg-zinc-800 border-2 border-zinc-700 text-zinc-300 hover:text-white font-bold text-[8.5px] uppercase transition flex items-center justify-center gap-1.5">
+                <ChevronLeft size={13} />
+                <span>BACK TO CRAFT</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setMainMenuScreen('FLOW_PLANET');
+                  gameAudio.playCrispClick();
+                }}
+                className="flex-1 sm:flex-initial px-3.5 py-2 bg-black hover:bg-zinc-800 border-2 border-zinc-700 text-zinc-300 hover:text-white font-bold text-[8.5px] uppercase transition flex items-center justify-center gap-1.5">
+                <span>CHANGE PLANET</span>
+              </button>
+            </div>
 
             <button
               type="button"
               autoFocus
               onClick={onStartGame}
-              className="w-full sm:flex-1 max-w-lg bg-emerald-400 hover:bg-emerald-300 text-black border-4 border-emerald-200 font-black text-sm md:text-base py-3 px-6 shadow-[0_0_20px_rgba(16,185,129,0.5)] active:translate-x-0.5 active:translate-y-0.5 transition flex items-center justify-center gap-2 uppercase rounded-none cursor-pointer">
-              <Play size={18} fill="currentColor" />
+              className="w-full sm:flex-1 max-w-lg bg-emerald-400 hover:bg-emerald-300 text-black border-4 border-emerald-200 font-black text-xs md:text-sm py-2.5 px-5 shadow-[0_0_20px_rgba(16,185,129,0.5)] active:translate-x-0.5 active:translate-y-0.5 transition flex items-center justify-center gap-2 uppercase rounded-none cursor-pointer">
+              <Play size={16} fill="currentColor" />
               <span>
                 {gameMode === 'AI_DUEL'
-                  ? `LAUNCH AI DUEL ON MAP ${selectedStartingEpoch}`
+                  ? `LAUNCH AI DUEL ON ${currentPlanetDef.name} // MAP ${selectedStartingEpoch}`
                   : gameMode === 'DUEL'
-                  ? `LAUNCH 2P DUEL ON MAP ${selectedStartingEpoch}`
-                  : `LAUNCH DESCENT ON MAP ${selectedStartingEpoch}`}
+                  ? `LAUNCH 2P DUEL ON ${currentPlanetDef.name} // MAP ${selectedStartingEpoch}`
+                  : `LAUNCH DESCENT ON ${currentPlanetDef.name} // MAP ${selectedStartingEpoch}`}
               </span>
             </button>
           </div>
@@ -1105,7 +1452,7 @@ export default function MenuScreens({
   }
 
   // =========================================================================
-  // 5. SETTINGS SCREEN
+  // 6. SETTINGS SCREEN
   // Audio, Display, and Customizable Keyboard Controls for Both Players + BACK BUTTON
   // =========================================================================
   if (mainMenuScreen === 'SETTINGS') {
@@ -1610,21 +1957,21 @@ export default function MenuScreens({
             <div className="bg-black p-3.5 border-2 border-purple-900 rounded-none md:col-span-2">
               <h3 className="font-bold text-purple-400 mb-2 uppercase flex items-center gap-1.5">
                 <Activity size={13} />
-                <span>How Retrogression Progression Works (10 Lunar Maps)</span>
+                <span>The 10-Level Retrogression Progression System</span>
               </h3>
               <p className="mb-2 text-zinc-300">
-                Each level is a distinct lunar map with unique procedural terrain, plateaus, and crags.
-                As you advance across the 10 maps, your lander's avionics progressively retrograde (decay) —
-                stripping flight assists until you must land blind in optical darkness using acoustic sonar chirps:
+                Regardless of which celestial world you target (The Moon, Mars, or Venus), as you advance across
+                the 10 levels, your lander's flight avionics progressively retrograde (decay) across 10 calibrated steps —
+                stripping flight computers and assists until you must touch down blind in optical darkness using acoustic sonar chirps:
               </p>
               <div className="grid grid-cols-2 sm:grid-cols-5 gap-1.5 text-[7px]">
-                {LEVELS.map((lvl) => (
-                  <div key={lvl.id} className="p-1.5 bg-zinc-950 border border-zinc-800">
-                    <span className="font-bold block" style={{ color: lvl.themeColor }}>
-                      MAP {lvl.id}: {lvl.name}
+                {RETROGRESSION_STEPS.map((step) => (
+                  <div key={step.level} className="p-1.5 bg-zinc-950 border border-zinc-800">
+                    <span className="font-bold block" style={{ color: step.color }}>
+                      L{step.level}: {step.shortBadge}
                     </span>
-                    <span className="text-zinc-500 block text-[6px]">{lvl.era}</span>
-                    <span className="text-zinc-400 block text-[6px] truncate">{lvl.degradedAvionics[0]}</span>
+                    <span className="text-zinc-500 block text-[6px]">{step.stageName}</span>
+                    <span className="text-zinc-400 block text-[6px] truncate">{step.decommissioned[0]}</span>
                   </div>
                 ))}
               </div>
@@ -1806,7 +2153,7 @@ export default function MenuScreens({
   // =========================================================================
   if (gameState.status === 'LEVEL_COMPLETE' && lastTouchdownStats) {
     const nextLevelNum = gameState.level;
-    const nextLevelConfig = getLevel(nextLevelNum);
+    const nextLevelConfig = getLevel(selectedPlanet, nextLevelNum);
 
     return (
       <MenuOverlay tone="victory" zIndex={40} fullScreen maxWidthClass="w-full max-w-xl">
@@ -1983,13 +2330,13 @@ export default function MenuScreens({
         <div className="w-full bg-[#08080c] border-4 border-yellow-400 p-6 shadow-[8px_8px_0px_0px_#78350f] flex flex-col items-center text-center text-yellow-400 rounded-none">
           <Award className="text-yellow-400 mb-3 animate-bounce" size={44} />
           <h2 className="text-base md:text-2xl font-bold mb-1 uppercase tracking-wide">
-            MASTER LUNAR PILOT
+            MASTER CELESTIAL PILOT
           </h2>
           <div className="text-[9px] text-cyan-400 uppercase tracking-widest font-bold mb-3">
-            [ {pilotName} CONQUERED ALL 10 RETROGRESSION LEVELS ]
+            [ {pilotName} CONQUERED ALL 10 LEVELS ON {currentPlanetDef.name} ]
           </div>
           <p className="text-[10px] text-zinc-300 leading-relaxed mb-4 font-mono">
-            You crossed volcanic craters, outmaneuvered orbital debris, adapted through 10 eras of
+            You crossed hostile terrain on {currentPlanetDef.name}, adapted through 10 calibrated levels of
             avionics degradation, and conquered the final sensory blackout solely via acoustic sonar frequencies.
           </p>
 
