@@ -18,6 +18,7 @@ import {
   Check,
   ChevronLeft,
   ChevronRight,
+  Coins,
   Compass,
   Crosshair,
   Flame,
@@ -35,6 +36,7 @@ import {
   RotateCw,
   Settings,
   Shield,
+  ShoppingBag,
   Sliders,
   Sparkles,
   Trophy,
@@ -42,9 +44,23 @@ import {
   Users,
   Volume2,
   VolumeX,
+  Wrench,
   X,
   Zap,
 } from 'lucide-react';
+import {
+  CRAFTS,
+  CraftDefinition,
+  CraftUpgradeTier,
+  getCraft,
+  MAX_UPGRADE_TIER,
+  getUpgradeCost,
+  computeEffectiveStats,
+  deductGradeCoins,
+  setStoredOwnedCrafts,
+  setStoredSelectedCraftId,
+  setStoredCraftUpgrades,
+} from './crafts';
 import {
   LEVELS,
   LEVELS_BY_PLANET,
@@ -142,6 +158,8 @@ interface MenuScreensProps {
     tilt: number;
     fuelRemaining: number;
     pointsAwarded: number;
+    gcEarned?: number;
+    totalGradeCoins?: number;
     basePoints?: number;
     fuelBonus?: number;
     precisionBonus?: number;
@@ -157,6 +175,14 @@ interface MenuScreensProps {
   assets: Record<string, HTMLImageElement | null>;
   shipThemes: ShipTheme[];
   presetPilotNames: string[];
+  gradeCoins: number;
+  setGradeCoins: (coins: number) => void;
+  ownedCrafts: string[];
+  setOwnedCrafts: (crafts: string[]) => void;
+  selectedCraftId: string;
+  setSelectedCraftId: (id: string) => void;
+  craftUpgrades: Record<string, CraftUpgradeTier>;
+  setCraftUpgrades: React.Dispatch<React.SetStateAction<Record<string, CraftUpgradeTier>>>;
 }
 
 export default function MenuScreens({
@@ -204,6 +230,14 @@ export default function MenuScreens({
   assets,
   shipThemes,
   presetPilotNames,
+  gradeCoins,
+  setGradeCoins,
+  ownedCrafts,
+  setOwnedCrafts,
+  selectedCraftId,
+  setSelectedCraftId,
+  craftUpgrades,
+  setCraftUpgrades,
 }: MenuScreensProps) {
   const [leaderboardFilter, setLeaderboardFilter] = useState<'ALL' | 'SOLO' | 'AI_DUEL' | 'DUEL'>('ALL');
   const [lockedNotice, setLockedNotice] = useState<string | null>(null);
@@ -879,14 +913,76 @@ export default function MenuScreens({
   }
 
   // =========================================================================
-  // 4. START FLOW - STEP 3: CRAFT CUSTOMIZATION
-  // Callsign, Livery Colors, AI Bot Persona (if AI mode), P2 (if Duel) + BACK BUTTON
+  // 4. START FLOW - STEP 3: CRAFT CUSTOMIZATION & FLEET HANGAR SHOP
+  // Select/Purchase Crafts (3 Models) + Individual Stat Upgrades + Livery/Pilot
   // =========================================================================
   if (gameState.status === 'START' && mainMenuScreen === 'FLOW_CUSTOMIZE') {
+    const activeCraft = getCraft(selectedCraftId);
+    const activeUpgrades = craftUpgrades[activeCraft.id] || { engineTier: 0, fuelTier: 0, turnTier: 0 };
+    const effectiveStats = computeEffectiveStats(
+      activeCraft,
+      activeUpgrades,
+      currentPlanetDef.mainThrust,
+      selectedLevelConfig.fuelCapacity
+    );
+
+    const handlePurchaseCraft = (craft: CraftDefinition) => {
+      if (gradeCoins < craft.price) {
+        gameAudio.playRcsPuff();
+        return;
+      }
+      const success = deductGradeCoins(craft.price);
+      if (success) {
+        const nextBalance = gradeCoins - craft.price;
+        setGradeCoins(nextBalance);
+        const nextOwned = Array.from(new Set([...ownedCrafts, craft.id]));
+        setOwnedCrafts(nextOwned);
+        setStoredOwnedCrafts(nextOwned);
+        setSelectedCraftId(craft.id);
+        setStoredSelectedCraftId(craft.id);
+        // Ensure new craft starts with base stock stats (tier 0) if not set
+        if (!craftUpgrades[craft.id]) {
+          const updatedUpgrades = {
+            ...craftUpgrades,
+            [craft.id]: { engineTier: 0, fuelTier: 0, turnTier: 0 },
+          };
+          setCraftUpgrades(updatedUpgrades);
+          setStoredCraftUpgrades(updatedUpgrades);
+        }
+        gameAudio.playVictoryFanfare();
+      }
+    };
+
+    const handleUpgradeStat = (craftId: string, stat: 'engineTier' | 'fuelTier' | 'turnTier') => {
+      const current = craftUpgrades[craftId] || { engineTier: 0, fuelTier: 0, turnTier: 0 };
+      const currentTier = current[stat];
+      if (currentTier >= MAX_UPGRADE_TIER) return;
+      const cost = getUpgradeCost(currentTier);
+      if (gradeCoins < cost) {
+        gameAudio.playRcsPuff();
+        return;
+      }
+      const success = deductGradeCoins(cost);
+      if (success) {
+        const nextBalance = gradeCoins - cost;
+        setGradeCoins(nextBalance);
+        const updated = {
+          ...craftUpgrades,
+          [craftId]: {
+            ...current,
+            [stat]: currentTier + 1,
+          },
+        };
+        setCraftUpgrades(updated);
+        setStoredCraftUpgrades(updated);
+        gameAudio.playLevelUpStinger();
+      }
+    };
+
     return (
       <div className="fixed inset-0 w-full h-full z-40 flex flex-col justify-between overflow-y-auto bg-gradient-to-b from-[#06080d]/96 via-[#06080d]/92 to-[#06080d]/98 backdrop-blur-md text-emerald-400 select-none">
         {/* Full-width Top Header Bar */}
-        <div className="w-full flex items-center justify-between px-6 md:px-12 py-4 border-b border-emerald-900/60 bg-[#06080d]/80 backdrop-blur-md shrink-0">
+        <div className="w-full flex items-center justify-between px-6 md:px-12 py-3.5 border-b border-emerald-900/60 bg-[#06080d]/80 backdrop-blur-md shrink-0">
           <div className="flex items-center gap-3">
             <Shield size={24} className="text-emerald-400 animate-pulse" />
             <div>
@@ -895,16 +991,22 @@ export default function MenuScreens({
                   STEP 3 OF 4
                 </span>
                 <h2 className="text-base sm:text-xl font-black tracking-wider uppercase text-emerald-400">
-                  CRAFT & PILOT SPECIFICATIONS
+                  FLEET HANGAR // CRAFT & PILOT CONFIGURATION
                 </h2>
               </div>
-              <span className="text-xs font-mono text-zinc-400 uppercase tracking-widest block mt-1">
-                TARGET: {currentPlanetDef.name} • PROFILE: {gameMode === 'SOLO' ? 'SOLO FLIGHT' : gameMode === 'AI_DUEL' ? 'PLAY AGAINST AI' : '2P DUEL FLIGHT'} • CALLSIGN, LIVERY & BOT CALIBRATION
+              <span className="text-xs font-mono text-zinc-400 uppercase tracking-widest block mt-0.5">
+                TARGET: {currentPlanetDef.name} • SELECT OR PURCHASE LANDERS • UPGRADE PROPULSION, FUEL & RCS
               </span>
             </div>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-4">
+            {/* GradeCoins Persistent Wallet Badge */}
+            <div className="flex items-center gap-2 px-3 py-1.5 bg-amber-950/40 border-2 border-amber-500/80 text-amber-300 font-mono font-bold text-xs sm:text-sm shadow-[0_0_12px_rgba(245,158,11,0.25)]">
+              <Coins size={16} className="text-amber-400 animate-pulse" />
+              <span>{gradeCoins.toLocaleString()} GC</span>
+            </div>
+
             <button
               type="button"
               onClick={() => {
@@ -913,8 +1015,9 @@ export default function MenuScreens({
               }}
               className="bg-black/80 hover:bg-zinc-800 border-2 border-zinc-700 hover:border-emerald-400 text-zinc-300 hover:text-white px-4 py-2 text-xs font-bold flex items-center gap-1.5 uppercase transition">
               <ChevronLeft size={15} />
-              <span>BACK TO MODE SELECT</span>
+              <span>BACK TO MODE</span>
             </button>
+
             <button
               type="button"
               onClick={() => {
@@ -931,21 +1034,340 @@ export default function MenuScreens({
         {/* Content Area - Utilizing Full Screen & Spreading Panels to Edges */}
         <div className="w-full flex-1 flex flex-col justify-between px-6 sm:px-10 md:px-16 py-4 md:py-6 space-y-6">
 
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 flex-1 items-stretch">
+          {/* SECTION 1: 3 PLAYABLE CRAFTS HANGAR (PURCHASE & SELECT) */}
+          <div>
+            <div className="flex items-center justify-between mb-3 border-b border-zinc-800 pb-2">
+              <span className="text-xs font-mono font-bold text-emerald-400 uppercase tracking-wider flex items-center gap-2">
+                <ShoppingBag size={15} />
+                <span>SELECT OR PURCHASE LANDER VESSELS</span>
+              </span>
+              <span className="text-xs font-mono text-zinc-400">
+                OWNED: {ownedCrafts.length}/{CRAFTS.length} CRAFTS
+              </span>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6">
+              {CRAFTS.map((craft) => {
+                const isOwned = ownedCrafts.includes(craft.id);
+                const isSelected = selectedCraftId === craft.id;
+                const craftTier = craftUpgrades[craft.id] || { engineTier: 0, fuelTier: 0, turnTier: 0 };
+                const canAfford = gradeCoins >= craft.price;
+
+                return (
+                  <div
+                    key={craft.id}
+                    onClick={() => {
+                      if (isOwned) {
+                        setSelectedCraftId(craft.id);
+                        setStoredSelectedCraftId(craft.id);
+                        gameAudio.playCrispClick();
+                      }
+                    }}
+                    className={`p-4 sm:p-5 border-2 transition rounded-none flex flex-col justify-between relative cursor-pointer ${
+                      isSelected
+                        ? 'bg-zinc-900/95 shadow-[6px_6px_0_0_#10b981]'
+                        : isOwned
+                        ? 'bg-black/80 hover:bg-zinc-950/90 border-zinc-700 hover:border-zinc-500'
+                        : 'bg-black/60 border-zinc-800 hover:border-amber-600/80 opacity-90'
+                    }`}
+                    style={{
+                      borderColor: isSelected ? craft.accentColor : undefined,
+                      boxShadow: isSelected ? `6px 6px 0 0 ${craft.accentColor}` : undefined,
+                    }}>
+                    
+                    {/* Header */}
+                    <div>
+                      <div className="flex items-center justify-between mb-3">
+                        <span
+                          className="text-[10px] font-mono font-bold px-2 py-0.5 uppercase border"
+                          style={{
+                            color: craft.accentColor,
+                            borderColor: `${craft.accentColor}80`,
+                            backgroundColor: `${craft.accentColor}15`,
+                          }}>
+                          {craft.classTag}
+                        </span>
+
+                        {isSelected ? (
+                          <span className="text-xs font-mono font-bold text-emerald-400 flex items-center gap-1">
+                            <Check size={14} /> ACTIVE
+                          </span>
+                        ) : isOwned ? (
+                          <span className="text-xs font-mono font-bold text-zinc-400 uppercase">
+                            OWNED
+                          </span>
+                        ) : (
+                          <span className="text-xs font-mono font-bold text-amber-400 flex items-center gap-1">
+                            <Lock size={12} /> {craft.price} GC
+                          </span>
+                        )}
+                      </div>
+
+                      {/* Visual Lander Icon/Sprite Bay */}
+                      <div className="bg-zinc-950 border border-zinc-800 p-3 flex items-center justify-center my-3 relative overflow-hidden h-28">
+                        <div
+                          className="absolute inset-0 opacity-15"
+                          style={{ backgroundColor: craft.accentColor }}
+                        />
+                        {assets[craft.assetKey] ? (
+                          <img
+                            src={assets[craft.assetKey]!.src}
+                            alt={craft.name}
+                            className="max-h-24 max-w-[120px] object-contain relative z-10 filter drop-shadow-[0_0_10px_rgba(255,255,255,0.2)]"
+                          />
+                        ) : (
+                          <div className="w-16 h-14 bg-white/20 border border-white/40 flex items-center justify-center font-mono text-xs">
+                            {craft.name.split(' ')[0]}
+                          </div>
+                        )}
+                      </div>
+
+                      <h3 className="text-base font-black uppercase text-white tracking-wider mb-0.5">
+                        {craft.name}
+                      </h3>
+                      <span className="text-xs font-mono text-zinc-400 block mb-2 uppercase">
+                        {craft.subname}
+                      </span>
+
+                      {/* Specs */}
+                      <div className="space-y-1 bg-black/70 border border-zinc-800/80 p-2 font-mono text-[10px] text-zinc-300 mb-3">
+                        {craft.specs.map((spec, i) => (
+                          <div key={i} className="flex items-center gap-1.5 truncate">
+                            <span className="text-emerald-400 font-bold">•</span>
+                            <span>{spec}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Action Button */}
+                    <div className="mt-3 pt-2.5 border-t border-zinc-800/80">
+                      {isSelected ? (
+                        <div className="w-full py-2 bg-emerald-500/20 border border-emerald-400 text-emerald-300 font-mono font-bold text-xs uppercase text-center flex items-center justify-center gap-1.5">
+                          <Check size={14} /> ACTIVE VESSEL
+                        </div>
+                      ) : isOwned ? (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setSelectedCraftId(craft.id);
+                            setStoredSelectedCraftId(craft.id);
+                            gameAudio.playCrispClick();
+                          }}
+                          className="w-full py-2 bg-zinc-900 hover:bg-emerald-400 hover:text-black border border-zinc-600 hover:border-emerald-300 text-white font-mono font-bold text-xs uppercase transition text-center">
+                          SELECT VESSEL
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          disabled={!canAfford}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handlePurchaseCraft(craft);
+                          }}
+                          className={`w-full py-2 border font-mono font-bold text-xs uppercase transition flex items-center justify-center gap-1.5 ${
+                            canAfford
+                              ? 'bg-amber-400 hover:bg-amber-300 text-black border-amber-200 shadow-[0_0_12px_rgba(245,158,11,0.4)] cursor-pointer'
+                              : 'bg-zinc-900 text-zinc-500 border-zinc-800 cursor-not-allowed opacity-60'
+                          }`}>
+                          <Coins size={14} />
+                          <span>UNLOCK FOR {craft.price} GC</span>
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* SECTION 2: INDIVIDUAL CRAFT UPGRADES BAY & PILOT CUSTOMIZATION */}
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
             
-            {/* PLAYER 1 CUSTOMIZATION */}
-            <div className={`${gameMode === 'SOLO' ? 'lg:col-span-12' : 'lg:col-span-6'} bg-black/80 border-2 border-emerald-700 p-6 md:p-8 rounded-none flex flex-col justify-between space-y-4`}>
-              <div className="flex items-center justify-between border-b border-zinc-800 pb-3">
-                <span className="text-sm font-bold text-emerald-400 font-mono uppercase flex items-center gap-2">
-                  <User size={16} />
-                  <span>{gameMode === 'DUEL' ? 'PLAYER 1 (WASD)' : 'PRIMARY LUNAR PILOT'}</span>
+            {/* UPGRADE BAY FOR CURRENT CRAFT */}
+            <div className="lg:col-span-7 bg-black/85 border-2 border-emerald-600 p-5 md:p-6 rounded-none space-y-4">
+              <div className="flex items-center justify-between border-b border-zinc-800 pb-2.5">
+                <span className="text-xs sm:text-sm font-bold text-emerald-400 font-mono uppercase flex items-center gap-2">
+                  <Wrench size={16} />
+                  <span>UPGRADE BAY // {activeCraft.name}</span>
                 </span>
-                <span className="text-xs text-zinc-400 font-mono uppercase font-bold">[CALLSIGN & LIVERY]</span>
+                <span className="text-xs text-zinc-400 font-mono">
+                  [STATS SAVED PER CRAFT]
+                </span>
+              </div>
+
+              {/* 3 Upgradable Stats: Engine Power, Fuel Capacity, Turn Power */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                
+                {/* 1. Engine Power */}
+                {(() => {
+                  const tier = activeUpgrades.engineTier;
+                  const isMax = tier >= MAX_UPGRADE_TIER;
+                  const cost = getUpgradeCost(tier);
+                  const canAfford = gradeCoins >= cost;
+
+                  return (
+                    <div className="bg-zinc-950 p-3.5 border border-zinc-800 flex flex-col justify-between space-y-3">
+                      <div>
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="text-xs font-bold text-zinc-200 uppercase">ENGINE POWER</span>
+                          <span className="text-[10px] font-mono text-emerald-400 font-bold">TIER {tier}/5</span>
+                        </div>
+                        <div className="flex gap-1 mb-2">
+                          {[1, 2, 3, 4, 5].map((t) => (
+                            <div
+                              key={t}
+                              className={`flex-1 h-2 border ${
+                                t <= tier ? 'bg-emerald-400 border-emerald-300 shadow-[0_0_6px_#10b981]' : 'bg-zinc-900 border-zinc-800'
+                              }`}
+                            />
+                          ))}
+                        </div>
+                        <span className="text-[10px] font-mono text-zinc-400 block">
+                          THRUST: <strong className="text-emerald-300">+{tier * 8}%</strong>
+                        </span>
+                      </div>
+
+                      <button
+                        type="button"
+                        disabled={isMax || !canAfford}
+                        onClick={() => handleUpgradeStat(activeCraft.id, 'engineTier')}
+                        className={`w-full py-1.5 px-2 font-mono text-[10px] font-bold uppercase border transition flex items-center justify-center gap-1 ${
+                          isMax
+                            ? 'bg-zinc-900 border-zinc-800 text-zinc-500 cursor-default'
+                            : canAfford
+                            ? 'bg-emerald-500/20 hover:bg-emerald-400 hover:text-black border-emerald-500 text-emerald-300 cursor-pointer'
+                            : 'bg-zinc-900 border-zinc-800 text-zinc-600 cursor-not-allowed'
+                        }`}>
+                        {isMax ? 'MAX TIER' : `UPGRADE (${cost} GC)`}
+                      </button>
+                    </div>
+                  );
+                })()}
+
+                {/* 2. Fuel Capacity */}
+                {(() => {
+                  const tier = activeUpgrades.fuelTier;
+                  const isMax = tier >= MAX_UPGRADE_TIER;
+                  const cost = getUpgradeCost(tier);
+                  const canAfford = gradeCoins >= cost;
+
+                  return (
+                    <div className="bg-zinc-950 p-3.5 border border-zinc-800 flex flex-col justify-between space-y-3">
+                      <div>
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="text-xs font-bold text-zinc-200 uppercase">FUEL CAPACITY</span>
+                          <span className="text-[10px] font-mono text-cyan-400 font-bold">TIER {tier}/5</span>
+                        </div>
+                        <div className="flex gap-1 mb-2">
+                          {[1, 2, 3, 4, 5].map((t) => (
+                            <div
+                              key={t}
+                              className={`flex-1 h-2 border ${
+                                t <= tier ? 'bg-cyan-400 border-cyan-300 shadow-[0_0_6px_#38bdf8]' : 'bg-zinc-900 border-zinc-800'
+                              }`}
+                            />
+                          ))}
+                        </div>
+                        <span className="text-[10px] font-mono text-zinc-400 block">
+                          START TANK: <strong className="text-cyan-300">+{tier * 15}L</strong>
+                        </span>
+                      </div>
+
+                      <button
+                        type="button"
+                        disabled={isMax || !canAfford}
+                        onClick={() => handleUpgradeStat(activeCraft.id, 'fuelTier')}
+                        className={`w-full py-1.5 px-2 font-mono text-[10px] font-bold uppercase border transition flex items-center justify-center gap-1 ${
+                          isMax
+                            ? 'bg-zinc-900 border-zinc-800 text-zinc-500 cursor-default'
+                            : canAfford
+                            ? 'bg-cyan-500/20 hover:bg-cyan-400 hover:text-black border-cyan-500 text-cyan-300 cursor-pointer'
+                            : 'bg-zinc-900 border-zinc-800 text-zinc-600 cursor-not-allowed'
+                        }`}>
+                        {isMax ? 'MAX TIER' : `UPGRADE (${cost} GC)`}
+                      </button>
+                    </div>
+                  );
+                })()}
+
+                {/* 3. Turn Power / RCS */}
+                {(() => {
+                  const tier = activeUpgrades.turnTier;
+                  const isMax = tier >= MAX_UPGRADE_TIER;
+                  const cost = getUpgradeCost(tier);
+                  const canAfford = gradeCoins >= cost;
+
+                  return (
+                    <div className="bg-zinc-950 p-3.5 border border-zinc-800 flex flex-col justify-between space-y-3">
+                      <div>
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="text-xs font-bold text-zinc-200 uppercase">TURN POWER / RCS</span>
+                          <span className="text-[10px] font-mono text-yellow-400 font-bold">TIER {tier}/5</span>
+                        </div>
+                        <div className="flex gap-1 mb-2">
+                          {[1, 2, 3, 4, 5].map((t) => (
+                            <div
+                              key={t}
+                              className={`flex-1 h-2 border ${
+                                t <= tier ? 'bg-yellow-400 border-yellow-300 shadow-[0_0_6px_#facc15]' : 'bg-zinc-900 border-zinc-800'
+                              }`}
+                            />
+                          ))}
+                        </div>
+                        <span className="text-[10px] font-mono text-zinc-400 block">
+                          AGILITY: <strong className="text-yellow-300">+{tier * 10}%</strong>
+                        </span>
+                      </div>
+
+                      <button
+                        type="button"
+                        disabled={isMax || !canAfford}
+                        onClick={() => handleUpgradeStat(activeCraft.id, 'turnTier')}
+                        className={`w-full py-1.5 px-2 font-mono text-[10px] font-bold uppercase border transition flex items-center justify-center gap-1 ${
+                          isMax
+                            ? 'bg-zinc-900 border-zinc-800 text-zinc-500 cursor-default'
+                            : canAfford
+                            ? 'bg-yellow-500/20 hover:bg-yellow-400 hover:text-black border-yellow-500 text-yellow-300 cursor-pointer'
+                            : 'bg-zinc-900 border-zinc-800 text-zinc-600 cursor-not-allowed'
+                        }`}>
+                        {isMax ? 'MAX TIER' : `UPGRADE (${cost} GC)`}
+                      </button>
+                    </div>
+                  );
+                })()}
+              </div>
+
+              {/* Effective Flight Summary for Selected Vessel */}
+              <div className="p-3 bg-zinc-950 border border-zinc-800 font-mono text-xs flex flex-wrap items-center justify-between gap-2">
+                <span className="text-zinc-400 font-bold">
+                  ACTIVE CRAFT STATUS: <strong className="text-white uppercase">{activeCraft.name}</strong>
+                </span>
+                <span className="text-emerald-400">
+                  THRUST: <strong>{effectiveStats.thrust} px/s²</strong>
+                </span>
+                <span className="text-cyan-400">
+                  FUEL: <strong>{effectiveStats.fuel}L</strong>
+                </span>
+                <span className="text-yellow-400">
+                  TURN: <strong>{effectiveStats.turnSpeed} rad/s</strong>
+                </span>
+              </div>
+            </div>
+
+            {/* PILOT CALLSIGN & LIVERY CUSTOMIZATION */}
+            <div className="lg:col-span-5 bg-black/85 border-2 border-emerald-700 p-5 md:p-6 rounded-none space-y-4">
+              <div className="flex items-center justify-between border-b border-zinc-800 pb-2.5">
+                <span className="text-xs sm:text-sm font-bold text-emerald-400 font-mono uppercase flex items-center gap-2">
+                  <User size={16} />
+                  <span>PILOT CALLSIGN & LIVERY</span>
+                </span>
               </div>
 
               {/* Callsign Input */}
               <div>
-                <label className="text-xs uppercase font-mono text-zinc-300 font-bold block mb-2">
+                <label className="text-xs uppercase font-mono text-zinc-300 font-bold block mb-1.5">
                   PILOT CALLSIGN:
                 </label>
                 <input
@@ -957,11 +1379,11 @@ export default function MenuScreens({
                     setPilotName(val);
                     setStoredPilotName(val);
                   }}
-                  className="w-full bg-zinc-950 border-2 border-emerald-600 px-4 py-2 text-emerald-300 text-sm font-bold tracking-widest focus:outline-none focus:border-emerald-400 rounded-none mb-3"
+                  className="w-full bg-zinc-950 border-2 border-emerald-600 px-3 py-1.5 text-emerald-300 text-xs sm:text-sm font-bold tracking-widest focus:outline-none focus:border-emerald-400 rounded-none mb-2"
                 />
 
                 {/* Preset Chips */}
-                <div className="flex flex-wrap gap-1.5">
+                <div className="flex flex-wrap gap-1">
                   {presetPilotNames.map((name) => (
                     <button
                       key={name}
@@ -971,7 +1393,7 @@ export default function MenuScreens({
                         setStoredPilotName(name);
                         gameAudio.playCrispClick();
                       }}
-                      className={`text-xs px-2.5 py-1 border font-mono transition ${
+                      className={`text-[10px] px-2 py-0.5 border font-mono transition ${
                         pilotName === name
                           ? 'bg-emerald-500 text-black border-emerald-400 font-bold'
                           : 'bg-zinc-900 text-zinc-400 border-zinc-700 hover:text-white'
@@ -984,10 +1406,10 @@ export default function MenuScreens({
 
               {/* Hull Livery Selector */}
               <div>
-                <span className="text-xs uppercase font-mono text-zinc-300 font-bold block mb-2">
-                  HULL LIVERY PALETTE:
+                <span className="text-xs uppercase font-mono text-zinc-300 font-bold block mb-1.5">
+                  LIVERY ACCENT:
                 </span>
-                <div className="grid grid-cols-5 gap-2 mb-3">
+                <div className="grid grid-cols-5 gap-1.5">
                   {shipThemes.map((theme) => {
                     const isSelected = p1Theme.id === theme.id;
                     return (
@@ -998,11 +1420,11 @@ export default function MenuScreens({
                           setP1Theme(theme);
                           gameAudio.playCrispClick();
                         }}
-                        className={`p-2 border text-center transition flex flex-col items-center gap-1.5 ${
-                          isSelected ? 'border-white bg-zinc-900 scale-105 shadow-[0_0_12px_rgba(255,255,255,0.4)]' : 'border-zinc-800 bg-zinc-950 opacity-60 hover:opacity-100'
+                        className={`p-1.5 border text-center transition flex flex-col items-center gap-1 ${
+                          isSelected ? 'border-white bg-zinc-900 scale-105 shadow-[0_0_8px_rgba(255,255,255,0.4)]' : 'border-zinc-800 bg-zinc-950 opacity-60 hover:opacity-100'
                         }`}>
-                        <div className="w-6 h-6 border border-black shadow" style={{ backgroundColor: theme.color }} />
-                        <span className="text-[10px] font-mono font-bold truncate w-full" style={{ color: theme.color }}>
+                        <div className="w-5 h-5 border border-black shadow" style={{ backgroundColor: theme.color }} />
+                        <span className="text-[8px] font-mono font-bold truncate w-full" style={{ color: theme.color }}>
                           {theme.name.split(' ')[0]}
                         </span>
                       </button>
@@ -1011,139 +1433,43 @@ export default function MenuScreens({
                 </div>
               </div>
 
-              {/* Craft Visual Preview Bay */}
-              <div className="bg-zinc-950 border border-zinc-800 p-3.5 flex items-center justify-between mt-auto">
-                <div className="flex items-center gap-3">
-                  <div className="relative w-14 h-12 bg-black border border-zinc-800 flex items-center justify-center">
-                    <div
-                      className="absolute bottom-1 w-4 h-5 rounded-full blur-[2px] animate-pulse"
-                      style={{ backgroundColor: p1Theme.color }}
-                    />
-                    {assets['lander'] ? (
-                      <img src={assets['lander'].src} alt="Lander" className="w-9 h-8 object-contain relative z-10" />
-                    ) : (
-                      <div className="w-7 h-6 bg-white rounded-sm" />
-                    )}
-                  </div>
-                  <div>
-                    <span className="text-xs font-bold block" style={{ color: p1Theme.color }}>
-                      {p1Theme.name}
+              {/* AI Opponent or P2 Setup if in duel mode */}
+              {gameMode === 'AI_DUEL' && (
+                <div className="pt-3 border-t border-zinc-800">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-xs font-bold text-cyan-400 font-mono uppercase flex items-center gap-1.5">
+                      <Bot size={14} />
+                      <span>AI BOT OPPONENT:</span>
                     </span>
-                    <span className="text-[10px] font-mono text-zinc-400 block">
-                      TITANIUM ALLOY STRUTS // HYDRAULIC SUSPENSION
-                    </span>
+                    <span className="text-[10px] font-mono text-zinc-400 font-bold">{selectedAiPersona.callsign}</span>
                   </div>
-                </div>
-                <div className="text-right font-mono">
-                  <span className="text-xs text-zinc-400 font-bold block">STARTING FUEL</span>
-                  <span className="text-sm text-emerald-400 font-bold block">
-                    {selectedLevelConfig.fuelCapacity}L
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            {/* PLAYER 2 / AI OPPONENT SPECIFICATIONS */}
-            {gameMode === 'AI_DUEL' && (
-              <div className="lg:col-span-6 bg-black/80 border-2 border-cyan-700 p-6 md:p-8 rounded-none flex flex-col justify-between space-y-4">
-                <div className="flex items-center justify-between border-b border-zinc-800 pb-3">
-                  <span className="text-sm font-bold text-cyan-400 font-mono uppercase flex items-center gap-2">
-                    <Bot size={16} />
-                    <span>AI OPPONENT ROBOT</span>
-                  </span>
-                  <span className="text-xs text-cyan-400 font-mono font-bold">[AUTONOMOUS PILOT]</span>
-                </div>
-
-                {/* AI Craft Visual Preview Bay (Identical Spacecraft Model) */}
-                <div className="bg-zinc-950 border border-cyan-900/60 p-3.5 flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="relative w-14 h-12 bg-black border border-cyan-900 flex items-center justify-center">
-                      <div
-                        className="absolute bottom-1 w-4 h-5 rounded-full blur-[2px] animate-pulse"
-                        style={{ backgroundColor: selectedAiPersona.hullColor }}
-                      />
-                      {assets['lander'] ? (
-                        <img src={assets['lander'].src} alt="AI Lander" className="w-8 h-7 object-contain relative z-10" />
-                      ) : (
-                        <div className="w-6 h-5 bg-white rounded-sm" />
-                      )}
-                    </div>
-                    <div>
-                      <span className="text-[7.5px] font-bold block" style={{ color: selectedAiPersona.hullColor }}>
-                        {selectedAiPersona.name} [{selectedAiPersona.callsign}]
-                      </span>
-                      <span className="text-[6.5px] font-mono text-zinc-500 block">
-                        AUTONOMOUS FCS // AGILITY: {selectedAiPersona.agility}
-                      </span>
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <span className="text-[6.5px] text-zinc-500 font-mono block">STARTING FUEL</span>
-                    <span className="text-[8.5px] text-cyan-400 font-mono font-bold block">
-                      {selectedLevelConfig.fuelCapacity}L
-                    </span>
-                  </div>
-                </div>
-
-                <span className="text-[7.5px] uppercase font-mono text-zinc-400 font-bold block mb-1">
-                  SELECT AI PILOT PERSONA:
-                </span>
-
-                <div className="space-y-2">
-                  {AI_PERSONAS.map((persona) => {
-                    const isSelected = selectedAiPersona.id === persona.id;
-                    return (
-                      <div
+                  <div className="grid grid-cols-2 gap-1.5">
+                    {AI_PERSONAS.map((persona) => (
+                      <button
                         key={persona.id}
+                        type="button"
                         onClick={() => {
                           setSelectedAiPersona(persona);
                           gameAudio.playCrispClick();
                         }}
-                        className={`p-2.5 border-2 transition cursor-pointer flex items-center justify-between ${
-                          isSelected
-                            ? 'bg-cyan-950/60 border-cyan-400 text-cyan-300'
+                        className={`p-1.5 border text-left font-mono text-[9px] transition ${
+                          selectedAiPersona.id === persona.id
+                            ? 'bg-cyan-950/80 border-cyan-400 text-cyan-300 font-bold'
                             : 'bg-zinc-950 border-zinc-800 text-zinc-400 hover:border-zinc-700'
                         }`}>
-                        <div>
-                          <div className="flex items-center gap-2 mb-0.5">
-                            <span className="text-[8.5px] font-bold uppercase" style={{ color: persona.hullColor }}>
-                              {persona.name}
-                            </span>
-                            <span className="text-[6.5px] font-mono px-1 py-0.2 bg-black border border-zinc-700 text-zinc-400">
-                              {persona.riskPreference}
-                            </span>
-                          </div>
-                          <span className="text-[7px] font-mono text-zinc-300 block">
-                            {persona.description}
-                          </span>
-                        </div>
-                        <div className="w-5 h-5 border border-zinc-700 shrink-0 ml-2" style={{ backgroundColor: persona.hullColor }} />
-                      </div>
-                    );
-                  })}
+                        <div className="truncate">{persona.name}</div>
+                        <div className="text-[8px] text-zinc-500">{persona.riskPreference}</div>
+                      </button>
+                    ))}
+                  </div>
                 </div>
+              )}
 
-                <div className="p-2 bg-cyan-950/30 border border-cyan-700/60 text-[7px] font-mono text-cyan-300 flex items-center gap-1.5">
-                  <Zap size={11} className="text-cyan-400 shrink-0" />
-                  <span>AI will pilot simultaneously on shared lunar terrain in split screen!</span>
-                </div>
-              </div>
-            )}
-
-            {gameMode === 'DUEL' && (
-              <div className="lg:col-span-6 bg-black/80 border-2 border-amber-700 p-4 rounded-none space-y-3">
-                <div className="flex items-center justify-between border-b border-zinc-800 pb-2">
-                  <span className="text-[8.5px] font-bold text-amber-400 font-mono uppercase flex items-center gap-1.5">
-                    <Users size={13} />
-                    <span>PLAYER 2 (ARROW KEYS)</span>
+              {gameMode === 'DUEL' && (
+                <div className="pt-3 border-t border-zinc-800">
+                  <span className="text-xs font-bold text-amber-400 font-mono uppercase block mb-1">
+                    PLAYER 2 CALLSIGN (ARROWS):
                   </span>
-                  <span className="text-[7px] text-zinc-500 font-mono">CALLSIGN & LIVERY</span>
-                </div>
-
-                <div>
-                  <label className="text-[7.5px] uppercase font-mono text-amber-400 font-bold block mb-1">
-                    P2 CALLSIGN:
-                  </label>
                   <input
                     type="text"
                     maxLength={16}
@@ -1153,71 +1479,11 @@ export default function MenuScreens({
                       setP2Name(val);
                       setStoredP2Name(val);
                     }}
-                    className="w-full bg-zinc-950 border-2 border-amber-600 px-3 py-1.5 text-amber-300 text-[10px] font-bold tracking-widest focus:outline-none focus:border-amber-400 rounded-none mb-2"
+                    className="w-full bg-zinc-950 border border-amber-600 px-3 py-1 text-amber-300 text-xs font-bold font-mono focus:outline-none"
                   />
                 </div>
-
-                <div>
-                  <span className="text-[7.5px] uppercase font-mono text-amber-400 font-bold block mb-1.5">
-                    P2 HULL LIVERY:
-                  </span>
-                  <div className="grid grid-cols-5 gap-1.5">
-                    {shipThemes.map((theme) => {
-                      const isSelected = p2Theme.id === theme.id;
-                      return (
-                        <button
-                          key={theme.id}
-                          type="button"
-                          onClick={() => {
-                            setP2Theme(theme);
-                            gameAudio.playCrispClick();
-                          }}
-                          className={`p-1.5 border text-center transition flex flex-col items-center gap-1 ${
-                            isSelected ? 'border-white bg-zinc-900 scale-105' : 'border-zinc-800 bg-zinc-950 opacity-60'
-                          }`}>
-                          <div className="w-5 h-5 border border-black" style={{ backgroundColor: theme.color }} />
-                          <span className="text-[6px] font-mono truncate w-full" style={{ color: theme.color }}>
-                            {theme.name.split(' ')[0]}
-                          </span>
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                {/* P2 Craft Visual Preview Bay */}
-                <div className="bg-zinc-950 border border-zinc-800 p-2.5 flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="relative w-12 h-10 bg-black border border-zinc-800 flex items-center justify-center">
-                      <div
-                        className="absolute bottom-1 w-3 h-4 rounded-full blur-[2px] animate-pulse"
-                        style={{ backgroundColor: p2Theme.color }}
-                      />
-                      {assets['lander'] ? (
-                        <img src={assets['lander'].src} alt="P2 Lander" className="w-8 h-7 object-contain relative z-10" />
-                      ) : (
-                        <div className="w-6 h-5 bg-white rounded-sm" />
-                      )}
-                    </div>
-                    <div>
-                      <span className="text-[7.5px] font-bold block" style={{ color: p2Theme.color }}>
-                        {p2Theme.name}
-                      </span>
-                      <span className="text-[6.5px] font-mono text-zinc-500 block">
-                        CO-PILOT REACTION CONTROL // HYDRAULIC STRUTS
-                      </span>
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <span className="text-[6.5px] text-zinc-500 font-mono block">STARTING FUEL</span>
-                    <span className="text-[8.5px] text-amber-400 font-mono font-bold block">
-                      {selectedLevelConfig.fuelCapacity}L
-                    </span>
-                  </div>
-                </div>
-              </div>
-            )}
-
+              )}
+            </div>
           </div>
         </div>
 
@@ -1229,7 +1495,7 @@ export default function MenuScreens({
               setMainMenuScreen('FLOW_MODE');
               gameAudio.playCrispClick();
             }}
-            className="w-full sm:w-auto px-5 py-2.5 bg-black hover:bg-zinc-800 border-2 border-zinc-700 text-zinc-300 hover:text-white font-bold text-[9px] uppercase transition flex items-center justify-center gap-1.5">
+            className="w-full sm:w-auto px-5 py-2.5 bg-black hover:bg-zinc-800 border-2 border-zinc-700 text-zinc-300 hover:text-white font-bold text-xs uppercase transition flex items-center justify-center gap-1.5">
             <ChevronLeft size={14} />
             <span>BACK TO MODE SELECT</span>
           </button>
@@ -1242,7 +1508,7 @@ export default function MenuScreens({
               gameAudio.playCrispClick();
             }}
             className="w-full sm:flex-1 max-w-md bg-emerald-400 hover:bg-emerald-300 text-black border-4 border-emerald-200 font-black text-xs sm:text-sm py-3 px-6 shadow-[0_0_20px_rgba(16,185,129,0.5)] active:translate-x-0.5 active:translate-y-0.5 transition flex items-center justify-center gap-2 uppercase rounded-none cursor-pointer">
-            <span>CONTINUE TO SECTOR MAP SELECTION</span>
+            <span>PROCEED TO SECTOR MAP SELECTION</span>
             <ChevronRight size={18} />
           </button>
         </div>
@@ -2331,6 +2597,29 @@ export default function MenuScreens({
                 </div>
               </div>
 
+              {/* GradeCoins Currency Award Banner */}
+              <div className="bg-gradient-to-r from-amber-950/70 to-yellow-950/40 border-2 border-amber-500/80 p-3.5 flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-full bg-amber-500/20 border border-amber-400 flex items-center justify-center shrink-0">
+                    <Coins className="text-amber-400 animate-bounce" size={22} />
+                  </div>
+                  <div>
+                    <span className="text-[10px] text-amber-300 font-bold uppercase tracking-wider block">
+                      GRADECOINS (GC) SALVAGE PAYOUT
+                    </span>
+                    <span className="text-xl sm:text-2xl font-black text-amber-400">
+                      +{lastTouchdownStats.gcEarned ?? Math.round(lastTouchdownStats.pointsAwarded / 12)} <span className="text-xs font-bold text-amber-300">GC</span>
+                    </span>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <span className="text-[10px] text-zinc-400 font-bold uppercase block">WALLET BALANCE</span>
+                  <span className="text-sm font-black text-amber-300 font-mono">
+                    {gradeCoins.toLocaleString()} GC
+                  </span>
+                </div>
+              </div>
+
               {/* 4 Score Multipliers Cards */}
               <div className="grid grid-cols-2 gap-2.5 text-xs">
                 <div className="bg-zinc-950 p-3 border border-zinc-800">
@@ -2664,7 +2953,7 @@ export default function MenuScreens({
             [ {lastTouchdownStats?.reason || 'VESSEL STRUCTURAL FAILURE'} ]
           </div>
 
-          <div className="w-full bg-black border-2 border-red-900 p-3 mb-4 text-center text-[9px] rounded-none">
+          <div className="w-full bg-black border-2 border-red-900 p-3 mb-2 text-center text-[9px] rounded-none">
             <span className="text-zinc-500 block mb-1">FINAL PILOT SCORE</span>
             <span className="text-2xl font-bold text-yellow-400">
               {gameState.score}
@@ -2673,6 +2962,15 @@ export default function MenuScreens({
               {pilotName} // Concluded on Level {gameState.level} ({activeLevelConfig.name})
             </span>
           </div>
+
+          {lastTouchdownStats?.gcEarned ? (
+            <div className="w-full bg-amber-950/40 border-2 border-amber-500/70 p-2.5 mb-3 flex items-center justify-between text-[9px] font-mono">
+              <span className="text-amber-400 font-bold flex items-center gap-1.5 uppercase">
+                <Coins size={14} className="text-amber-400" /> MISSION SALVAGE PAYOUT:
+              </span>
+              <span className="text-amber-300 font-black text-xs">+{lastTouchdownStats.gcEarned} GC</span>
+            </div>
+          ) : null}
 
           <div className="w-full space-y-2">
             <button

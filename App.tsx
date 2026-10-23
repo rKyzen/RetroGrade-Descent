@@ -90,13 +90,40 @@ import {
   usePlaygroundGameLifecycle,
 } from './utils/usePlayground';
 
+import {
+  CRAFTS,
+  CraftDefinition,
+  CraftUpgradeTier,
+  getCraft,
+  getStoredGradeCoins,
+  setStoredGradeCoins,
+  addGradeCoins,
+  deductGradeCoins,
+  getStoredOwnedCrafts,
+  setStoredOwnedCrafts,
+  getStoredSelectedCraftId,
+  setStoredSelectedCraftId,
+  getStoredCraftUpgrades,
+  setStoredCraftUpgrades,
+  computeEffectiveStats,
+  calculateRunRewardGC,
+  getUpgradeCost,
+  MAX_UPGRADE_TIER,
+} from './crafts';
+
 // Audio Asset
 const BACKGROUND_MUSIC_URL = 'assets/audio/bgm_telemetry_loop.mp3';
 
-// Discovered Image Assets
+// Discovered Image Assets - Integrated New Lander Models & Planetary Backdrops
 const ASSETS_MANIFEST: Record<string, string> = {
   lander: 'assets/images/lander_vessel.png',
+  lander_vanguard: 'assets/images/lander_vessel.png',
+  lander_ares: 'assets/images/lander_ares.png',
+  lander_hyperion: 'assets/images/lander_hyperion.png',
   backdrop: 'assets/images/lunar_backdrop.png',
+  backdrop_moon: 'assets/images/lunar_backdrop.png',
+  backdrop_mars: 'assets/images/mars_backdrop.jpg',
+  backdrop_venus: 'assets/images/venus_backdrop.jpg',
   platform: 'assets/images/landing_platform.png',
   crag: 'assets/images/lunar_crag.png',
 };
@@ -270,6 +297,23 @@ export default function App() {
   const [selectedStartingEpoch, setSelectedStartingEpoch] = useState<number>(1);
   const selectedStartingEpochRef = useRef<number>(selectedStartingEpoch);
   selectedStartingEpochRef.current = selectedStartingEpoch;
+
+  // --- GradeCoins (GC) Economy & Lander Fleet State ---
+  const [gradeCoins, setGradeCoins] = useState<number>(() => getStoredGradeCoins());
+  const gradeCoinsRef = useRef<number>(gradeCoins);
+  gradeCoinsRef.current = gradeCoins;
+
+  const [ownedCrafts, setOwnedCrafts] = useState<string[]>(() => getStoredOwnedCrafts());
+  const ownedCraftsRef = useRef<string[]>(ownedCrafts);
+  ownedCraftsRef.current = ownedCrafts;
+
+  const [selectedCraftId, setSelectedCraftId] = useState<string>(() => getStoredSelectedCraftId());
+  const selectedCraftIdRef = useRef<string>(selectedCraftId);
+  selectedCraftIdRef.current = selectedCraftId;
+
+  const [craftUpgrades, setCraftUpgrades] = useState<Record<string, CraftUpgradeTier>>(() => getStoredCraftUpgrades());
+  const craftUpgradesRef = useRef<Record<string, CraftUpgradeTier>>(craftUpgrades);
+  craftUpgradesRef.current = craftUpgrades;
 
   // Campaign Unlocked Progression per Planet (Level N requires completing Level N - 1)
   const [unlockedLevels, setUnlockedLevels] = useState<PlanetProgression>(() => getUnlockedLevels());
@@ -457,6 +501,8 @@ export default function App() {
     tilt: number;
     fuelRemaining: number;
     pointsAwarded: number;
+    gcEarned?: number;
+    totalGradeCoins?: number;
     basePoints?: number;
     fuelBonus?: number;
     precisionBonus?: number;
@@ -481,9 +527,12 @@ export default function App() {
   const cameraRef = useRef({x: 0, y: 0});
   const cameraP2Ref = useRef({x: 0, y: 0});
 
-  // Function to compute fuel capacity by level
+  // Function to compute fuel capacity by level, craft model, and upgrades
   const getMaxFuel = useCallback((epoch: number) => {
-    return getLevel(selectedPlanetRef.current, epoch).fuelCapacity;
+    const baseCap = getLevel(selectedPlanetRef.current, epoch).fuelCapacity;
+    const craft = getCraft(selectedCraftIdRef.current);
+    const upgrades = craftUpgradesRef.current[selectedCraftIdRef.current] || { engineTier: 0, fuelTier: 0, turnTier: 0 };
+    return baseCap + craft.baseFuelBonus + (upgrades.fuelTier * 15);
   }, []);
 
   // Lander Vessels State (stored in Refs for zero-jitter 60fps physics)
@@ -1175,9 +1224,16 @@ export default function App() {
 
     const planetDef = getPlanet(selectedPlanetRef.current);
     const gravity = planetDef.gravity;
-    const mainThrust = planetDef.mainThrust;
-    const rotationSpeed = getConfig('rotationSpeed') as number;
+    let mainThrust = planetDef.mainThrust;
+    let rotationSpeed = getConfig('rotationSpeed') as number;
     const fuelRate = getConfig('fuelConsumptionRate') as number;
+
+    // Apply active spacecraft specs and individual upgrade tiers
+    const activeCraft = getCraft(selectedCraftIdRef.current);
+    const activeUpgrades = craftUpgradesRef.current[selectedCraftIdRef.current] || { engineTier: 0, fuelTier: 0, turnTier: 0 };
+    const effectiveStats = computeEffectiveStats(activeCraft, activeUpgrades);
+    mainThrust *= effectiveStats.thrustMultiplier;
+    rotationSpeed *= effectiveStats.turnMultiplier;
 
     if (rotatingLeft) {
       lander.angularVelocity = -rotationSpeed;
@@ -1453,6 +1509,12 @@ export default function App() {
 
     const newCumulativeScore = gameStateRef.current.score + totalPoints;
 
+    // Award GradeCoins for successful touchdown based on score + level
+    const gcEarned = calculateRunRewardGC(totalPoints, currentEpoch, true);
+    const updatedGC = addGradeCoins(gcEarned);
+    setGradeCoins(updatedGC);
+    gradeCoinsRef.current = updatedGC;
+
     setLastTouchdownStats({
       pilotName: lander.name,
       vy: lander.vy,
@@ -1460,6 +1522,8 @@ export default function App() {
       tilt: (lander.angle * 180) / Math.PI,
       fuelRemaining: Math.round(lander.fuel),
       pointsAwarded: totalPoints,
+      gcEarned,
+      totalGradeCoins: updatedGC,
       basePoints: epochBonus,
       fuelBonus,
       precisionBonus,
@@ -1548,6 +1612,15 @@ export default function App() {
   const handleCrash = (lander: LanderState, reason: string) => {
     gameAudio.stopThruster();
 
+    // Consolation salvage GradeCoins
+    const gcEarned = calculateRunRewardGC(0, gameStateRef.current.level, false);
+    let currentTotalGC = gradeCoinsRef.current;
+    if (gcEarned > 0) {
+      currentTotalGC = addGradeCoins(gcEarned);
+      setGradeCoins(currentTotalGC);
+      gradeCoinsRef.current = currentTotalGC;
+    }
+
     setLastTouchdownStats({
       pilotName: lander.name,
       vy: lander.vy,
@@ -1555,6 +1628,8 @@ export default function App() {
       tilt: (lander.angle * 180) / Math.PI,
       fuelRemaining: Math.round(lander.fuel),
       pointsAwarded: 0,
+      gcEarned,
+      totalGradeCoins: currentTotalGC,
       basePoints: 0,
       fuelBonus: 0,
       precisionBonus: 0,
@@ -1987,13 +2062,19 @@ export default function App() {
     }
     ctx.globalAlpha = 1.0;
 
-    // Optional Backdrop image with seamless wrap
-    const bgImg = assets['backdrop'];
+    // Dedicated Planetary Backdrop image with seamless wrap
+    const bgKey =
+      selectedPlanetRef.current === 'mars'
+        ? 'backdrop_mars'
+        : selectedPlanetRef.current === 'venus'
+        ? 'backdrop_venus'
+        : 'backdrop_moon';
+    const bgImg = assets[bgKey] || assets['backdrop'];
     if (bgImg && bgImg.complete && bgImg.naturalWidth > 0) {
       const bgOffsetX = (((-camX * 0.12) % viewportW) + viewportW) % viewportW;
       const bgOffsetY = Math.max(-60, Math.min(20, -camY * 0.05));
       ctx.save();
-      ctx.globalAlpha = 0.35;
+      ctx.globalAlpha = 0.45;
       ctx.drawImage(bgImg, bgOffsetX - viewportW, bgOffsetY, viewportW, viewportH);
       ctx.drawImage(bgImg, bgOffsetX, bgOffsetY, viewportW, viewportH);
       ctx.drawImage(bgImg, bgOffsetX + viewportW, bgOffsetY, viewportW, viewportH);
@@ -2310,7 +2391,8 @@ export default function App() {
       ctx.translate(activeLander.x, activeLander.y);
       ctx.rotate(activeLander.angle);
 
-      const landerImg = assets['lander'];
+      const activeCraftDef = getCraft(selectedCraftIdRef.current);
+      const landerImg = (activeLander.id === 'p1' ? assets[activeCraftDef.assetKey] : assets['lander']) || assets['lander'];
       const lw = activeLander.width;
       const lh = activeLander.height;
 
@@ -3579,6 +3661,26 @@ export default function App() {
           assets={assets}
           shipThemes={SHIP_THEMES}
           presetPilotNames={PRESET_PILOT_NAMES}
+          gradeCoins={gradeCoins}
+          setGradeCoins={(coins) => {
+            setGradeCoins(coins);
+            gradeCoinsRef.current = coins;
+            setStoredGradeCoins(coins);
+          }}
+          ownedCrafts={ownedCrafts}
+          setOwnedCrafts={(crafts) => {
+            setOwnedCrafts(crafts);
+            ownedCraftsRef.current = crafts;
+            setStoredOwnedCrafts(crafts);
+          }}
+          selectedCraftId={selectedCraftId}
+          setSelectedCraftId={(id) => {
+            setSelectedCraftId(id);
+            selectedCraftIdRef.current = id;
+            setStoredSelectedCraftId(id);
+          }}
+          craftUpgrades={craftUpgrades}
+          setCraftUpgrades={setCraftUpgrades}
         />
       )}
     </div>
