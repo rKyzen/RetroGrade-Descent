@@ -165,6 +165,45 @@ export function getAllDecommissioned(level: number): string[] {
     .map(item => item.feature);
 }
 
+export interface AvionicsState {
+  velocityVectorPip: boolean; // Levels 1-2 only (decommissioned Level 3+)
+  trajectoryPredictor: boolean; // Levels 1-3 only (decommissioned Level 4+)
+  landingReticle: boolean; // Levels 1-3 only (decommissioned Level 4+)
+  continuousRadar: boolean; // Levels 1-4 only (degraded Level 5+)
+  radarStrobe: boolean; // Levels 5-6 only (2s periodic strobe pulse)
+  radarMinimap: boolean; // Levels 1-6 only (OFFLINE Level 7+)
+  digitalAltimeter: boolean; // Levels 1-5 only (OFFLINE Level 6+)
+  targetCompassBeacon: boolean; // Levels 1-6 only (OFFLINE Level 7+)
+  digitalSpeedometer: boolean; // Levels 1-7 only (OFFLINE Level 8+)
+  digitalFuelGauge: boolean; // Levels 1-7 only
+  analogFuelGauge: boolean; // Levels 8-9 only (damped mechanical needle)
+  blackoutFuelGauge: boolean; // Level 10 only (instrument blackout)
+  opticalView: 'clear' | 'glitch' | 'fog' | 'blackout'; // Levels 1-6 clear, 7-8 CRT glitch, 9 fog, 10 total blackout
+}
+
+/**
+ * Hardcoded, immutable avionics feature set per level.
+ * Features decommissioned in earlier levels NEVER return in higher levels.
+ */
+export function getAvionics(level: number): AvionicsState {
+  const lvl = Math.max(1, Math.min(10, Math.floor(level)));
+  return {
+    velocityVectorPip: lvl <= 2,
+    trajectoryPredictor: lvl <= 3,
+    landingReticle: lvl <= 3,
+    continuousRadar: lvl <= 4,
+    radarStrobe: lvl === 5 || lvl === 6,
+    radarMinimap: lvl <= 6,
+    digitalAltimeter: lvl <= 5,
+    targetCompassBeacon: lvl <= 6,
+    digitalSpeedometer: lvl <= 7,
+    digitalFuelGauge: lvl <= 7,
+    analogFuelGauge: lvl === 8 || lvl === 9,
+    blackoutFuelGauge: lvl >= 10,
+    opticalView: lvl >= 10 ? 'blackout' : lvl === 9 ? 'fog' : (lvl === 7 || lvl === 8) ? 'glitch' : 'clear',
+  };
+}
+
 export function getActiveOperationalSystems(level: number): string[] {
   const systems = [];
   if (level < 3) systems.push('Velocity Vector Pip');

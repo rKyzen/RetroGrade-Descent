@@ -59,6 +59,7 @@ import {
   getPreviouslyDecommissioned,
   getNewlyDecommissioned,
   getActiveOperationalSystems,
+  getAvionics,
 } from './levels';
 import {AI_PERSONAS, AiPersona} from './aiPilot';
 import {
@@ -129,7 +130,7 @@ interface MenuScreensProps {
   toggleFullscreen: () => void;
   leaderboardList: LeaderboardEntry[];
   setLeaderboardList: (list: LeaderboardEntry[]) => void;
-  onStartGame: () => void;
+  onStartGame: (startingLevel?: number) => void;
   onRestartLevel: () => void;
   onAdvanceLevel: () => void;
   onAbortToTitle: () => void;
@@ -224,186 +225,196 @@ export default function MenuScreens({
   // =========================================================================
   if (gameState.status === 'START' && mainMenuScreen === 'TITLE') {
     return (
-      <MenuOverlay tone="neutral" zIndex={40} fullScreen maxWidthClass="w-full max-w-7xl">
-        <div className="w-full bg-[#08080c]/95 backdrop-blur-md border-4 border-emerald-500 p-4 md:p-6 shadow-[12px_12px_0px_0px_#064e3b] flex flex-col text-emerald-400 rounded-none relative">
-          
-          {/* Top Bar: Apollo Terminal Badge, Record Pill & Fullscreen */}
-          <div className="flex flex-col sm:flex-row items-center justify-between pb-3 mb-4 border-b-2 border-emerald-800/80 gap-3">
-            <div className="flex items-center gap-2.5">
-              <Radio size={16} className="text-emerald-400 animate-pulse" />
-              <div>
-                <span className="text-[7.5px] text-zinc-400 font-mono uppercase tracking-widest block">
-                  APOLLO GUIDANCE OS // LUNAR INSERTION TERMINAL
-                </span>
-              </div>
-            </div>
+      <div className="fixed inset-0 w-full h-full z-40 pointer-events-none flex flex-col justify-between overflow-hidden">
+        {/* Left-to-right fade gradient overlay: solid dark command console on left, seamlessly dissolving into the live simulation on right */}
+        <div className="absolute inset-0 bg-gradient-to-r from-[#06080d] via-[#06080d]/90 via-50% to-transparent pointer-events-none" />
 
-            <div className="flex items-center gap-2">
-              {leaderboardList && leaderboardList.length > 0 && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setPreviousScreen('TITLE');
-                    setMainMenuScreen('LEADERBOARD');
-                    gameAudio.playCrispClick();
-                  }}
-                  className="bg-yellow-950/40 hover:bg-yellow-900/60 border border-yellow-500/70 px-2.5 py-1 text-[8px] flex items-center gap-2 text-yellow-300 font-mono transition">
-                  <Trophy size={12} className="text-yellow-400" />
-                  <span>RECORD: <strong>{leaderboardList[0].pilotName}</strong> ({leaderboardList[0].score.toLocaleString()} PTS)</span>
-                </button>
-              )}
+        {/* Top Header Bar */}
+        <div className="relative z-10 w-full flex items-center justify-between px-6 py-4 border-b border-emerald-900/60 bg-[#06080d]/65 backdrop-blur-xs pointer-events-auto">
+          <div className="flex items-center gap-2.5">
+            <Radio size={16} className="text-emerald-400 animate-pulse" />
+            <div>
+              <span className="text-[8px] sm:text-[9.5px] text-emerald-400 font-mono font-bold uppercase tracking-widest block">
+                APOLLO GUIDANCE OS // LUNAR INSERTION TERMINAL
+              </span>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-3">
+            {leaderboardList && leaderboardList.length > 0 && (
               <button
                 type="button"
                 onClick={() => {
-                  toggleFullscreen();
+                  setPreviousScreen('TITLE');
+                  setMainMenuScreen('LEADERBOARD');
                   gameAudio.playCrispClick();
                 }}
-                className="bg-black hover:bg-emerald-400 hover:text-black border border-emerald-500 px-2.5 py-1 text-[8px] flex items-center gap-1.5 font-mono font-bold transition">
-                {isFullscreen ? <Minimize2 size={12} /> : <Maximize2 size={12} />}
-                <span>{isFullscreen ? 'EXIT FS' : 'FULLSCREEN'}</span>
+                className="bg-yellow-950/40 hover:bg-yellow-900/60 border border-yellow-500/70 px-3 py-1.5 text-[8.5px] flex items-center gap-2 text-yellow-300 font-mono transition">
+                <Trophy size={13} className="text-yellow-400" />
+                <span>RECORD: <strong>{leaderboardList[0].pilotName}</strong> ({leaderboardList[0].score.toLocaleString()} PTS)</span>
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={() => {
+                toggleFullscreen();
+                gameAudio.playCrispClick();
+              }}
+              className="bg-black hover:bg-emerald-400 hover:text-black border border-emerald-500 px-3 py-1.5 text-[8.5px] flex items-center gap-1.5 font-mono font-bold transition">
+              {isFullscreen ? <Minimize2 size={13} /> : <Maximize2 size={13} />}
+              <span>{isFullscreen ? 'EXIT FS' : 'FULLSCREEN'}</span>
+            </button>
+          </div>
+        </div>
+
+        {/* Main Body: Left half holds navigation console; Right half reveals live background simulation */}
+        <div className="relative z-10 w-full flex-1 flex flex-col md:flex-row items-stretch justify-between p-6 sm:p-10 pointer-events-none">
+          {/* Left Column: Styled Game Title & Three Primary Options */}
+          <div className="w-full md:w-1/2 lg:w-5/12 xl:w-4/12 flex flex-col justify-between space-y-6 pointer-events-auto">
+            <div>
+              <div className="inline-block px-2.5 py-1 bg-emerald-950/80 border border-emerald-500/80 text-[7.5px] font-mono font-bold text-emerald-300 uppercase tracking-widest mb-3">
+                PROJECT RETROGRADE // CAMPAIGN SIMULATOR
+              </div>
+              <h1 className="text-4xl sm:text-5xl lg:text-6xl font-black tracking-wider text-emerald-400 drop-shadow-[0_0_24px_rgba(16,185,129,0.55)] leading-none uppercase">
+                RETROGRADE
+              </h1>
+              <h2 className="text-2xl sm:text-3xl lg:text-4xl font-black tracking-widest text-emerald-300/80 leading-tight uppercase mt-1">
+                DESCENT
+              </h2>
+              <p className="text-[8px] sm:text-[9px] text-zinc-400 font-mono uppercase tracking-wider mt-2">
+                10-Level Progressive Avionics Degradation Simulation
+              </p>
+            </div>
+
+            {/* THREE CLEAN, SIMPLE PRIMARY BUTTONS */}
+            <div className="space-y-3.5 w-full">
+              {/* 1. START FLIGHT */}
+              <button
+                type="button"
+                autoFocus
+                onClick={() => {
+                  setMainMenuScreen('FLOW_PLANET');
+                  gameAudio.playCrispClick();
+                }}
+                className="w-full bg-emerald-400 hover:bg-emerald-300 text-black border-4 border-emerald-200 font-black p-4 text-left shadow-[6px_6px_0px_0px_#064e3b] active:translate-x-0.5 active:translate-y-0.5 transition flex items-center justify-between group cursor-pointer rounded-none">
+                <div className="flex items-center gap-3.5">
+                  <div className="w-12 h-12 bg-black text-emerald-400 flex items-center justify-center border-2 border-emerald-400 group-hover:scale-105 transition-transform shrink-0">
+                    <Rocket size={26} />
+                  </div>
+                  <div>
+                    <span className="text-base sm:text-xl font-black tracking-wider uppercase block">
+                      START FLIGHT
+                    </span>
+                    <span className="text-[7.5px] font-mono text-zinc-900 uppercase font-bold">
+                      Select Planet, Mode & Maps
+                    </span>
+                  </div>
+                </div>
+                <ChevronRight size={24} className="group-hover:translate-x-1.5 transition-transform shrink-0" />
+              </button>
+
+              {/* 2. SETTINGS & CONTROLS */}
+              <button
+                type="button"
+                onClick={() => {
+                  setPreviousScreen('TITLE');
+                  setMainMenuScreen('SETTINGS');
+                  gameAudio.playCrispClick();
+                }}
+                className="w-full bg-black/85 hover:bg-zinc-900 text-zinc-200 border-2 border-zinc-700 hover:border-emerald-400 p-3.5 text-left shadow-[4px_4px_0px_0px_#000] active:translate-x-0.5 active:translate-y-0.5 transition flex items-center justify-between group cursor-pointer rounded-none">
+                <div className="flex items-center gap-3.5">
+                  <div className="w-10 h-10 bg-zinc-950 text-cyan-400 flex items-center justify-center border border-zinc-800 group-hover:border-cyan-400 shrink-0">
+                    <Sliders size={20} />
+                  </div>
+                  <div>
+                    <span className="text-sm sm:text-base font-bold tracking-wider text-emerald-300 uppercase block">
+                      SETTINGS & CONTROLS
+                    </span>
+                    <span className="text-[7px] font-mono text-zinc-400 uppercase">
+                      Custom Keyboard & Display
+                    </span>
+                  </div>
+                </div>
+                <ChevronRight size={20} className="text-zinc-500 group-hover:text-emerald-400 group-hover:translate-x-1 transition-all shrink-0" />
+              </button>
+
+              {/* 3. LEADERBOARD */}
+              <button
+                type="button"
+                onClick={() => {
+                  setPreviousScreen('TITLE');
+                  setMainMenuScreen('LEADERBOARD');
+                  gameAudio.playCrispClick();
+                }}
+                className="w-full bg-black/85 hover:bg-zinc-900 text-zinc-200 border-2 border-zinc-700 hover:border-yellow-400 p-3.5 text-left shadow-[4px_4px_0px_0px_#000] active:translate-x-0.5 active:translate-y-0.5 transition flex items-center justify-between group cursor-pointer rounded-none">
+                <div className="flex items-center gap-3.5">
+                  <div className="w-10 h-10 bg-zinc-950 text-yellow-400 flex items-center justify-center border border-zinc-800 group-hover:border-yellow-400 shrink-0">
+                    <Trophy size={20} />
+                  </div>
+                  <div>
+                    <span className="text-sm sm:text-base font-bold tracking-wider text-yellow-400 uppercase block">
+                      LEADERBOARD
+                    </span>
+                    <span className="text-[7px] font-mono text-zinc-400 uppercase">
+                      High Scores & Missions
+                    </span>
+                  </div>
+                </div>
+                <ChevronRight size={20} className="text-zinc-500 group-hover:text-yellow-400 group-hover:translate-x-1 transition-all shrink-0" />
+              </button>
+            </div>
+
+            {/* Bottom Controls Bar */}
+            <div className="flex items-center justify-between pt-4 border-t border-zinc-800 text-[8px] font-mono text-zinc-400">
+              <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => {
+                    const newMuted = gameAudio.toggleMute();
+                    setIsSfxMuted(newMuted);
+                  }}
+                  className="hover:text-white flex items-center gap-1.5 transition">
+                  {isSfxMuted ? <VolumeX size={14} className="text-red-400" /> : <Volume2 size={14} className="text-emerald-400" />}
+                  <span>SFX: {isSfxMuted ? 'OFF' : 'ON'}</span>
+                </button>
+                <span>|</span>
+                <button
+                  type="button"
+                  onClick={() => setIsMusicMuted((prev) => !prev)}
+                  className="hover:text-white flex items-center gap-1.5 transition">
+                  {isMusicMuted ? <VolumeX size={14} className="text-red-400" /> : <Volume2 size={14} className="text-emerald-400" />}
+                  <span>BGM: {isMusicMuted ? 'OFF' : 'ON'}</span>
+                </button>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setPreviousScreen('TITLE');
+                  setMainMenuScreen('HOW_TO_PLAY');
+                  gameAudio.playCrispClick();
+                }}
+                className="hover:text-emerald-400 transition flex items-center gap-1.5 font-bold">
+                <HelpCircle size={14} />
+                <span>[ FLIGHT MANUAL ]</span>
               </button>
             </div>
           </div>
 
-          {/* Clean 2-Column Split */}
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch mb-4">
-            
-            {/* LEFT SIDE: Styled Game Title & Three Simple Options */}
-            <div className="lg:col-span-6 flex flex-col justify-between space-y-6">
-              <div className="pt-2">
-                <h1 className="text-3xl sm:text-4xl lg:text-5xl font-black tracking-wider text-emerald-400 drop-shadow-[0_0_18px_rgba(16,185,129,0.5)] leading-none uppercase">
-                  RETROGRADE
-                </h1>
-                <h2 className="text-xl sm:text-2xl lg:text-3xl font-black tracking-widest text-emerald-300/80 leading-tight uppercase mt-1">
-                  DESCENT
-                </h2>
+          {/* Right Side: Open live viewport with subtle HUD beacon in top-right */}
+          <div className="hidden md:flex flex-col items-end justify-start pointer-events-none p-4">
+            <div className="bg-black/60 backdrop-blur-xs border border-emerald-500/40 px-3 py-1.5 font-mono text-[8px] text-right">
+              <div className="text-emerald-400 font-bold flex items-center justify-end gap-2">
+                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping inline-block" />
+                <span>LIVE SIMULATION ACTIVE // ORBITAL PATROL</span>
               </div>
-
-              {/* THREE CLEAN, SIMPLE PRIMARY BUTTONS */}
-              <div className="space-y-3 w-full">
-                {/* 1. START BUTTON */}
-                <button
-                  type="button"
-                  autoFocus
-                  onClick={() => {
-                    setMainMenuScreen('FLOW_PLANET');
-                    gameAudio.playCrispClick();
-                  }}
-                  className="w-full bg-emerald-400 hover:bg-emerald-300 text-black border-4 border-emerald-200 font-black p-4 text-left shadow-[6px_6px_0px_0px_#064e3b] active:translate-x-0.5 active:translate-y-0.5 transition flex items-center justify-between group cursor-pointer rounded-none">
-                  <div className="flex items-center gap-3.5">
-                    <div className="w-11 h-11 bg-black text-emerald-400 flex items-center justify-center border-2 border-emerald-400 group-hover:scale-105 transition-transform shrink-0">
-                      <Rocket size={24} />
-                    </div>
-                    <span className="text-base sm:text-lg font-black tracking-wider uppercase">
-                      START FLIGHT
-                    </span>
-                  </div>
-                  <ChevronRight size={24} className="group-hover:translate-x-1.5 transition-transform shrink-0" />
-                </button>
-
-                {/* 2. SETTINGS BUTTON */}
-                <button
-                  type="button"
-                  onClick={() => {
-                    setPreviousScreen('TITLE');
-                    setMainMenuScreen('SETTINGS');
-                    gameAudio.playCrispClick();
-                  }}
-                  className="w-full bg-black/80 hover:bg-zinc-900 text-zinc-200 border-2 border-zinc-700 hover:border-emerald-400 p-3.5 text-left shadow-[4px_4px_0px_0px_#000] active:translate-x-0.5 active:translate-y-0.5 transition flex items-center justify-between group cursor-pointer rounded-none">
-                  <div className="flex items-center gap-3.5">
-                    <div className="w-10 h-10 bg-zinc-950 text-cyan-400 flex items-center justify-center border border-zinc-800 group-hover:border-cyan-400 shrink-0">
-                      <Sliders size={20} />
-                    </div>
-                    <span className="text-sm sm:text-base font-bold tracking-wider text-emerald-300 uppercase">
-                      SETTINGS & CONTROLS
-                    </span>
-                  </div>
-                  <ChevronRight size={20} className="text-zinc-500 group-hover:text-emerald-400 group-hover:translate-x-1 transition-all shrink-0" />
-                </button>
-
-                {/* 3. LEADERBOARD BUTTON */}
-                <button
-                  type="button"
-                  onClick={() => {
-                    setPreviousScreen('TITLE');
-                    setMainMenuScreen('LEADERBOARD');
-                    gameAudio.playCrispClick();
-                  }}
-                  className="w-full bg-black/80 hover:bg-zinc-900 text-zinc-200 border-2 border-zinc-700 hover:border-yellow-400 p-3.5 text-left shadow-[4px_4px_0px_0px_#000] active:translate-x-0.5 active:translate-y-0.5 transition flex items-center justify-between group cursor-pointer rounded-none">
-                  <div className="flex items-center gap-3.5">
-                    <div className="w-10 h-10 bg-zinc-950 text-yellow-400 flex items-center justify-center border border-zinc-800 group-hover:border-yellow-400 shrink-0">
-                      <Trophy size={20} />
-                    </div>
-                    <span className="text-sm sm:text-base font-bold tracking-wider text-yellow-400 uppercase">
-                      LEADERBOARD
-                    </span>
-                  </div>
-                  <ChevronRight size={20} className="text-zinc-500 group-hover:text-yellow-400 group-hover:translate-x-1 transition-all shrink-0" />
-                </button>
-              </div>
-
-              {/* Minimal Bottom Bar */}
-              <div className="flex items-center justify-between pt-3 border-t border-zinc-800 text-[8px] font-mono text-zinc-400">
-                <div className="flex items-center gap-3">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const newMuted = gameAudio.toggleMute();
-                      setIsSfxMuted(newMuted);
-                    }}
-                    className="hover:text-white flex items-center gap-1.5 transition">
-                    {isSfxMuted ? <VolumeX size={13} className="text-red-400" /> : <Volume2 size={13} className="text-emerald-400" />}
-                    <span>SFX: {isSfxMuted ? 'OFF' : 'ON'}</span>
-                  </button>
-                  <span>|</span>
-                  <button
-                    type="button"
-                    onClick={() => setIsMusicMuted((prev) => !prev)}
-                    className="hover:text-white flex items-center gap-1.5 transition">
-                    {isMusicMuted ? <VolumeX size={13} className="text-red-400" /> : <Volume2 size={13} className="text-emerald-400" />}
-                    <span>BGM: {isMusicMuted ? 'OFF' : 'ON'}</span>
-                  </button>
-                </div>
-
-                <button
-                  type="button"
-                  onClick={() => {
-                    setPreviousScreen('TITLE');
-                    setMainMenuScreen('HOW_TO_PLAY');
-                    gameAudio.playCrispClick();
-                  }}
-                  className="hover:text-emerald-400 transition flex items-center gap-1.5 font-bold">
-                  <HelpCircle size={13} />
-                  <span>[ FLIGHT MANUAL ]</span>
-                </button>
+              <div className="text-zinc-400 text-[7px] mt-0.5">
+                SECTOR: {currentPlanetDef.name.toUpperCase()} • 60 FPS REAL-TIME
               </div>
             </div>
-
-            {/* RIGHT SIDE: Beautiful Refined Live Gameplay Preview */}
-            <div className="lg:col-span-6 flex flex-col items-center justify-center bg-black/70 border-2 border-emerald-900/60 p-2 md:p-3 relative shadow-inner">
-              <div className="w-full flex items-center justify-between pb-1.5 mb-1.5 border-b border-zinc-800 text-[8px] font-mono">
-                <span className="text-emerald-400 font-bold flex items-center gap-2">
-                  <Activity size={12} className="animate-pulse text-emerald-400" />
-                  <span>ORBITAL FLIGHT SIMULATOR // LIVE FEED</span>
-                </span>
-                <span className="text-emerald-500 font-bold">[ONLINE]</span>
-              </div>
-
-              {/* Render the Live Preview Canvas */}
-              <div className="w-full flex-1 flex items-center justify-center">
-                <LivePreviewCanvas landerColor={p1Theme.color} pilotCallsign={pilotName} landerImage={assets['lander']} />
-              </div>
-
-              {/* Preview Footer Notes */}
-              <div className="w-full flex items-center justify-between pt-1.5 border-t border-zinc-800 text-[7px] font-mono text-zinc-400">
-                <span>SECTOR: MARE TRANQUILLITATIS</span>
-                <span className="text-emerald-400 font-bold">AUTONOMOUS AVIONICS • 60 FPS</span>
-              </div>
-            </div>
-
           </div>
         </div>
-      </MenuOverlay>
+      </div>
     );
   }
 
@@ -415,7 +426,7 @@ export default function MenuScreens({
     const selectedDef = getPlanet(selectedPlanet);
 
     return (
-      <MenuOverlay tone="neutral" zIndex={40} fullScreen maxWidthClass="w-full max-w-6xl">
+      <MenuOverlay tone="neutral" zIndex={40} fullScreen maxWidthClass="w-full max-w-7xl">
         <div className="w-full bg-[#08080c]/95 backdrop-blur-md border-4 border-emerald-500 p-5 md:p-7 shadow-[12px_12px_0px_0px_#064e3b] flex flex-col text-emerald-400 rounded-none relative">
           {/* Header with Step Indicator */}
           <div className="flex items-center justify-between pb-3 mb-4 border-b-2 border-emerald-800/80">
@@ -608,7 +619,7 @@ export default function MenuScreens({
   // =========================================================================
   if (gameState.status === 'START' && mainMenuScreen === 'FLOW_MODE') {
     return (
-      <MenuOverlay tone="neutral" zIndex={40} fullScreen maxWidthClass="w-full max-w-5xl">
+      <MenuOverlay tone="neutral" zIndex={40} fullScreen maxWidthClass="w-full max-w-7xl">
         <div className="w-full bg-[#08080c]/95 backdrop-blur-md border-4 border-emerald-500 p-5 md:p-7 shadow-[12px_12px_0px_0px_#064e3b] flex flex-col text-emerald-400 rounded-none relative">
           
           {/* Header with Step Indicator */}
@@ -797,7 +808,7 @@ export default function MenuScreens({
   // =========================================================================
   if (gameState.status === 'START' && mainMenuScreen === 'FLOW_CUSTOMIZE') {
     return (
-      <MenuOverlay tone="neutral" zIndex={40} fullScreen maxWidthClass="w-full max-w-5xl">
+      <MenuOverlay tone="neutral" zIndex={40} fullScreen maxWidthClass="w-full max-w-7xl">
         <div className="w-full bg-[#08080c]/95 backdrop-blur-md border-4 border-emerald-500 p-5 md:p-7 shadow-[12px_12px_0px_0px_#064e3b] flex flex-col text-emerald-400 rounded-none relative">
           
           {/* Header with Step Indicator */}
@@ -1156,7 +1167,7 @@ export default function MenuScreens({
     const effectiveLevelConfig = getLevel(selectedPlanet, effectiveStartingEpoch);
 
     return (
-      <MenuOverlay tone="neutral" zIndex={40} fullScreen maxWidthClass="w-full max-w-6xl">
+      <MenuOverlay tone="neutral" zIndex={40} fullScreen maxWidthClass="w-full max-w-7xl">
         <div className="w-full bg-[#08080c]/95 backdrop-blur-md border-4 border-emerald-500 p-4 md:p-6 shadow-[12px_12px_0px_0px_#064e3b] flex flex-col text-emerald-400 rounded-none relative">
           
           {/* Header with Step Indicator & Quick Planet Selector */}
@@ -1234,115 +1245,23 @@ export default function MenuScreens({
             </div>
           )}
 
-          {/* INTERACTIVE 10-STEP RETROGRESSION FLOW MAP */}
-          <div className="bg-black/90 border-2 border-emerald-800/80 p-2.5 mb-3 rounded-none font-mono">
-            <div className="flex flex-wrap items-center justify-between gap-1.5 mb-2 pb-1.5 border-b border-zinc-800/80">
-              <div className="flex items-center gap-2">
-                <Radio size={13} className="text-emerald-400 animate-pulse" />
-                <span className="text-[8px] font-bold text-emerald-300 uppercase tracking-wider">
-                  RETROGRESSION SEQUENCE PIPELINE (LEVELS 01 → 10)
-                </span>
-              </div>
-              <span className="text-[6.5px] text-zinc-400 uppercase">
-                COMPLETE PRIOR LEVELS TO ADVANCE RETROGRESSION PIPELINE
-              </span>
-            </div>
-
-            {/* 10 Pipeline Nodes Matching Levels 1..10 */}
-            <div className="grid grid-cols-2 sm:grid-cols-5 md:grid-cols-10 gap-1.5 mb-2">
-              {RETROGRESSION_STEPS.map((step) => {
-                const isStepUnlocked = step.level <= maxUnlocked;
-                const isSelected = effectiveStartingEpoch === step.level;
-
-                return (
-                  <button
-                    key={step.level}
-                    type="button"
-                    onClick={() => {
-                      if (!isStepUnlocked) {
-                        gameAudio.playRcsPuff();
-                        setLockedNotice(`LEVEL ${step.level} IS LOCKED! Complete Level ${step.level - 1} on ${currentPlanetDef.name} first.`);
-                        setTimeout(() => setLockedNotice(null), 3500);
-                        return;
-                      }
-                      setSelectedStartingEpoch(step.level);
-                      gameAudio.playCrispClick();
-                    }}
-                    className={`p-1.5 border text-left flex flex-col justify-between transition rounded-none relative ${
-                      !isStepUnlocked
-                        ? 'bg-zinc-950/70 border-zinc-900 opacity-40 cursor-not-allowed'
-                        : isSelected
-                        ? 'bg-zinc-900 border-2 shadow-[2px_2px_0_0_#10b981] cursor-pointer'
-                        : 'bg-black/85 border-zinc-800 hover:border-zinc-700 cursor-pointer'
-                    }`}
-                    style={{
-                      borderColor: isSelected ? step.color : undefined,
-                      boxShadow: isSelected ? `2px 2px 0 0 ${step.color}` : undefined,
-                    }}>
-                    <div>
-                      <div className="flex items-center justify-between mb-0.5">
-                        <span className="text-[7.5px] font-black" style={{ color: isStepUnlocked ? step.color : '#52525b' }}>
-                          L{step.level.toString().padStart(2, '0')}
-                        </span>
-                        {isStepUnlocked ? (
-                          <span className="text-[8.5px]">{step.icon}</span>
-                        ) : (
-                          <Lock size={9} className="text-zinc-600" />
-                        )}
-                      </div>
-                      <span className="text-[6.5px] font-bold text-zinc-200 block truncate leading-tight uppercase">
-                        {isStepUnlocked ? step.shortBadge : 'LOCKED'}
-                      </span>
-                    </div>
-
-                    <div className="mt-1 pt-1 border-t border-zinc-800/80 text-[6px] text-zinc-400 flex items-center justify-between">
-                      <span>{step.fuelCapacity}L</span>
-                      {isSelected ? (
-                        <span className="font-bold text-[6px]" style={{ color: step.color }}>ACTIVE</span>
-                      ) : !isStepUnlocked ? (
-                        <span className="text-zinc-600 text-[6px]">LOCK</span>
-                      ) : (
-                        <span className="text-zinc-500 text-[6px]">{step.windSpeed}w</span>
-                      )}
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
-
-            {/* Active Retrogression Step Detail Strip */}
-            {currentRetrogressionStep && (
-              <div
-                className="p-2 border text-[7px] flex flex-col sm:flex-row sm:items-center justify-between gap-2"
-                style={{
-                  backgroundColor: `${currentRetrogressionStep.color}14`,
-                  borderColor: `${currentRetrogressionStep.color}70`,
-                }}>
-                <div className="flex items-center gap-2.5">
-                  <span className="text-base">{currentRetrogressionStep.icon}</span>
-                  <div>
-                    <span className="font-bold uppercase tracking-wider block" style={{ color: currentRetrogressionStep.color }}>
-                      LEVEL {currentRetrogressionStep.level}: {currentRetrogressionStep.title} [{currentRetrogressionStep.stageName}]
-                    </span>
-                    <span className="text-zinc-300 block">
-                      DEGRADED: {currentRetrogressionStep.decommissioned.join(' • ')}
-                    </span>
-                  </div>
-                </div>
-                <div className="text-right sm:max-w-xs shrink-0">
-                  <span className="text-zinc-300 italic block">
-                    "{currentRetrogressionStep.pilotWarning}"
-                  </span>
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* 10 Map Cards Grid (5x2) */}
+          {/* 10 Map Cards Grid (5x2) - Each Map Has Unique Terrain & Hardcoded Retrogression */}
           <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 mb-3">
             {planetLevels.map((level) => {
               const isUnlocked = level.id <= maxUnlocked;
               const isSelected = effectiveStartingEpoch === level.id;
+              const cardAvionics = getAvionics(level.id);
+              const avionicsLabel =
+                level.id === 1 ? 'FULL AVIONICS'
+                : level.id === 2 ? 'CROSSWIND 165L'
+                : level.id === 3 ? 'NO VECTOR PIP'
+                : level.id === 4 ? 'NO PREDICTOR'
+                : level.id === 5 ? 'STROBE RADAR'
+                : level.id === 6 ? 'ACOUSTIC ALT'
+                : level.id === 7 ? 'RADAR DEAD'
+                : level.id === 8 ? 'ANALOG FUEL/SPD'
+                : level.id === 9 ? 'VIEW 75% BLIND'
+                : 'TOTAL BLACKOUT';
 
               return (
                 <button
@@ -1358,7 +1277,7 @@ export default function MenuScreens({
                     setSelectedStartingEpoch(level.id);
                     gameAudio.playCrispClick();
                   }}
-                  className={`p-2 text-left border-2 transition rounded-none relative flex flex-col justify-between ${
+                  className={`p-2.5 text-left border-2 transition rounded-none relative flex flex-col justify-between ${
                     !isUnlocked
                       ? 'bg-zinc-950/70 border-zinc-900 opacity-45 cursor-not-allowed grayscale'
                       : isSelected
@@ -1383,22 +1302,24 @@ export default function MenuScreens({
                         <Check size={12} style={{ color: level.themeColor }} />
                       ) : (
                         <span className="text-[6px] font-mono px-1 py-0.2 bg-zinc-950 border border-zinc-800 text-zinc-400">
-                          {level.retrogressionShort}
+                          {level.fuelCapacity}L
                         </span>
                       )}
                     </div>
-                    <span className="text-[7.5px] font-bold text-zinc-200 block truncate uppercase leading-tight">
+                    <span className="text-[8px] font-bold text-zinc-200 block truncate uppercase leading-tight">
                       {isUnlocked ? level.name : `[LOCKED] ${level.name}`}
                     </span>
-                    <span className="text-[6px] font-mono text-zinc-400 block truncate mt-0.5">
+                    <span className="text-[6.5px] font-mono text-zinc-400 block truncate mt-0.5">
                       {level.mapType}
                     </span>
                   </div>
 
-                  <div className="mt-2 pt-1 border-t border-zinc-800/80 text-[6px] font-mono flex items-center justify-between text-zinc-400">
-                    <span>FUEL: {level.fuelCapacity}L</span>
-                    <span style={{ color: isUnlocked ? level.themeColor : '#71717a' }}>
-                      {isUnlocked ? level.retrogressionShort : 'LOCKED'}
+                  <div className="mt-2.5 pt-1.5 border-t border-zinc-800/80 text-[6.5px] font-mono flex items-center justify-between text-zinc-400">
+                    <span className="text-zinc-400 font-bold">{level.fuelCapacity}L FUEL</span>
+                    <span
+                      className="font-bold uppercase tracking-wider"
+                      style={{ color: isUnlocked ? level.themeColor : '#71717a' }}>
+                      {isUnlocked ? avionicsLabel : 'LOCKED'}
                     </span>
                   </div>
                 </button>
@@ -1423,19 +1344,24 @@ export default function MenuScreens({
                 {effectiveLevelConfig.description}
               </p>
 
-              {/* Retrogression Status Banner */}
+              {/* Hardcoded Retrogression Status Banner */}
               <div
-                className="p-1.5 border text-[7px] flex flex-col gap-0.5 rounded-none"
+                className="p-2 border text-[7.5px] flex flex-col gap-1 rounded-none"
                 style={{
                   backgroundColor: `${effectiveLevelConfig.themeColor}15`,
                   borderColor: `${effectiveLevelConfig.themeColor}80`,
                 }}>
-                <span className="font-bold uppercase tracking-wider" style={{ color: effectiveLevelConfig.themeColor }}>
-                  RETROGRESSION STATUS: {effectiveLevelConfig.era}
-                </span>
+                <div className="flex items-center justify-between">
+                  <span className="font-bold uppercase tracking-wider text-[8px]" style={{ color: effectiveLevelConfig.themeColor }}>
+                    HARDCODED AVIONICS (LEVEL {effectiveLevelConfig.id}): {effectiveLevelConfig.era}
+                  </span>
+                  <span className="text-[6.5px] font-mono text-zinc-400">
+                    OFFLINE SYSTEMS NEVER RETURN
+                  </span>
+                </div>
                 <div className="flex flex-wrap gap-1.5 text-zinc-300 text-[6.5px]">
                   {effectiveLevelConfig.degradedAvionics.map((item, i) => (
-                    <span key={i} className="text-zinc-200">
+                    <span key={i} className="text-zinc-200 bg-black/60 px-1.5 py-0.5 border border-zinc-800">
                       • {item}
                     </span>
                   ))}
@@ -1499,7 +1425,7 @@ export default function MenuScreens({
             <button
               type="button"
               autoFocus
-              onClick={onStartGame}
+              onClick={() => onStartGame(effectiveStartingEpoch)}
               className="w-full sm:flex-1 max-w-lg bg-emerald-400 hover:bg-emerald-300 text-black border-4 border-emerald-200 font-black text-xs md:text-sm py-2.5 px-5 shadow-[0_0_20px_rgba(16,185,129,0.5)] active:translate-x-0.5 active:translate-y-0.5 transition flex items-center justify-center gap-2 uppercase rounded-none cursor-pointer">
               <Play size={16} fill="currentColor" />
               <span>
@@ -1527,7 +1453,7 @@ export default function MenuScreens({
     };
 
     return (
-      <MenuOverlay tone="neutral" zIndex={60} fullScreen maxWidthClass="w-full max-w-5xl">
+      <MenuOverlay tone="neutral" zIndex={60} fullScreen maxWidthClass="w-full max-w-7xl">
         <div className="w-full bg-[#08080c]/95 backdrop-blur-md border-4 border-emerald-500 p-5 md:p-7 shadow-[12px_12px_0px_0px_#064e3b] flex flex-col text-emerald-400 rounded-none relative">
           
           {/* Header with Back Button */}
@@ -1809,7 +1735,7 @@ export default function MenuScreens({
   // =========================================================================
   if (mainMenuScreen === 'LEADERBOARD') {
     return (
-      <MenuOverlay tone="neutral" zIndex={60} fullScreen maxWidthClass="w-full max-w-5xl">
+      <MenuOverlay tone="neutral" zIndex={60} fullScreen maxWidthClass="w-full max-w-7xl">
         <div className="w-full bg-[#08080c]/95 backdrop-blur-md border-4 border-yellow-500 p-5 md:p-7 shadow-[12px_12px_0px_0px_#78350f] flex flex-col text-yellow-400 rounded-none relative">
           
           {/* Header with Back Button */}
@@ -1948,7 +1874,7 @@ export default function MenuScreens({
   // =========================================================================
   if (mainMenuScreen === 'HOW_TO_PLAY') {
     return (
-      <MenuOverlay tone="neutral" zIndex={60} fullScreen maxWidthClass="w-full max-w-5xl">
+      <MenuOverlay tone="neutral" zIndex={60} fullScreen maxWidthClass="w-full max-w-7xl">
         <div className="w-full bg-[#08080c]/95 backdrop-blur-md border-4 border-emerald-500 p-5 md:p-7 shadow-[12px_12px_0px_0px_#064e3b] flex flex-col text-emerald-400 rounded-none relative">
           
           {/* Header with Back Button */}

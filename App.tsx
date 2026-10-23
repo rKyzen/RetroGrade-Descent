@@ -59,6 +59,7 @@ import {
   PlanetProgression,
   getUnlockedLevels,
   unlockNextLevel,
+  getAvionics,
 } from './levels';
 import {computeAiPilotInputs, AI_PERSONAS, AiPersona} from './aiPilot';
 import {
@@ -267,6 +268,8 @@ export default function App() {
 
   // Selected Starting Level for Retrogression (1..10)
   const [selectedStartingEpoch, setSelectedStartingEpoch] = useState<number>(1);
+  const selectedStartingEpochRef = useRef<number>(selectedStartingEpoch);
+  selectedStartingEpochRef.current = selectedStartingEpoch;
 
   // Campaign Unlocked Progression per Planet (Level N requires completing Level N - 1)
   const [unlockedLevels, setUnlockedLevels] = useState<PlanetProgression>(() => getUnlockedLevels());
@@ -275,7 +278,7 @@ export default function App() {
   const [isTouchdownStabilizing, setIsTouchdownStabilizing] = useState<boolean>(false);
   const touchdownTimerRef = useRef<number | null>(null);
 
-  const initGameRef = useRef<() => void>();
+  const initGameRef = useRef<(levelOverride?: number) => void>();
 
   // Reactive Game State for UI
   const [gameState, setGameState] = useState<GameState>({
@@ -782,6 +785,7 @@ export default function App() {
     }
     setIsTouchdownStabilizing(false);
 
+    gameStateRef.current.level = epoch;
     generateTerrain(epoch);
     const startX = 260 + Math.random() * 80;
     const initialVx = 12 + epoch * 1.5;
@@ -887,7 +891,7 @@ export default function App() {
   }, [canvasWidth, generateTerrain, getMaxFuel, p2Name, p2Theme.color, pilotName, p1Theme.color, selectedAiPersona]);
 
   // Start / Init Game
-  const initGame = useCallback(() => {
+  const initGame = useCallback((levelOverride?: number) => {
     setIsAttractMode(false);
     setIsMenuOpen(false);
     setIsHowToPlayOpen(false);
@@ -904,15 +908,17 @@ export default function App() {
     landerP2Ref.current.score = 0;
     landerP2Ref.current.roundsWon = 0;
 
-    const startLevel = selectedStartingEpoch || 1;
+    const startLevel = levelOverride ?? selectedStartingEpochRef.current ?? 1;
     resetLander(startLevel);
 
-    setGameState({
+    gameStateRef.current = {
       status: 'PLAYING',
       score: 0,
       level: startLevel,
       lives: getConfig('startingLives') as number,
-    });
+    };
+    setGameState(gameStateRef.current);
+    setSelectedStartingEpoch(startLevel);
 
     if (sdk && typeof sdk.startGame === 'function') {
       try {
@@ -1505,13 +1511,19 @@ export default function App() {
         const newScore = gameStateRef.current.score + totalPoints;
         const newEpoch = currentEpoch + 1;
 
+        gameStateRef.current.level = newEpoch;
+        gameStateRef.current.score = newScore;
+        selectedStartingEpochRef.current = newEpoch;
+
         if (currentEpoch >= 10) {
+          gameStateRef.current.status = 'VICTORY';
           setGameState((prev) => ({
             ...prev,
             score: newScore,
             status: 'VICTORY',
           }));
         } else {
+          gameStateRef.current.status = 'LEVEL_COMPLETE';
           setGameState((prev) => ({
             ...prev,
             score: newScore,
@@ -1611,9 +1623,30 @@ export default function App() {
     if (!isPlaying && !isDemo) {
       gameAudio.stopThruster();
       if (gameStateRef.current.status === 'START') {
-        cameraRef.current.x += dt * 36;
-        landerRef.current.y = 135 + Math.sin(Date.now() * 0.002) * 10;
-        landerRef.current.angle = Math.sin(Date.now() * 0.001) * 0.04;
+        cameraRef.current.x += dt * 42;
+        const targetScreenX = canvasWidth * 0.72;
+        landerRef.current.x = cameraRef.current.x + targetScreenX;
+        landerRef.current.y = 165 + Math.sin(Date.now() * 0.0016) * 28;
+        landerRef.current.angle = Math.sin(Date.now() * 0.0011) * 0.05;
+        const isThrusting = Math.sin(Date.now() * 0.0035) > 0.1;
+        landerRef.current.thrusting = isThrusting;
+
+        if (isThrusting && Math.random() < 0.6) {
+          const nozzleX = landerRef.current.x - Math.sin(landerRef.current.angle) * 16;
+          const nozzleY = landerRef.current.y + Math.cos(landerRef.current.angle) * 16;
+          spawnExhaustParticles(nozzleX, nozzleY, landerRef.current.angle, 1, false);
+        }
+
+        // Keep updating exhaust particles during START
+        for (let i = particlesRef.current.length - 1; i >= 0; i--) {
+          const p = particlesRef.current[i];
+          p.x += p.vx * dt;
+          p.y += p.vy * dt;
+          p.life -= dt;
+          if (p.life <= 0) {
+            particlesRef.current.splice(i, 1);
+          }
+        }
       }
       return;
     }
@@ -1786,8 +1819,11 @@ export default function App() {
   };
 
   const proceedToNextEpoch = () => {
-    resetLander(gameState.level);
-    setGameState((prev) => ({...prev, status: 'PLAYING'}));
+    const nextLevel = gameStateRef.current.level;
+    resetLander(nextLevel);
+    setSelectedStartingEpoch(nextLevel);
+    selectedStartingEpochRef.current = nextLevel;
+    setGameState((prev) => ({...prev, status: 'PLAYING', level: nextLevel}));
     gameAudio.playConfirmSelect();
   };
 
@@ -1838,6 +1874,7 @@ export default function App() {
     const worldW = worldDimensionsRef.current.width;
     const worldH = worldDimensionsRef.current.height;
     const currentEpoch = gameStateRef.current.level;
+    const avionics = getAvionics(currentEpoch);
     const planetDef = getPlanet(selectedPlanetRef.current);
     const epochInfo = getLevel(selectedPlanetRef.current, currentEpoch);
 
@@ -2352,7 +2389,7 @@ export default function App() {
     // LIVE TRAJECTORY PREDICTOR (Levels 1-3 only)
     // Decommissioned at Level 4; NEVER RETURNS
     // -----------------------------------------------------------------------
-    const showTrajectoryPredictor = currentEpoch < 4;
+    const showTrajectoryPredictor = avionics.trajectoryPredictor;
     if (showTrajectoryPredictor && !activeLander.crashed && !activeLander.landed) {
       ctx.save();
       const gravityVal = planetDef.gravity;
@@ -2468,7 +2505,7 @@ export default function App() {
     }
 
     // Velocity Vector Pip (Levels 1-2 only; Decommissioned at Level 3, NEVER RETURNS)
-    const showVelocityVectorPip = currentEpoch < 3;
+    const showVelocityVectorPip = avionics.velocityVectorPip;
     if (showVelocityVectorPip) {
       ctx.save();
       ctx.strokeStyle = activeLander.themeColor;
@@ -2496,7 +2533,7 @@ export default function App() {
     // -----------------------------------------------------------------------
     // SENSORY BLACKOUT / OPTICAL NOISE / CRT STATIC OVERLAYS
     // -----------------------------------------------------------------------
-    if (currentEpoch === 10) {
+    if (avionics.opticalView === 'blackout') {
       // Stage 5 (Level 10): Total Sensory Blackout - 95% Darkness
       const screenLanderX = activeLander.x - camX;
       const screenLanderY = activeLander.y - camY;
@@ -2524,7 +2561,7 @@ export default function App() {
       ctx.textAlign = 'center';
       ctx.fillText('[TOTAL BLACKOUT — LAND BY ACOUSTIC SONAR TONE]', viewportW / 2, 48);
       ctx.textAlign = 'left';
-    } else if (currentEpoch === 9) {
+    } else if (avionics.opticalView === 'fog') {
       // Stage 5 (Level 9): 75% Optical Failure - Dense static noise fog
       ctx.save();
       ctx.fillStyle = 'rgba(3, 7, 18, 0.72)';
@@ -2543,7 +2580,7 @@ export default function App() {
       ctx.fillText('[VIEWSCREEN 75% BLIND — ACOUSTIC SONAR ACTIVE]', viewportW / 2, 48);
       ctx.textAlign = 'left';
       ctx.restore();
-    } else if (currentEpoch === 7 || currentEpoch === 8) {
+    } else if (avionics.opticalView === 'glitch') {
       // Stage 4 (Levels 7 & 8): CRT Screen Static Glitches
       const groundY = getTerrainSurfaceY(activeLander.x);
       const padDist = Math.max(0, groundY - activeLander.y);
@@ -2559,9 +2596,9 @@ export default function App() {
     // Levels 5..6: 2-Second Strobe Pulse Decay
     // Levels 7+: PERMANENTLY OFFLINE (Never comes back!)
     // -----------------------------------------------------------------------
-    const showRadar = currentEpoch < 7;
+    const showRadar = avionics.radarMinimap;
     if (showRadar) {
-      const isRadarStrobing = currentEpoch === 5 || currentEpoch === 6;
+      const isRadarStrobing = avionics.radarStrobe;
       let strobeAlpha = 1.0;
 
       if (isRadarStrobing) {
@@ -2927,6 +2964,7 @@ export default function App() {
       )}
 
       {/* DECLUTTERED SLEEK IN-FLIGHT COCKPIT HUD - ENLARGED TELEMETRY */}
+      {gameState.status !== 'START' && (
       <header className="w-full bg-[#08080c]/90 backdrop-blur-md border-b-2 border-emerald-500/50 px-4 py-2 md:py-3 z-20 shrink-0 flex items-center justify-between gap-3 shadow-lg rounded-none">
         {/* Left: Mission & Epoch Pill */}
         <div className="flex items-center gap-2.5 shrink-0">
@@ -2957,11 +2995,11 @@ export default function App() {
                 <span className="text-zinc-500 text-[8px] md:text-[9px] font-bold">
                   {gameMode === 'DUEL' ? 'P1 FUEL:' : gameMode === 'AI_DUEL' ? 'YOU FUEL:' : 'FUEL:'}
                 </span>
-                {gameState.level >= 10 ? (
+                {getAvionics(gameState.level).blackoutFuelGauge ? (
                   <span className="font-bold text-[8.5px] text-red-500 font-mono animate-pulse">
                     [BLACKOUT]
                   </span>
-                ) : gameState.level >= 8 ? (
+                ) : getAvionics(gameState.level).analogFuelGauge ? (
                   <span className="font-bold text-xs text-amber-400 font-mono">
                     {currentFuelP1}L <span className="text-[7px] text-zinc-500">[ANALOG]</span>
                   </span>
@@ -3016,11 +3054,7 @@ export default function App() {
           {/* Vertical Speed Readout */}
           <div className="flex items-center gap-1.5">
             <span className="text-zinc-500 text-[8px] md:text-[9px] font-bold">V-SPD:</span>
-            {gameState.level >= 10 ? (
-              <span className="font-bold text-[8.5px] text-red-500 animate-pulse tracking-wider">
-                [OFFLINE]
-              </span>
-            ) : gameState.level >= 8 ? (
+            {!getAvionics(gameState.level).digitalSpeedometer ? (
               <span className="font-bold text-[8px] text-amber-400 font-mono">
                 [ANALOG ONLY]
               </span>
@@ -3038,8 +3072,8 @@ export default function App() {
 
           {/* Target Navigation Beacon */}
           <div className="hidden sm:flex items-center gap-1.5 text-emerald-300 text-[9px] md:text-xs">
-            <Compass size={14} className={gameState.level >= 7 ? "text-zinc-600" : "text-emerald-400 shrink-0"} />
-            {gameState.level >= 7 ? (
+            <Compass size={14} className={!getAvionics(gameState.level).targetCompassBeacon ? "text-zinc-600" : "text-emerald-400 shrink-0"} />
+            {!getAvionics(gameState.level).targetCompassBeacon ? (
               <span className="font-mono text-zinc-600 text-[8px] uppercase">
                 [BEACON: RADAR OFFLINE]
               </span>
@@ -3101,6 +3135,7 @@ export default function App() {
           </button>
         </div>
       </header>
+      )}
 
       {isAttractMode && (
         <div className="absolute top-16 left-1/2 -translate-x-1/2 z-30 bg-black border-2 border-yellow-400 px-4 py-1.5 shadow-[4px_4px_0_0_#ca8a04] text-yellow-400 text-[9px] font-bold tracking-wider animate-pulse flex items-center gap-2 rounded-none">
@@ -3118,11 +3153,17 @@ export default function App() {
             ref={canvasRef}
             width={canvasWidth}
             height={canvasHeight}
-            style={{
-              aspectRatio: `${canvasWidth} / ${canvasHeight}`,
-              width: `min(100%, calc(100vh * ${canvasWidth} / ${canvasHeight}))`,
-            }}
-            className="h-auto max-w-full max-h-full cursor-crosshair rounded-none"
+            style={
+              gameState.status === 'START'
+                ? { width: '100%', height: '100%', objectFit: 'cover' }
+                : {
+                    aspectRatio: `${canvasWidth} / ${canvasHeight}`,
+                    width: `min(100%, calc(100vh * ${canvasWidth} / ${canvasHeight}))`,
+                  }
+            }
+            className={`cursor-crosshair rounded-none ${
+              gameState.status === 'START' ? 'w-full h-full object-cover' : 'h-auto max-w-full max-h-full'
+            }`}
           />
         )}
 
